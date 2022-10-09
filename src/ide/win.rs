@@ -3,7 +3,7 @@
 use crossterm::style::{Color, StyledContent, Stylize};
 use crossterm::{execute, queue, terminal};
 use std::fmt::Display;
-use std::io::{stdout, Result};
+use std::io::{stdout, Result, Write};
 
 /// Window that provides the text-based user interface.
 pub struct Window {
@@ -57,7 +57,11 @@ impl Window {
     fn init(&mut self) -> Result<()> {
         self.init = true;
         terminal::enable_raw_mode()?;
-        queue!(stdout(), terminal::EnterAlternateScreen)?;
+        queue!(
+            stdout(),
+            terminal::EnterAlternateScreen,
+            terminal::DisableLineWrap
+        )?;
         self.show_banner()
     }
 
@@ -69,19 +73,16 @@ impl Window {
 
     /// Show a banner with basic information about the application and brief help on navigation.
     fn show_banner(&self) -> Result<()> {
-        print!(
-            "{} {} {}\r\n",
+        write!(
+            stdout(),
+            "{} {} {}\r\n{} type {} to exit, {} for assistance\r\n",
             Prompt::OutputPrefix(),
             env!("CARGO_PKG_NAME"),
-            env!("CARGO_PKG_VERSION")
-        );
-        print!(
-            "{} type {} ↩ to exit, {} ↩ for assistance\r\n",
+            env!("CARGO_PKG_VERSION"),
             Prompt::OutputPrefix(),
-            ":quit".with(Color::Red),
-            ":help".with(Color::Red)
-        );
-        Ok(())
+            ":quit ↩".with(Color::Red),
+            ":help ↩".with(Color::Red)
+        )
     }
 
     /// Execute a read-eval-print-loop to accept and process user input.
