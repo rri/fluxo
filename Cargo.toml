@@ -11,3 +11,4 @@ categories = ["compilers"]
 keywords = ["compilers"]
 
 [dependencies]
+clap = {version = "3", features = ["cargo", "derive"]}
