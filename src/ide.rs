@@ -37,7 +37,7 @@ impl Window {
     }
 
     /// Perform any cleanup operations such as resetting terminal state or restoring buffers.
-    fn cleanup(&self) -> Result<()> {
+    fn drop(&self) -> Result<()> {
         let mut out = stdout();
         execute!(out, terminal::LeaveAlternateScreen)?;
         terminal::disable_raw_mode()
@@ -59,7 +59,7 @@ impl Window {
 
     /// Return the prefix to be used on output lines.
     fn prefix(&self) -> StyledContent<&'static str> {
-        "∴".with(Color::Green)
+        "∴".with(Color::DarkGreen)
     }
 }
 
@@ -72,8 +72,8 @@ impl Default for Window {
 impl Drop for Window {
     fn drop(&mut self) {
         if self.init {
-            if let Err(e) = self.cleanup() {
-                eprintln!("Errors while exiting:");
+            if let Err(e) = Window::drop(&self) {
+                eprintln!("Errors encountered while exiting:");
                 eprintln!("{}", e);
             }
         }
