@@ -4,7 +4,7 @@
 //! command-line options and determining what features to launch. This module delegates to the
 //! [integrated development environment][crate::ide] for interactive program development.
 
-use crate::ide::Window;
+use crate::ide::win::Window;
 use clap::{AppSettings, Parser};
 use std::io::Result;
 
