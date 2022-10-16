@@ -1,4 +1,9 @@
 //! Text-based user interface that provides an integrated development environment.
 
-pub mod cmd;
-pub mod win;
+mod cmd;
+mod pmt;
+mod scr;
+
+pub use cmd::Cmd;
+pub use pmt::Prompt;
+pub use scr::Scr;

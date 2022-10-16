@@ -4,7 +4,7 @@
 //! command-line options and determining what features to launch. This module delegates to the
 //! [integrated development environment][crate::ide] for interactive program development.
 
-use crate::ide::win::Window;
+use crate::ide::Scr;
 use clap::{AppSettings, Parser};
 use std::io::Result;
 
@@ -36,8 +36,8 @@ pub fn run() -> Result<()> {
     }
 
     if args.interactive {
-        let mut win = Window::new();
-        win.run()?;
+        let mut scr = Scr::new();
+        scr.run()?;
     }
 
     Ok(())
