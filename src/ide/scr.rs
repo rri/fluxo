@@ -43,16 +43,31 @@ impl Scr {
 
     /// Show a banner with basic information about the application and brief help on navigation.
     fn show_banner(&self) -> Result<()> {
-        write!(
-            stdout(),
-            "{} {} {}\r\n{} type {} to exit, {} for assistance\r\n",
-            Prompt::Success,
-            env!("CARGO_PKG_NAME"),
-            env!("CARGO_PKG_VERSION"),
-            Prompt::Success,
-            ":quit ↩".with(Color::Red),
-            ":help ↩".with(Color::Red)
+        self.show_output(
+            &format!(
+                "{} {}\r\n",
+                env!("CARGO_PKG_NAME"),
+                env!("CARGO_PKG_VERSION")
+            ),
+            &Prompt::Success,
+        )?;
+        self.show_output(
+            &format!(
+                "type {} to exit, {} for assistance\r\n",
+                ":quit ↩".with(Color::Red),
+                ":help ↩".with(Color::Red)
+            ),
+            &Prompt::Success,
         )
+    }
+
+    /// Show the specified output with the specified prefix.
+    fn show_output(&self, output: &str, prompt: &Prompt) -> Result<()> {
+        let res = output
+            .lines()
+            .map(|s| format!("{} {}\r\n", prompt, s.trim_end()))
+            .collect::<String>();
+        write!(stdout(), "{}", res)
     }
 
     /// Execute a read-eval-print-loop to accept and process user input.
