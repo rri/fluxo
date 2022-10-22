@@ -6,4 +6,4 @@ mod scr;
 
 pub use cmd::Cmd;
 pub use pmt::Prompt;
-pub use scr::Scr;
+pub use scr::Screen;

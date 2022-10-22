@@ -6,15 +6,15 @@ use crossterm::{execute, queue, terminal};
 use std::io::{stdout, Result, Write};
 
 /// Virtual screen that provides the text-based user interface.
-pub struct Scr {
+pub struct Screen {
     /// Indicates whether or not the screen has been initialized (and may hence require cleanup).
     pub init: bool,
 }
 
-impl Scr {
+impl Screen {
     /// Create a new screen object.
     pub fn new() -> Self {
-        Scr { init: false }
+        Screen { init: false }
     }
 
     /// Run the integrated development environment and return a result when the user session ends.
@@ -76,16 +76,16 @@ impl Scr {
     }
 }
 
-impl Default for Scr {
+impl Default for Screen {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Drop for Scr {
+impl Drop for Screen {
     fn drop(&mut self) {
         if self.init {
-            if let Err(e) = Scr::drop(self) {
+            if let Err(e) = Screen::drop(self) {
                 eprintln!("Errors encountered while exiting:");
                 eprintln!("{}", e);
             }
