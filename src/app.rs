@@ -36,8 +36,7 @@ pub fn run() -> Result<()> {
     }
 
     if args.interactive {
-        let mut scr = Screen::new();
-        scr.run()?;
+        Screen::run()?;
     }
 
     Ok(())

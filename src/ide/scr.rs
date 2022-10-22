@@ -18,9 +18,10 @@ impl Screen {
     }
 
     /// Run the integrated development environment and return a result when the user session ends.
-    pub fn run(&mut self) -> Result<()> {
-        self.init()?;
-        self.repl()
+    pub fn run() -> Result<()> {
+        let mut scr = Self::new();
+        scr.init()?;
+        scr.repl()
     }
 
     /// Perform any initialization operations.
