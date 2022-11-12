@@ -1,6 +1,6 @@
 //! Screen-specific structures and behaviors within the integrated development environment.
 
-use crate::ide::Prompt;
+use crate::pmt::Prompt;
 use crossterm::style::{Color, Stylize};
 use crossterm::{execute, queue, terminal};
 use std::io::{stdout, Result, Write};
@@ -87,7 +87,7 @@ impl Drop for Screen {
     fn drop(&mut self) {
         if self.init {
             if let Err(e) = Screen::drop(self) {
-                eprintln!("Errors encountered while exiting:");
+                eprintln!("{} errors encountered while exiting:", &Prompt::Failure);
                 eprintln!("{}", e);
             }
         }
