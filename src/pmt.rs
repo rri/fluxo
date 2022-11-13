@@ -13,9 +13,19 @@ pub enum Prompt {
     Success,
     /// System has generated the failure message that follows the prompt.
     Failure,
+    /// System is providing diagnostic information.
+    Diagnostics,
 }
 
 impl Prompt {
+    /// Prefix this prompt to the specified output.
+    pub fn prefix_to(&self, output: &str) -> String {
+        output
+            .lines()
+            .map(|s| format!("{} {}\r\n", self, s.trim_end()))
+            .collect::<String>()
+    }
+
     /// Render the prompt as styled content (such as a colored string).
     fn as_styled_content(&self) -> StyledContent<&'static str> {
         match self {
@@ -23,6 +33,7 @@ impl Prompt {
             Prompt::Continue => "↳".with(Color::Cyan),
             Prompt::Success => "∴".with(Color::DarkGreen),
             Prompt::Failure => "✗".with(Color::Red),
+            Prompt::Diagnostics => "☼".with(Color::Yellow),
         }
     }
 }

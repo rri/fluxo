@@ -1,8 +1,7 @@
 //! Core application module and primary entry-point for *fluxo*.
 //!
 //! The binary application delegates directly to this module, which is responsible for parsing
-//! command-line options and determining what features to launch. This module delegates to the
-//! [integrated development environment][crate::ide] for interactive program development.
+//! command-line options and determining what features to launch.
 
 use crate::scr::Screen;
 use clap::{AppSettings, Parser};
