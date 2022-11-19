@@ -1,27 +1,27 @@
-//! Screen-specific structures and behaviors within the integrated development environment.
+//! Editor-specific structures and behaviors within the integrated development environment.
 
 use crate::pmt::Prompt;
 use crossterm::style::{Color, Stylize};
 use crossterm::{execute, queue, terminal};
 use std::io::{stdout, Result, Write};
 
-/// Virtual screen that provides the text-based user interface.
-pub struct Screen {
-    /// Indicates whether or not the screen has been initialized (and may hence require cleanup).
+/// Virtual editor that provides the text-based user interface.
+pub struct Editor {
+    /// Indicates whether or not the editor has been initialized (and may hence require cleanup).
     pub init: bool,
 }
 
-impl Screen {
-    /// Create a new screen object.
+impl Editor {
+    /// Create a new editor object.
     pub fn new() -> Self {
-        Screen { init: false }
+        Editor { init: false }
     }
 
     /// Run the integrated development environment and return a result when the user session ends.
     pub fn run() -> Result<()> {
-        let mut scr = Self::new();
-        scr.init()?;
-        scr.repl()
+        let mut edt = Self::new();
+        edt.init()?;
+        edt.repl()
     }
 
     /// Perform any initialization operations.
@@ -71,16 +71,16 @@ impl Screen {
     }
 }
 
-impl Default for Screen {
+impl Default for Editor {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Drop for Screen {
+impl Drop for Editor {
     fn drop(&mut self) {
         if self.init {
-            if let Err(e) = Screen::drop(self) {
+            if let Err(e) = Editor::drop(self) {
                 eprint!("{}", Prompt::Failure.prefix_to("I/O error:"));
                 eprint!("{}", Prompt::Diagnostics.prefix_to(&format!("{}", e)));
             }
