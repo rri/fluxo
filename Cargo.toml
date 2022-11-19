@@ -14,3 +14,4 @@ keywords = ["compilers"]
 clap = {version = "3", features = ["cargo", "derive"]}
 crossterm = { version = "0.25" }
 exitcode = { version = "1" }
+unicode-segmentation = { version = "1" }
