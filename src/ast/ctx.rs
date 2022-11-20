@@ -4,6 +4,7 @@ use super::{Exp, Var};
 use crate::err::{TypeRedeclErr, TypeUnknownErr};
 use std::collections::HashMap;
 
+/// Typing context, usually represented with the symbol 'Γ'.
 #[derive(Debug, Default, Clone)]
 pub struct Ctx {
     map: HashMap<Var, Exp>,
@@ -35,6 +36,14 @@ impl Ctx {
         let mut can = self.clone();
         can.put(var, typ)?;
         Ok(can)
+    }
+
+    /// Return a new context without the given variable, without modifying the original.
+    pub fn subtract(&self, var: &Var) -> Result<Ctx, TypeUnknownErr> {
+        let mut can = self.clone();
+        can.map
+            .remove(var)
+            .map_or_else(|| Err(TypeUnknownErr::new(var)), |_| Ok(can))
     }
 
     /// Fetch the type associated with a variable in this typing context.

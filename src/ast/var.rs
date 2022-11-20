@@ -28,6 +28,14 @@ impl VarIdx {
     pub fn new_idx(idx: Idx) -> VarIdx {
         VarIdx::Idx(idx)
     }
+
+    /// Get the variable contained in this structure.
+    pub fn get_var(&self) -> &Var {
+        match self {
+            Self::Var(var) => var,
+            Self::Idx(Idx(_, var)) => var,
+        }
+    }
 }
 
 impl Display for VarIdx {

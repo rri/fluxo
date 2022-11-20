@@ -94,13 +94,108 @@ impl Exp {
         }
     }
 
-    /// Calculate the type of this expression.
-    pub fn calculate_type(&self, _ctx: &Ctx) -> Result<Exp, TypingErr> {
+    /// Calculate the normalized type of this expression.
+    ///
+    /// Types are calculated and checked using the following typing rules:
+    ///
+    /// ## SORT RULE
+    ///
+    /// ```text
+    ///
+    /// ─────────────────────────────────────────────────────────────
+    ///                         ϕ ⊢ * : □
+    /// ```
+    ///
+    /// ## VAR RULE
+    ///
+    /// ```text
+    ///                         Γ ⊢ A : s
+    /// ─────────────────────────────────────────────────────────────    if x ∉ Γ
+    ///                      Γ, x : A ⊢ x : A
+    /// ```
+    ///
+    /// ...where `s ∈ {*, □}`.
+    ///
+    /// ## WEAK RULE
+    ///
+    /// ```text
+    ///                 Γ ⊢ A : B          Γ ⊢ C : s
+    /// ─────────────────────────────────────────────────────────────    if x ∉ Γ
+    ///                      Γ, x : C ⊢ A : B
+    /// ```
+    ///
+    /// ...where `s ∈ {*, □}`.
+    ///
+    /// ## FORM RULE
+    ///
+    /// ```text
+    ///              Γ ⊢ A : s1          Γ, x : A ⊢ B : s2
+    /// ─────────────────────────────────────────────────────────────
+    ///                     Γ ⊢ Πx : A . B : s2
+    /// ```
+    ///
+    /// ...where `s1, s2 ∈ {*, □}`.
+    ///
+    /// ## APPL RULE
+    ///
+    /// ```text
+    ///      Γ ⊢ M : Πx : A . B          Γ ⊢ N : A
+    /// ─────────────────────────────────────────────────────────────
+    ///                     Γ ⊢ M N : B [x := N]
+    /// ```
+    ///
+    /// ## ABST RULE
+    ///
+    /// ```text
+    ///        Γ, x : A ⊢ M : B          Γ ⊢ Πx : A . B : s
+    /// ─────────────────────────────────────────────────────────────
+    ///                 Γ ⊢ λx : A . M : Πx : A . B
+    /// ```
+    ///
+    /// ...where `s ∈ {*, □}`.
+    ///
+    /// ## CONV RULE
+    ///
+    /// ```text
+    ///                Γ ⊢ A : B          Γ ⊢ B' : s
+    /// ─────────────────────────────────────────────────────────────    if B =ᵦ B'
+    ///                         Γ ⊢ A : B'
+    /// ```
+    ///
+    /// ...where `s ∈ {*, □}`.
+    ///
+    pub fn calculate_type(&self, ctx: &Ctx) -> Result<Exp, TypingErr> {
         match self {
-            Exp::Var(_) => todo!(),
-            Exp::Abs(_, _, _) => todo!(),
-            Exp::For(_, _, _) => todo!(),
-            Exp::App(_, _) => todo!(),
+            Exp::Var(varidx) => {
+                let var = varidx.get_var();
+                let typ = ctx.get(var)?.clone();
+                typ.validate_type(&[&Exp::TypeMeta, &Exp::KindMeta], &ctx.subtract(var)?)?;
+                Ok(typ.reduce(ctx)?)
+            } // VAR RULE
+            Exp::Abs(var, typ, exp) => {
+                let can = Exp::For(
+                    var.clone(),
+                    Box::new(*typ.clone()),
+                    Box::new(exp.calculate_type(&ctx.extend(var, typ)?)?),
+                );
+                can.validate_type(&[&Exp::TypeMeta, &Exp::KindMeta], ctx)?;
+                Ok(can.reduce(ctx)?)
+            } // ABST RULE
+            Exp::For(var, typ, exp) => {
+                let can = exp.calculate_type(&ctx.extend(var, typ)?)?;
+                typ.validate_type(&[&Exp::TypeMeta, &Exp::KindMeta], ctx)?;
+                Ok(can.reduce(ctx)?)
+            } // FORM RULE
+            Exp::App(fst, snd) => {
+                let fty = fst.calculate_type(ctx)?;
+                let sty = snd.calculate_type(ctx)?;
+                if let Exp::For(var, typ, exp) = fty {
+                    snd.validate_type(&[&typ], ctx)?;
+                    Ok(exp.subst(&Idx::new(&var), snd).reduce(ctx)?)
+                } else {
+                    Err(TypingErr::from(TypeCompatErr::new(snd, &sty, &[])))
+                }
+            } // APPL RULE
             Exp::TypeMeta => Ok(Exp::KindMeta), // SORT RULE
             Exp::KindMeta => Err(TypingErr::from(TypeUndefErr::new(self))), // not permitted
         }
@@ -119,6 +214,7 @@ impl Exp {
 
     /// Perform a one-step beta-reduction on this expression.
     fn reduce_once(self, ctx: &Ctx) -> Result<Self, TypingErr> {
+        self.calculate_type(ctx)?;
         if let Exp::Abs(var, typ, exp) = self {
             return Ok(Exp::Abs(
                 var,
@@ -134,8 +230,7 @@ impl Exp {
             ));
         }
         if let Exp::App(fst, snd) = self {
-            if let Exp::Abs(var, typ, exp) = *fst {
-                snd.validate_type(&[&typ], ctx)?;
+            if let Exp::Abs(var, _, exp) = *fst {
                 return Ok(exp.subst(&Idx::new(&var), &snd));
             } else {
                 return Ok(Exp::App(

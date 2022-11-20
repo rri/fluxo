@@ -44,8 +44,10 @@ pub struct TypeCompatErr {
     pub exp: Exp,
     /// Actual calculated type of the expression.
     pub typ: Exp,
-    /// Expected type of the expression.
+    /// Expected type(s) of the expression (if known).
     pub acc: Vec<Exp>,
+    /// Message explaining the compatibility error.
+    pub msg: String,
 }
 
 /// Error that indicates that a expression doesn't have a well-defined type within the system.
@@ -81,24 +83,28 @@ impl TypeCompatErr {
             exp: exp.clone(),
             typ: typ.clone(),
             acc: acc.iter().copied().cloned().collect(),
+            msg: format!(":type {} does not have the requisite form!", exp),
         }
     }
 }
 
 impl Display for TypeCompatErr {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        writeln!(f, ":type {}", self.exp)?;
-        writeln!(f, "    = {}", self.typ)?;
-        writeln!(
-            f,
-            "    ∉ {{{}}}",
-            self.acc
-                .iter()
-                .map(Exp::to_string)
-                .intersperse(", ".to_string())
-                .collect::<String>()
-        )?;
-        Ok(())
+        if self.acc.is_empty() {
+            writeln!(f, "{}", self.msg)
+        } else {
+            writeln!(f, ":type {}", self.exp)?;
+            writeln!(f, "    = {}", self.typ)?;
+            writeln!(
+                f,
+                "    ∉ {{{}}}",
+                self.acc
+                    .iter()
+                    .map(Exp::to_string)
+                    .intersperse(", ".to_string())
+                    .collect::<String>()
+            )
+        }
     }
 }
 
