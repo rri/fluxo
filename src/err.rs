@@ -159,3 +159,16 @@ impl Display for TypeRedeclErr {
         Ok(())
     }
 }
+
+impl Error for TypingErr {}
+
+impl Display for TypingErr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        match self {
+            Self::TypeCompatErr(e) => write!(f, "{}", e),
+            Self::TypeUndefErr(e) => write!(f, "{}", e),
+            Self::TypeUnknownErr(e) => write!(f, "{}", e),
+            Self::TypeRedeclErr(e) => write!(f, "{}", e),
+        }
+    }
+}
