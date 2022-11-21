@@ -12,6 +12,7 @@ pub use var::{Idx, Var, VarIdx};
 mod test {
 
     use super::*;
+    use std::error::Error;
 
     #[test]
     fn test_exp_rend_0001() {
@@ -415,5 +416,36 @@ mod test {
             panic!("Expected Exp::For!");
         }
         panic!("Expected Exp::App!");
+    }
+
+    #[test]
+    fn test_type_calculation_001() -> Result<(), Box<dyn Error>> {
+        let mut ctx = Ctx::new();
+        ctx.put(&Var::new("w"), &Exp::TypeMeta)?;
+        // λx : * . λm : * . w
+        let can = Exp::new_abs(
+            Var::new("x"),
+            Exp::get_type_meta(),
+            Exp::new_abs(
+                Var::new("m"),
+                Exp::get_type_meta(),
+                Exp::new_app(
+                    Exp::new_abs(
+                        Var::new("k"),
+                        Exp::get_type_meta(),
+                        Exp::new_var(Var::new("k")),
+                    ),
+                    Exp::new_var(Var::new("m")),
+                ),
+            ),
+        );
+        let typ = Exp::new_for(
+            Var::new("x"),
+            Exp::get_type_meta(),
+            Exp::new_for(Var::new("m"), Exp::get_type_meta(), Exp::get_type_meta()),
+        );
+        let act = can.calculate_type(&ctx)?;
+        assert_eq!(act, typ);
+        Ok(())
     }
 }

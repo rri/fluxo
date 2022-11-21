@@ -179,12 +179,12 @@ impl Exp {
                     Box::new(exp.calculate_type(&ctx.extend(var, typ)?)?),
                 );
                 can.validate_type(&[&Exp::TypeMeta, &Exp::KindMeta], ctx)?;
-                Ok(can.reduce(ctx)?)
+                Ok(can)
             } // ABST RULE
             Exp::For(var, typ, exp) => {
                 let can = exp.calculate_type(&ctx.extend(var, typ)?)?;
                 typ.validate_type(&[&Exp::TypeMeta, &Exp::KindMeta], ctx)?;
-                Ok(can.reduce(ctx)?)
+                Ok(can)
             } // FORM RULE
             Exp::App(fst, snd) => {
                 let fty = fst.calculate_type(ctx)?;
