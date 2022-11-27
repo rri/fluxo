@@ -3,7 +3,7 @@
 //! The binary application delegates directly to this module, which is responsible for parsing
 //! command-line options and determining what features to launch.
 
-use crate::edt::Editor;
+use crate::ide::IDE;
 use clap::{AppSettings, Parser};
 use std::io::Result;
 
@@ -35,7 +35,7 @@ pub fn run() -> Result<()> {
     }
 
     if args.interactive {
-        Editor::run()?;
+        IDE::run()?;
     }
 
     Ok(())

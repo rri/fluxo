@@ -22,9 +22,20 @@ pub enum Exp {
     KindMeta,
 }
 
+/// Structure that indicates the current state of which branch of the application tree we're
+/// exclusively in.
+///
+/// Within the core fluxo language, the [Exp::App] type drives the notion of 'left sub-tree' and
+/// 'right sub-tree'. As the tree is traversed, you can be in one of the following states:
+///
+/// * Left sub-tree only
+/// * Right sub-tree only
+/// * Neither sub-tree exclusively (default state)
 #[derive(Copy, Clone, Debug, Default)]
 struct Branch {
+    /// Left sub-tree.
     ltree: bool,
+    /// Right sub-tree.
     rtree: bool,
 }
 
@@ -328,6 +339,12 @@ impl Exp {
             write!(f, ")")?;
         }
         Ok(())
+    }
+}
+
+impl Default for Exp {
+    fn default() -> Self {
+        Self::KindMeta
     }
 }
 

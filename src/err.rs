@@ -5,8 +5,9 @@ use std::error::Error;
 use std::fmt::{Display, Formatter, Result};
 
 /// Top-level error that represents a failure to type-check the program.
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TypingErr {
+    Generic(String),
     TypeCompatErr(TypeCompatErr),
     TypeUndefErr(TypeUndefErr),
     TypeUnknownErr(TypeUnknownErr),
@@ -38,7 +39,7 @@ impl From<TypeRedeclErr> for TypingErr {
 }
 
 /// Error that indicates that a expression has an unexpected type.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TypeCompatErr {
     /// Expression that has an unexpected type.
     pub exp: Exp,
@@ -51,21 +52,21 @@ pub struct TypeCompatErr {
 }
 
 /// Error that indicates that a expression doesn't have a well-defined type within the system.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TypeUndefErr {
     /// Expression that has an undefined type.
     pub exp: Exp,
 }
 
 /// Error that indicates that a variable has no declared or inferred type in the current context.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TypeUnknownErr {
     /// Variable whose type is not known.
     pub var: Var,
 }
 
 /// Error that indicates that a variable has a different previously declared or inferred type.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TypeRedeclErr {
     /// Variable whose type is being re-declared.
     pub var: Var,
@@ -162,9 +163,16 @@ impl Display for TypeRedeclErr {
 
 impl Error for TypingErr {}
 
+impl Default for TypingErr {
+    fn default() -> Self {
+        Self::Generic("generic typing error".to_string())
+    }
+}
+
 impl Display for TypingErr {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
+            Self::Generic(s) => write!(f, "{}", s),
             Self::TypeCompatErr(e) => write!(f, "{}", e),
             Self::TypeUndefErr(e) => write!(f, "{}", e),
             Self::TypeUnknownErr(e) => write!(f, "{}", e),
