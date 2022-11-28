@@ -1,7 +1,4 @@
-//! Core application module and primary entry-point for *fluxo*.
-//!
-//! The binary application delegates directly to this module, which is responsible for parsing
-//! command-line options and determining what features to launch.
+//! Core application module and primary entry-point for the application.
 
 use crate::ide::IDE;
 use clap::{AppSettings, Parser};

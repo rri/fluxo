@@ -1,6 +1,6 @@
 //! Typing context and related utilities.
 
-use super::{Exp, Var};
+use crate::ast::{Exp, Var};
 use crate::err::{TypeRedeclErr, TypeUnknownErr};
 use std::collections::HashMap;
 
@@ -12,7 +12,7 @@ pub struct Ctx {
 
 impl Ctx {
     pub fn new() -> Self {
-        Ctx {
+        Self {
             map: HashMap::new(),
         }
     }
@@ -31,6 +31,13 @@ impl Ctx {
         Ok(())
     }
 
+    /// Fetch the type associated with a variable in this typing context.
+    pub fn get(&self, var: &Var) -> Result<&Exp, TypeUnknownErr> {
+        self.map
+            .get(var)
+            .map_or_else(|| Err(TypeUnknownErr::new(var)), Ok)
+    }
+
     /// Extend this context with a variable and return the context, without modifying the original.
     pub fn extend(&self, var: &Var, typ: &Exp) -> Result<Ctx, TypeRedeclErr> {
         let mut can = self.clone();
@@ -39,17 +46,10 @@ impl Ctx {
     }
 
     /// Return a new context without the given variable, without modifying the original.
-    pub fn subtract(&self, var: &Var) -> Result<Ctx, TypeUnknownErr> {
+    pub fn remove(&self, var: &Var) -> Result<Ctx, TypeUnknownErr> {
         let mut can = self.clone();
         can.map
             .remove(var)
             .map_or_else(|| Err(TypeUnknownErr::new(var)), |_| Ok(can))
-    }
-
-    /// Fetch the type associated with a variable in this typing context.
-    pub fn get(&self, var: &Var) -> Result<&Exp, TypeUnknownErr> {
-        self.map
-            .get(var)
-            .map_or_else(|| Err(TypeUnknownErr::new(var)), Ok)
     }
 }

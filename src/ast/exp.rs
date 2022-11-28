@@ -1,6 +1,6 @@
-//! Top-level expression in the core fluxo language and related logic.
+//! Top-level structures within the expression language.
 
-use super::{Ctx, Idx, Var, VarIdx};
+use crate::ast::{Ctx, Idx, Var, VarIdx};
 use crate::err::{TypeCompatErr, TypeUndefErr, TypingErr};
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
@@ -180,7 +180,7 @@ impl Exp {
             Exp::Var(varidx) => {
                 let var = varidx.get_var();
                 let typ = ctx.get(var)?.clone();
-                typ.validate_type(&[&Exp::TypeMeta, &Exp::KindMeta], &ctx.subtract(var)?)?;
+                typ.validate_type(&[&Exp::TypeMeta, &Exp::KindMeta], &ctx.remove(var)?)?;
                 Ok(typ.reduce(ctx)?)
             } // VAR RULE
             Exp::Abs(var, typ, exp) => {
@@ -299,7 +299,8 @@ impl Exp {
             write!(f, "{}{} : ", binder, var)?;
             typ.fmt(f, Default::default())?; // reset, always greedy
             write!(f, " . ")?;
-            exp.fmt(f, Default::default()) // reset, always greedy
+            exp.fmt(f, Default::default())?; // reset, always greedy
+            Ok(())
         };
         Exp::parens(f, flags.ltree, func) // parenthesize if on the left side of tree
     }
@@ -321,7 +322,8 @@ impl Exp {
                     ltree: flags.ltree,  // inherit from parent
                     rtree: !flags.rtree, // true, but reset if current term is being parenthesized
                 },
-            )
+            )?;
+            Ok(())
         };
         Exp::parens(f, flags.rtree, func) // parenthesize if on the right side of tree
     }

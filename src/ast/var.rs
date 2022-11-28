@@ -1,7 +1,7 @@
-//! Variable in the core fluxo language and related structures and logic.
+//! Variable in the expression language and related structures.
 
 use std::cmp::Ordering;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Display, Formatter, Result};
 
 /// Structure that represents a variable, either symbolic or indexed against a parent binder.
 #[derive(Debug, Clone, Eq, Hash, PartialEq)]
@@ -39,7 +39,7 @@ impl VarIdx {
 }
 
 impl Display for VarIdx {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
             Self::Var(var) => var.fmt(f),
             Self::Idx(idx) => idx.fmt(f),
@@ -55,7 +55,7 @@ impl Var {
 }
 
 impl Display for Var {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "{}", self.0) // render the variable
     }
 }
@@ -78,7 +78,7 @@ impl Idx {
 }
 
 impl Display for Idx {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "{}", self.1) // render the variable, indexing is an implementation detail
     }
 }
