@@ -50,19 +50,22 @@ impl Buf {
     pub fn move_right(&mut self) {}
 
     /// Fetch a rendering of this buffer for display.
-    ///
-    /// The rendering consists of two things:
-    ///
-    /// * String to be displayed.
-    /// * Index of the cursor relative to the start of the string.
     pub fn render(&self) -> String {
         format!(
             "{} {}",
             &Prompt::Ready,
             &self
                 .raw
-                .replace("\r\n", &Prompt::Continue.prefix_to("\r\n"))
+                .replace("\r\n", &self.prefix(&Prompt::Continue, "\r\n"))
         )
+    }
+
+    /// Prefix the given prompt to the specified output.
+    fn prefix(&self, pmt: &Prompt, output: &str) -> String {
+        output
+            .lines()
+            .map(|s| format!("{} {}\r\n", pmt, s.trim_end()))
+            .collect::<String>()
     }
 
     /// Insert a character at the current location and advance the cursor.

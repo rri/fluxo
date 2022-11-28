@@ -7,8 +7,7 @@ fn main() {
     process::exit(match app::run() {
         Ok(()) => exitcode::OK,
         Err(e) => {
-            eprint!("{}", Prompt::Failure.prefix_to("I/O error:"));
-            eprint!("{}", Prompt::Diagnostics.prefix_to(&format!("{}", e)));
+            eprint!("{}", Prompt::show_failure(&e.to_string()));
             exitcode::IOERR
         }
     })
