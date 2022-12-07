@@ -4,7 +4,7 @@ use crate::ast::{Ctx, Exp};
 use crate::buf::Buf;
 use crate::cmd::Status;
 use crossterm::style::{Color, Stylize};
-use crossterm::terminal::Clear;
+use crossterm::terminal::{Clear, ClearType};
 use crossterm::{cursor, execute, queue};
 use std::io::{stdout, Result, Write};
 use unicode_width::UnicodeWidthStr;
@@ -75,16 +75,37 @@ impl Editor {
     /// Render the buffer onto the screen.
     fn render(&self, buf: &Buf, trm: bool) -> Result<()> {
         let mut stdout = stdout();
+
+        let out = buf.render();
+        let (col_idx, row_idx) = buf.cursor();
+
         queue!(
             stdout,
             cursor::RestorePosition,
-            Clear(crossterm::terminal::ClearType::FromCursorDown)
+            Clear(ClearType::FromCursorDown)
         )?;
-        write!(stdout, "{}", buf.render())?;
+
+        write!(stdout, "{}", out)?;
+
+        // Move the cursor to the correct location relative to the editor.
+        // TODO: Keep the text visible when on the right-most (visible) column.
+        // TODO: Fix the rendering when on the last (visible) row.
+        queue!(stdout, cursor::RestorePosition)?;
+
+        if col_idx > 0 {
+            // 0 is treated as 1 by most terminals, hence the 'if' condition.
+            queue!(stdout, cursor::MoveRight(col_idx as u16))?;
+        }
+        if row_idx > 0 {
+            // 0 is treated as 1 by most terminals, hence the 'if' condition.
+            queue!(stdout, cursor::MoveDown(row_idx as u16))?;
+        }
+
+        // Write a final newline if terminating.
         if trm {
-            // Write a final newline if terminating.
             write!(stdout, "\r\n")?;
         }
+
         stdout.flush()
     }
 }

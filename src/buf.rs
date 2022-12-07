@@ -2,15 +2,19 @@
 
 use crate::edt::EdtCmd;
 use crate::key::{DefKeyMap, EscKeyMap, FixKeyMap, KeyMap};
-use crate::par::Tkn;
 use crossterm::event;
 use crossterm::event::Event;
 use crossterm::style::{Color, Stylize};
 use std::fmt::{Display, Formatter};
 use std::io::Result;
+use unicode_segmentation::UnicodeSegmentation;
+use unicode_width::UnicodeWidthStr;
 
 /// Escape character.
 pub const ESC: char = '\\';
+
+/// Gutter width.
+pub const GUTTER_WIDTH: usize = 2;
 
 /// Prompt rendered when input is being accepted.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -28,8 +32,6 @@ pub struct Buf {
     pub raw: String,
     /// Index of cursor associated with the raw string.
     pub idx: usize,
-    /// Token sequence of grapheme values derived from the raw string.
-    pub gfx: Vec<Tkn>,
     /// Represents the state of the buffer being in 'escape mode' which calls for special behavior.
     pub esc: bool,
 }
@@ -98,7 +100,6 @@ impl Buf {
         Self {
             raw: String::new(),
             idx: 0,
-            gfx: vec![],
             esc: false,
         }
     }
@@ -117,11 +118,48 @@ impl Buf {
         }
     }
 
-    /// Return a displayable string rendering   the contents of the buffer.
+    /// Return a displayable string rendering the contents of the buffer.
     pub fn render(&self) -> String {
         // TODO: Render the sequence with the highest level of meaning.
-        // TODO: Render the escape character if in 'escape mode'.
-        Prompt::prefix_to(&self.raw)
+        let mut res = self.raw.clone();
+        if self.esc {
+            let (lt, rt) = res.split_at(self.idx);
+            res = format!("{}{}{}", lt, ESC.with(Color::Cyan), rt);
+        }
+        Prompt::prefix_to(&res)
+    }
+
+    /// Return the current cursor location.
+    ///
+    /// The cursor location is in the format '(col_idx, row_idx)', where:
+    ///
+    /// * 'col_idx' is the index of the column (starting from 0).
+    /// * 'row_idx' is the index of the row (starting from 0).
+    /// * Rows and columns are relative to the location of the editor.
+    pub fn cursor(&self) -> (/* col_idx */ usize, /* row_idx */ usize) {
+        let mut col_idx = 0;
+        let mut row_idx = 0;
+        let mut cur = false;
+        let mut cnt = 0;
+
+        for s in self.raw.graphemes(true) {
+            if cnt == self.idx {
+                cur = true;
+            } else {
+                cnt += s.len();
+                if !cur {
+                    // Update the cursor location unless already finalized.
+                    if s == "\n" {
+                        row_idx += 1;
+                        col_idx = 0;
+                    } else {
+                        col_idx += s.width();
+                    }
+                }
+            }
+        }
+
+        (col_idx + GUTTER_WIDTH, row_idx)
     }
 
     /// Return the current parsed value from the buffer.
@@ -160,15 +198,21 @@ impl BufCmd {
             BufCmd::Compose(fst, snd) => BufRes::success()
                 .and_then(|| fst.eval(buf))
                 .and_then(|| snd.eval(buf)),
-            BufCmd::Repeat(cmd, cnt) => (0..cnt).fold(BufRes::success(), |acc, _| {
-                if acc.sts {
-                    let mut ans = cmd.clone().eval(buf);
-                    ans.trm = acc.trm; // propagate the terminate flag through the fold
-                    ans
-                } else {
-                    acc // short-circuit if the evaluation failed at any point
+            BufCmd::Repeat(cmd, cnt) => {
+                let mut ans = BufRes::success();
+                let mut trm = false;
+                for _ in 0..cnt {
+                    ans = cmd.clone().eval(buf);
+                    if trm {
+                        ans.trm = true; // propagate the terminate flag
+                    }
+                    if !ans.sts {
+                        break;
+                    }
+                    trm = ans.trm;
                 }
-            }),
+                ans
+            }
             BufCmd::Push(chr) => {
                 if buf.raw.len() < usize::MAX {
                     // Remember the current length of the raw string before updating it.
@@ -177,10 +221,6 @@ impl BufCmd {
                     buf.raw.insert(buf.idx, chr);
                     // Increment the index by the same amount that the raw string's length has increased by.
                     buf.idx += buf.raw.len() - old_len;
-
-                    // Update the grapheme sequence since the raw buffer has changed.
-                    self.update_gfm(buf);
-
                     BufRes::success()
                 } else {
                     BufRes::failure()
@@ -188,11 +228,15 @@ impl BufCmd {
             }
             BufCmd::Delete => {
                 if buf.raw.len() > buf.idx {
-                    buf.raw.remove(buf.idx);
-
-                    // Update the grapheme sequence since the raw buffer has changed.
-                    self.update_gfm(buf);
-
+                    let nxt = &buf.raw[buf.idx..];
+                    let wid = nxt
+                        .graphemes(true)
+                        .next()
+                        .map(|g| g.chars().count())
+                        .unwrap_or(0);
+                    for _ in 0..wid {
+                        buf.raw.remove(buf.idx);
+                    }
                     BufRes::success()
                 } else {
                     BufRes::failure()
@@ -204,13 +248,45 @@ impl BufCmd {
             }
             BufCmd::MoveUp => todo!(), // TODO: Implement vertical movement.
             BufCmd::MoveDn => todo!(), // TODO: Implement vertical movement.
-            BufCmd::MoveLt => todo!(), // TODO: Implement horizontal movement.
-            BufCmd::MoveRt => todo!(), // TODO: Implement horizontal movement.
+            BufCmd::MoveLt => {
+                if buf.idx == 0 {
+                    BufRes::failure()
+                } else {
+                    let mut cnt = 0;
+                    let mut rev = 0;
+                    for s in buf.raw.graphemes(true) {
+                        if buf.idx == cnt {
+                            break;
+                        } else {
+                            rev = s.len();
+                            cnt += rev;
+                        }
+                    }
+                    buf.idx = cnt - rev;
+                    BufRes::success()
+                }
+            }
+            BufCmd::MoveRt => {
+                if buf.idx == buf.raw.len() {
+                    BufRes::failure()
+                } else {
+                    let mut cnt = 0;
+                    let mut lst = false;
+                    for s in buf.raw.graphemes(true) {
+                        if lst {
+                            break;
+                        }
+                        if buf.idx == cnt {
+                            lst = true;
+                        }
+                        cnt += s.len();
+                    }
+                    buf.idx = cnt;
+                    BufRes::success()
+                }
+            }
         }
     }
-
-    /// Update the grapheme sequence based on changes to the raw buffer string.
-    fn update_gfm(&self, _buf: &mut Buf) {}
 }
 
 impl BufRes {

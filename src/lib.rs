@@ -11,4 +11,3 @@ pub mod edt;
 pub mod err;
 pub mod ide;
 pub mod key;
-pub mod par;
