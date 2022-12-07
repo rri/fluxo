@@ -18,7 +18,7 @@ impl Status {
     /// Prefix styled content associated with this status to the given message (if non-empty).
     pub fn prefix_to(&self, msg: &str) -> String {
         msg.lines()
-            .map(|s| format!("{} {}\r\n", self, s.trim_end()))
+            .map(|s| format!("{}  {}\r\n", self, s.trim_end()))
             .collect::<String>()
     }
 }

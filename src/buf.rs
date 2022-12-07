@@ -14,7 +14,7 @@ use unicode_width::UnicodeWidthStr;
 pub const ESC: char = '\\';
 
 /// Gutter width.
-pub const GUTTER_WIDTH: usize = 2;
+pub const GUTTER_WIDTH: usize = 3;
 
 /// Prompt rendered when input is being accepted.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -78,7 +78,7 @@ impl Prompt {
     /// Prefix styled prompts to the given buffer value (even if the value is empty).
     pub fn prefix_to(val: &str) -> String {
         format!(
-            "{} {}",
+            "{}  {}",
             &Prompt::Ready,
             val.replace('\n', &format!("\r\n{} ", Prompt::Contd))
         )
