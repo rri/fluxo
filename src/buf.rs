@@ -1,6 +1,6 @@
 //! Smart buffer and related utilities for processing and parsing structured user input.
 
-use crate::edt::EdtCmd;
+use crate::edt::Cmd;
 use crate::key::{DefKeyMap, EscKeyMap, FixKeyMap, KeyMap};
 use crossterm::event;
 use crossterm::event::Event;
@@ -36,9 +36,9 @@ pub struct Buf {
     pub esc: bool,
 }
 
-/// Command object that represents possible buffer instructions derived from user input.
+/// Command object that represents possible buffer inputs derived from user input.
 #[derive(Clone, Eq, PartialEq)]
-pub enum BufCmd {
+pub enum Inp {
     /// Perform no operation.
     Noop,
     /// Exit the current read loop.
@@ -46,9 +46,9 @@ pub enum BufCmd {
     /// Set 'escape mode' (which calls for special behavior for the next key pressed).
     Esc(bool),
     /// Perform the given commands in sequence, executing the second only if the first succeeds.
-    Compose(Box<BufCmd>, Box<BufCmd>),
+    Compose(Box<Inp>, Box<Inp>),
     /// Repeat the given command multiple times.
-    Repeat(Box<BufCmd>, usize),
+    Repeat(Box<Inp>, usize),
     /// Push a character into the buffer (if the buffer isn't full).
     Push(char),
     /// Delete the character immediately **after** the cursor (if there is one).
@@ -104,17 +104,17 @@ impl Buf {
         }
     }
 
-    /// Read structured input into a [buffer command][BufCmd] and return it.
-    pub fn read(&mut self) -> Result<BufCmd> {
+    /// Read structured input into a [buffer input][Inp] and return it.
+    pub fn read(&mut self) -> Result<Inp> {
         // TODO: Add more keymaps.
         if let Event::Key(evt) = event::read()? {
             Ok(Option::None
                 .or_else(|| EscKeyMap::convert(self, &evt))
                 .or_else(|| FixKeyMap::convert(self, &evt))
                 .or_else(|| DefKeyMap::convert(self, &evt))
-                .unwrap_or(BufCmd::Noop))
+                .unwrap_or(Inp::Noop))
         } else {
-            Ok(BufCmd::Noop)
+            Ok(Inp::Noop)
         }
     }
 
@@ -163,42 +163,42 @@ impl Buf {
     }
 
     /// Return the current parsed value from the buffer.
-    pub fn value(&self) -> EdtCmd {
+    pub fn value(&self) -> Cmd {
         // TODO: Parse the sequence with the highest level of meaning (or use the existing value if parsing is already done).
         if self.raw.is_empty() {
-            EdtCmd::Noop
+            Cmd::Noop
         } else if self.raw == "exit" || self.raw == "quit" {
-            EdtCmd::Exit
+            Cmd::Exit
         } else {
-            EdtCmd::Help(None)
+            Cmd::Help(None)
         }
     }
 }
 
-impl BufCmd {
+impl Inp {
     /// Compose this command with another to return a composed command.
-    pub fn compose(self, other: BufCmd) -> BufCmd {
-        BufCmd::Compose(Box::new(self), Box::new(other))
+    pub fn compose(self, other: Inp) -> Inp {
+        Inp::Compose(Box::new(self), Box::new(other))
     }
 
     /// Create a repeated command.
-    pub fn repeat(self, times: usize) -> BufCmd {
-        BufCmd::Repeat(Box::new(self), times)
+    pub fn repeat(self, times: usize) -> Inp {
+        Inp::Repeat(Box::new(self), times)
     }
 
     /// Evaluate the command and return the generated [result][BufRes].
     pub fn eval(self, buf: &mut Buf) -> BufRes {
         match self {
-            BufCmd::Noop => BufRes::success(),
-            BufCmd::Exit => BufRes::trm(),
-            BufCmd::Esc(val) => {
+            Inp::Noop => BufRes::success(),
+            Inp::Exit => BufRes::trm(),
+            Inp::Esc(val) => {
                 buf.esc = val;
                 BufRes::success()
             }
-            BufCmd::Compose(fst, snd) => BufRes::success()
+            Inp::Compose(fst, snd) => BufRes::success()
                 .and_then(|| fst.eval(buf))
                 .and_then(|| snd.eval(buf)),
-            BufCmd::Repeat(cmd, cnt) => {
+            Inp::Repeat(cmd, cnt) => {
                 let mut ans = BufRes::success();
                 let mut trm = false;
                 for _ in 0..cnt {
@@ -213,7 +213,7 @@ impl BufCmd {
                 }
                 ans
             }
-            BufCmd::Push(chr) => {
+            Inp::Push(chr) => {
                 if buf.raw.len() < usize::MAX {
                     // Remember the current length of the raw string before updating it.
                     let old_len = buf.raw.len();
@@ -226,7 +226,7 @@ impl BufCmd {
                     BufRes::failure()
                 }
             }
-            BufCmd::Delete => {
+            Inp::Delete => {
                 if buf.raw.len() > buf.idx {
                     let nxt = &buf.raw[buf.idx..];
                     let wid = nxt
@@ -242,13 +242,13 @@ impl BufCmd {
                     BufRes::failure()
                 }
             }
-            BufCmd::Clear => {
+            Inp::Clear => {
                 *buf = Buf::new();
                 BufRes::success()
             }
-            BufCmd::MoveUp => todo!(), // TODO: Implement vertical movement.
-            BufCmd::MoveDn => todo!(), // TODO: Implement vertical movement.
-            BufCmd::MoveLt => {
+            Inp::MoveUp => todo!(), // TODO: Implement vertical movement.
+            Inp::MoveDn => todo!(), // TODO: Implement vertical movement.
+            Inp::MoveLt => {
                 if buf.idx == 0 {
                     BufRes::failure()
                 } else {
@@ -266,7 +266,7 @@ impl BufCmd {
                     BufRes::success()
                 }
             }
-            BufCmd::MoveRt => {
+            Inp::MoveRt => {
                 if buf.idx == buf.raw.len() {
                     BufRes::failure()
                 } else {
