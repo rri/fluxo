@@ -56,24 +56,24 @@ impl Editor {
         execute!(stdout, cursor::SavePosition)?;
 
         // Initially render an empty buffer to the screen.
-        self.render(&buf, false)?;
+        self.render(&buf)?;
 
         loop {
             let inp = buf.read()?;
-            let out = inp.eval(&mut buf);
+            inp.eval(&mut buf);
 
             // Refresh the rendering of the buffer on the terminal.
-            self.render(&buf, out.trm)?;
+            self.render(&buf)?;
 
             // Terminate the loop if requested.
-            if out.trm {
+            if buf.trm {
                 return Ok(buf.value());
             }
         }
     }
 
     /// Render the buffer onto the screen.
-    fn render(&self, buf: &Buf, trm: bool) -> Result<()> {
+    fn render(&self, buf: &Buf) -> Result<()> {
         let mut stdout = stdout();
 
         let out = buf.render();
@@ -102,7 +102,7 @@ impl Editor {
         }
 
         // Write a final newline if terminating.
-        if trm {
+        if buf.trm {
             write!(stdout, "\r\n")?;
         }
 
