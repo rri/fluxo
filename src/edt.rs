@@ -60,6 +60,8 @@ impl Editor {
 
         loop {
             let inp = buf.read()?;
+
+            // Mutate the buffer using the input read.
             inp.eval(&mut buf);
 
             // Refresh the rendering of the buffer on the terminal.

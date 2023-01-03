@@ -71,9 +71,13 @@ impl Prompt {
     /// Prefix styled prompts to the given buffer value (even if the value is empty).
     pub fn prefix_to(val: &str) -> String {
         format!(
-            "{}  {}",
+            "{}{}{}",
             &Prompt::Ready,
-            val.replace('\n', &format!("\r\n{} ", Prompt::Contd))
+            " ".repeat(GUTTER_WIDTH - 1),
+            val.replace(
+                '\n',
+                &format!("\r\n{}{}", Prompt::Contd, " ".repeat(GUTTER_WIDTH - 1),)
+            )
         )
     }
 }
