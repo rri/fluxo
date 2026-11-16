@@ -8,6 +8,8 @@ pub mod session;
 pub mod util;
 
 mod account;
+mod goals;
+mod recovery;
 mod settings;
 mod signin;
 mod twofa;
@@ -64,6 +66,9 @@ pub fn router(state: Shared) -> Router {
         .route("/login/2fa", get(signin::code_page).post(signin::code_submit))
         .route("/login/recovery", get(signin::recovery_page).post(signin::recovery_submit))
         .route("/logout", post(signin::logout))
+        .route("/locked", get(recovery::locked_page).post(recovery::locked_submit))
+        .route("/reset-password", get(recovery::reset_page).post(recovery::reset_submit))
+        .route("/goals", get(goals::index))
         .route("/settings", get(settings::show))
         .route("/settings/profile", post(settings::profile))
         .route("/settings/password", post(settings::password))
@@ -77,6 +82,8 @@ pub fn router(state: Shared) -> Router {
         .route("/settings/admin/signup", post(settings::signup_mode))
         .route("/settings/admin/invites", post(settings::create_invite))
         .route("/settings/admin/invites/revoke", post(settings::revoke_invite))
+        .route("/settings/admin/recovery", post(settings::issue_recovery_code))
+        .route("/settings/admin/recovery/revoke", post(settings::revoke_recovery_code))
         .route("/static/{file}", get(asset))
         .layer(middleware::from_fn_with_state(state.clone(), setup_gate))
         .layer(middleware::from_fn(security_headers))
@@ -125,6 +132,8 @@ pub(crate) struct Ctx {
     pub username: String,
     pub theme: String,
     pub is_admin: bool,
+    /// Signed in with an Administrator's recovery code and hasn't set a new password yet.
+    pub must_reset: bool,
 }
 
 impl Ctx {
@@ -133,20 +142,40 @@ impl Ctx {
     }
 }
 
-/// The signed-in person, or a redirect to the sign-in page.
+/// The signed-in person, or a redirect: to sign-in, or to "Set a new password" when they still
+/// owe one after using an Administrator's recovery code.
 pub(crate) async fn require_user(app: &AppState, jar: &CookieJar) -> Result<std::result::Result<Ctx, Response>> {
+    load_user(app, jar, false).await
+}
+
+pub(crate) async fn load_user(
+    app: &AppState,
+    jar: &CookieJar,
+    allow_reset: bool,
+) -> Result<std::result::Result<Ctx, Response>> {
     let Some(s) = session::load(&app.db, jar).await?.filter(|s| s.stage == Stage::SignedIn) else {
         return Ok(Err(Redirect::to("/login").into_response()));
     };
     let Some(user_id) = s.user_id else { return Ok(Err(Redirect::to("/login").into_response())) };
     let u = sqlx::query!(
-        "SELECT username, theme, is_administrator FROM users WHERE id = ? AND deleted_at IS NULL",
+        "SELECT username, theme, is_administrator, must_reset_password FROM users WHERE id = ? AND deleted_at IS NULL",
         user_id
     )
     .fetch_optional(&app.db)
     .await?;
     let Some(u) = u else { return Ok(Err(Redirect::to("/login").into_response())) };
-    Ok(Ok(Ctx { session: s, user_id, username: u.username, theme: u.theme, is_admin: u.is_administrator != 0 }))
+    let must_reset = u.must_reset_password != 0;
+    if must_reset && !allow_reset {
+        return Ok(Err(Redirect::to("/reset-password").into_response()));
+    }
+    Ok(Ok(Ctx {
+        session: s,
+        user_id,
+        username: u.username,
+        theme: u.theme,
+        is_admin: u.is_administrator != 0,
+        must_reset,
+    }))
 }
 
 // ---------------------------------------------------------------- Focus (placeholder until Phase 5)

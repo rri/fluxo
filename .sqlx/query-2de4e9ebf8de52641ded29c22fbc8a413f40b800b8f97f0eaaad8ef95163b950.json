@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO admin_codes (user_id, issued_by, code_hash, created_at, expires_at) VALUES (?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "2de4e9ebf8de52641ded29c22fbc8a413f40b800b8f97f0eaaad8ef95163b950"
+}

@@ -1,0 +1,56 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT c.id AS \"id!\", u.username, b.username AS issued_by, c.created_at, c.expires_at, c.used_at, c.revoked_at\n               FROM admin_codes c JOIN users u ON u.id = c.user_id JOIN users b ON b.id = c.issued_by\n               ORDER BY c.created_at DESC LIMIT 20",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "username",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "issued_by",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 3,
+        "type_info": "Integer"
+      },
+      {
+        "name": "expires_at",
+        "ordinal": 4,
+        "type_info": "Integer"
+      },
+      {
+        "name": "used_at",
+        "ordinal": 5,
+        "type_info": "Integer"
+      },
+      {
+        "name": "revoked_at",
+        "ordinal": 6,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "ded7ebf45845b0131eac4db9e7d64efecc6eda45f726a84e1dc33ed10132f40b"
+}

@@ -190,3 +190,58 @@ async fn settings_save_and_validate() {
     assert_eq!(send(&app, "GET", "/", Some(&other), None).await.location.as_deref(), Some("/login"));
     assert_eq!(send(&app, "GET", "/", Some(&c), None).await.status, StatusCode::OK, "this device stays signed in");
 }
+
+#[tokio::test]
+async fn administrator_code_gets_a_locked_out_person_back_in() {
+    let (app, _) = with_ada(false).await;
+    add_user(&app, "kofi", false).await;
+    let kofi_before = sign_in(&app, "kofi", None).await;
+    let admin = sign_in(&app, "ada", None).await;
+    let token = csrf(&send(&app, "GET", "/settings", Some(&admin), None).await.body);
+
+    let r = send(&app, "POST", "/settings/admin/recovery", Some(&admin), Some(&format!("csrf={token}&username=ada"))).await;
+    assert!(r.body.contains("can’t make a recovery code for yourself"));
+    let r = send(&app, "POST", "/settings/admin/recovery", Some(&admin), Some(&format!("csrf={token}&username=nobody"))).await;
+    assert!(r.body.contains("No one has that username"));
+    let r = send(&app, "POST", "/settings/admin/recovery", Some(&admin), Some(&format!("csrf={token}&username=Kofi"))).await;
+    let first = field(&r.body, r#"id="issued-code" class="code-field" value=""#);
+    let r = send(&app, "POST", "/settings/admin/recovery", Some(&admin), Some(&format!("csrf={token}&username=kofi"))).await;
+    let code = field(&r.body, r#"id="issued-code" class="code-field" value=""#);
+    assert_ne!(first, code);
+    assert!(r.body.contains("Cancelled"), "a new code cancels the earlier one");
+
+    let r = send(&app, "GET", "/locked", None, None).await;
+    let (anon, t) = (r.cookie.unwrap(), csrf(&r.body));
+    let r = send(&app, "POST", "/locked", Some(&anon), Some(&format!("csrf={t}&username=kofi&code={first}"))).await;
+    assert!(r.body.contains("don’t match"), "cancelled code refused");
+    let lower = code.to_lowercase().replace('-', " ");
+    let r = send(&app, "POST", "/locked", Some(&anon), Some(&format!("csrf={t}&username=kofi&code={}", enc(&lower)))).await;
+    assert_eq!(r.location.as_deref(), Some("/reset-password"));
+    let kofi = r.cookie.unwrap();
+    assert_eq!(send(&app, "GET", "/", Some(&kofi_before), None).await.location.as_deref(), Some("/login"), "old sessions ended");
+
+    // Every page leads to "Set a new password" until it's done.
+    assert_eq!(send(&app, "GET", "/settings", Some(&kofi), None).await.location.as_deref(), Some("/reset-password"));
+    let r = send(&app, "GET", "/reset-password", Some(&kofi), None).await;
+    assert!(r.body.contains("Two-factor authentication is now off"));
+    let t = csrf(&r.body);
+    let r = send(&app, "POST", "/reset-password", Some(&kofi), Some(&format!("csrf={t}&new=a+brand+new+password&confirm=a+brand+new+password"))).await;
+    assert_eq!(r.location.as_deref(), Some("/settings/2fa/setup?first=1"));
+    assert_eq!(send(&app, "GET", "/", Some(&kofi), None).await.status, StatusCode::OK);
+
+    // The code worked once.
+    let r = send(&app, "GET", "/locked", None, None).await;
+    let (anon, t) = (r.cookie.unwrap(), csrf(&r.body));
+    let r = send(&app, "POST", "/locked", Some(&anon), Some(&format!("csrf={t}&username=kofi&code={code}"))).await;
+    assert!(r.body.contains("don’t match"));
+    assert!(send(&app, "GET", "/settings", Some(&admin), None).await.body.contains(">Used<"));
+}
+
+#[tokio::test]
+async fn goals_page_exists() {
+    let (app, _) = with_ada(false).await;
+    let c = sign_in(&app, "ada", None).await;
+    let r = send(&app, "GET", "/goals", Some(&c), None).await;
+    assert_eq!(r.status, StatusCode::OK);
+    assert!(r.body.contains(r#"href="/goals" aria-current="page""#));
+}

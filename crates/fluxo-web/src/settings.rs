@@ -39,10 +39,30 @@ pub struct InviteRow {
     pub active: bool,
 }
 
+pub struct CodeRow {
+    pub id: i64,
+    pub username: String,
+    pub issued_by: String,
+    pub created: String,
+    pub status: String,
+    pub active: bool,
+}
+
 pub struct AdminView {
     pub signup_mode: String,
     pub invites: Vec<InviteRow>,
     pub new_link: Option<String>,
+    pub codes: Vec<CodeRow>,
+    pub issued: Option<crate::recovery::Issued>,
+    pub lookup: String,
+}
+
+/// Things shown once on the page that follows an action.
+#[derive(Default)]
+pub struct Shown {
+    pub new_link: Option<String>,
+    pub issued: Option<crate::recovery::Issued>,
+    pub lookup: String,
 }
 
 #[derive(Template)]
@@ -88,6 +108,7 @@ fn notice(q: &Notice) -> (&'static str, &'static str, bool) {
             "recovery-used" => ("tfa", "You signed in with a recovery code, which can’t be used again."),
             "signup" => ("admin", "Saved."),
             "revoked" => ("admin", "Invitation revoked."),
+            "code-revoked" => ("recovery", "Recovery code cancelled."),
             _ => return ("", "", false),
         };
         return (s, m, false);
@@ -115,7 +136,7 @@ fn link_base(headers: &HeaderMap, secure: bool) -> String {
     format!("{}://{host}", if secure { "https" } else { "http" })
 }
 
-async fn render(app: &AppState, ctx: &Ctx, n: (&str, &str, bool), new_link: Option<String>) -> Result<Response> {
+async fn render(app: &AppState, ctx: &Ctx, n: (&str, &str, bool), shown: Shown) -> Result<Response> {
     let u = sqlx::query!(
         "SELECT display_name, totp_enabled, totp_enabled_at FROM users WHERE id = ?",
         ctx.user_id
@@ -172,7 +193,37 @@ async fn render(app: &AppState, ctx: &Ctx, n: (&str, &str, bool), new_link: Opti
                 InviteRow { id: r.id, note: r.note, created: date(r.created_at), status, active }
             })
             .collect();
-        Some(AdminView { signup_mode, invites, new_link })
+        let rows = sqlx::query!(
+            r#"SELECT c.id AS "id!", u.username, b.username AS issued_by, c.created_at, c.expires_at, c.used_at, c.revoked_at
+               FROM admin_codes c JOIN users u ON u.id = c.user_id JOIN users b ON b.id = c.issued_by
+               ORDER BY c.created_at DESC LIMIT 20"#
+        )
+        .fetch_all(&app.db)
+        .await?;
+        let codes = rows
+            .into_iter()
+            .map(|r| {
+                let (status, active) = if r.used_at.is_some() {
+                    ("Used".to_string(), false)
+                } else if r.revoked_at.is_some() {
+                    ("Cancelled".into(), false)
+                } else if r.expires_at <= t {
+                    ("Expired".into(), false)
+                } else {
+                    ("Active".into(), true)
+                };
+                let issued_by = if r.issued_by == ctx.username { format!("{} (you)", r.issued_by) } else { r.issued_by };
+                CodeRow { id: r.id, username: r.username, issued_by, created: date(r.created_at), status, active }
+            })
+            .collect();
+        Some(AdminView {
+            signup_mode,
+            invites,
+            new_link: shown.new_link,
+            codes,
+            issued: shown.issued,
+            lookup: shown.lookup,
+        })
     } else {
         None
     };
@@ -221,7 +272,7 @@ fn back(query: &str, anchor: &str) -> Response {
 
 pub async fn show(State(app): State<Shared>, jar: CookieJar, Query(q): Query<Notice>) -> Result<Response> {
     let ctx = signed_in!(app, jar);
-    render(&app, &ctx, notice(&q), None).await
+    render(&app, &ctx, notice(&q), Shown::default()).await
 }
 
 #[derive(Deserialize)]
@@ -419,8 +470,8 @@ pub async fn create_invite(
     .await?;
     // The link is shown once, on this page, and never stored.
     let link = format!("{}/join/{token}", link_base(&headers, app.secure_cookies));
-    render(&app, &ctx, ("admin", "Invitation created. Copy the link now: it won’t be shown again.", false), Some(link))
-        .await
+    let shown = Shown { new_link: Some(link), ..Default::default() };
+    render(&app, &ctx, ("admin", "Invitation created. Copy the link now: it won’t be shown again.", false), shown).await
 }
 
 #[derive(Deserialize)]
@@ -444,4 +495,51 @@ pub async fn revoke_invite(State(app): State<Shared>, jar: CookieJar, Form(f): F
     .execute(&app.db)
     .await?;
     Ok(back("done=revoked", "adm-h"))
+}
+
+#[derive(Deserialize)]
+pub struct RecoveryForm {
+    csrf: String,
+    username: String,
+}
+
+pub async fn issue_recovery_code(State(app): State<Shared>, jar: CookieJar, Form(f): Form<RecoveryForm>) -> Result<Response> {
+    let ctx = signed_in!(app, jar);
+    check_csrf!(ctx, f.csrf);
+    if !ctx.is_admin {
+        return Ok(forbidden());
+    }
+    use crate::recovery::IssueOutcome;
+    let lookup = f.username.trim().to_string();
+    let (n, shown) = match crate::recovery::issue(&app, ctx.user_id, &f.username).await? {
+        IssueOutcome::Issued(i) => (
+            ("recovery", "Recovery code created. Give it to them directly; it won’t be shown again.", false),
+            Shown { issued: Some(i), ..Default::default() },
+        ),
+        IssueOutcome::NoSuchUser => (("recovery", "No one has that username.", true), Shown { lookup, ..Default::default() }),
+        IssueOutcome::Yourself => (
+            ("recovery", "You can’t make a recovery code for yourself. Ask another Administrator.", true),
+            Shown { lookup, ..Default::default() },
+        ),
+    };
+    render(&app, &ctx, n, shown).await
+}
+
+#[derive(Deserialize)]
+pub struct RevokeCodeForm {
+    csrf: String,
+    code: i64,
+}
+
+pub async fn revoke_recovery_code(State(app): State<Shared>, jar: CookieJar, Form(f): Form<RevokeCodeForm>) -> Result<Response> {
+    let ctx = signed_in!(app, jar);
+    check_csrf!(ctx, f.csrf);
+    if !ctx.is_admin {
+        return Ok(forbidden());
+    }
+    let t = now();
+    sqlx::query!("UPDATE admin_codes SET revoked_at = ? WHERE id = ? AND used_at IS NULL AND revoked_at IS NULL", t, f.code)
+        .execute(&app.db)
+        .await?;
+    Ok(back("done=code-revoked", "rec-h"))
 }

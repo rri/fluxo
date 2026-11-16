@@ -484,3 +484,5 @@ button.menu-item { width: 100%; border: 0; background: none; font: inherit; text
 .key-details summary { cursor: pointer; }
 .key-details .secret { margin-top: 8px; }
 img.qr { image-rendering: pixelated; }
+.code-field { font: 600 22px var(--mono); letter-spacing: .08em; color: var(--text); background: none; border: 0; padding: 0; width: 100%; }
+.empty { text-align: center; padding: 40px 20px; }

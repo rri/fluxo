@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE admin_codes SET used_at = ?\n                 WHERE user_id = ? AND code_hash = ? AND used_at IS NULL AND revoked_at IS NULL AND expires_at > ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "3b2d70767a82491e484cd2b049091e3e18303f2deb4812034e145295898849c2"
+}
