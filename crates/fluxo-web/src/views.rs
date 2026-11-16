@@ -82,7 +82,6 @@ pub fn check_title(t: &str) -> Option<&'static str> {
 pub fn error_text(key: Option<&str>) -> Option<&'static str> {
     Some(match key? {
         "loop" => "That link would make a loop: something would end up waiting on itself.",
-        "last-parent" => "A task has to feed at least one goal. Add another goal before removing this one.",
         "risk" => "Give the risk a title, a likelihood from 0 to 100%, and an impact range in days (smallest first).",
         "title" => "Give it a title of up to 200 characters.",
         "estimate" => "Give the task an estimate in working days, like 3 or 0.5.",

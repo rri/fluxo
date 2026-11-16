@@ -37,9 +37,16 @@
   </div>
   {% endif %}
 
+  {% if !unattached.is_empty() %}
+  <section id="unattached" aria-labelledby="un-h">
+    <div class="section-head"><h2 id="un-h">Tasks not attached to any goal</h2><span class="hint">They can’t show up on a critical path until they feed a goal</span></div>
+    <ul class="list card">{% for t in unattached %}<li class="row"><a class="grow" href="{{ t.0 }}#unattached">{{ t.1 }}</a><span class="faint small mono">{{ t.2 }}</span></li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+
   {% if !archived.is_empty() %}
   <details class="card mt-16" id="archived">
-    <summary class="row pointer"><b class="small grow">Archived goals</b><span class="faint small">{{ archived.len() }}</span></summary>
+    <summary class="row pointer"><b class="small grow">Archived</b><span class="faint small">{{ archived.len() }}</span></summary>
     <ul class="list">{% for a in archived %}<li class="row"><a href="{{ a.0 }}">{{ a.1 }}</a></li>{% endfor %}</ul>
   </details>
   {% endif %}

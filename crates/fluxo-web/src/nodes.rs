@@ -101,9 +101,9 @@ pub async fn parents(State(app): State<Shared>, jar: CookieJar, Path(id): Path<I
             sqlx::query!("UPDATE nodes SET home_parent_id = ? WHERE id = ?", f.goal, id).execute(&app.db).await?;
         }
         "remove" if current.contains(&f.goal) => {
-            if current.len() == 1 && !node.is_goal() {
-                return Ok(back_to(&world, id, "error=last-parent", "links-h"));
-            }
+            // Removing the last link leaves a top-level goal, or a task not attached to any goal.
+            // Allowed (people shouldn't have to invent a goal to park work in), but only for owners,
+            // since roles inherited through that goal stop applying.
             if current.len() == 1 && !world.access(ctx.user_id, id).is_owner() {
                 return Ok(forbidden());
             }
@@ -114,8 +114,8 @@ pub async fn parents(State(app): State<Shared>, jar: CookieJar, Path(id): Path<I
             }
             store::record(&app.db, id, ctx.user_id, "parent_removed", json!({ "goal": f.goal })).await?;
             if current.len() == 1 {
-                // It's now a top-level goal: show it on its own page.
-                return Ok(Redirect::to(&format!("/goals/{id}#links-h")).into_response());
+                // Now a top-level goal, or an unattached task: show it on its own page.
+                return Ok(Redirect::to(&format!("{}#top", node.href())).into_response());
             }
         }
         _ => {}

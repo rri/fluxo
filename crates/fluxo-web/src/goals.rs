@@ -40,6 +40,7 @@ struct GoalsPage<'a> {
     username: &'a str,
     initials: String,
     goals: Vec<GoalCard>,
+    unattached: Vec<(String, String, String)>, // href, title, meta
     archived: Vec<(String, String)>,
 }
 
@@ -92,7 +93,29 @@ pub async fn index(State(app): State<Shared>, jar: CookieJar) -> Result<Response
     // Yours first, then the ones you work on, then everything else you can see; oldest first within.
     tops.sort_by_key(|n| (std::cmp::Reverse(world.access(ctx.user_id, n.id)), n.achieved_at.is_some(), n.created_at, n.id));
     let goals = tops.iter().filter(|n| n.archived_at.is_none()).map(|g| card(&world, ctx.user_id, g)).collect();
-    let archived = tops.iter().filter(|n| n.archived_at.is_some()).map(|g| (g.href(), g.title.clone())).collect();
+    // Tasks attached to no goal that this person can work on, so they're easy to find and place.
+    let loose = |n: &&Node| !n.is_goal() && world.parents.get(&n.id).is_none_or(Vec::is_empty);
+    let mut unattached: Vec<&Node> = world
+        .nodes
+        .values()
+        .filter(loose)
+        .filter(|n| n.archived_at.is_none() && world.access(ctx.user_id, n.id).can_contribute())
+        .collect();
+    unattached.sort_by_key(|n| (n.created_at, n.id));
+    let unattached = unattached
+        .into_iter()
+        .map(|n| (n.href(), n.title.clone(), n.estimate_days.map(views::days).unwrap_or_default()))
+        .collect();
+    let mut archived: Vec<(String, String)> =
+        tops.iter().filter(|n| n.archived_at.is_some()).map(|g| (g.href(), g.title.clone())).collect();
+    archived.extend(
+        world
+            .nodes
+            .values()
+            .filter(loose)
+            .filter(|n| n.archived_at.is_some() && world.access(ctx.user_id, n.id).is_owner())
+            .map(|n| (n.href(), n.title.clone())),
+    );
     page(GoalsPage {
         theme: &ctx.theme,
         nav: "goals",
@@ -100,6 +123,7 @@ pub async fn index(State(app): State<Shared>, jar: CookieJar) -> Result<Response
         username: &ctx.username,
         initials: initials(&ctx.username),
         goals,
+        unattached,
         archived,
     })
 }

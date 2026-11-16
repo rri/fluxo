@@ -238,7 +238,10 @@ test('break a goal down and track a task', async ({ page }, info) => {
   await expect(page.locator('.risk .lk')).toHaveText('30%');
   const slider = page.getByLabel('Likelihood of Vendor API changes');
   if (js(info)) {
+    const saved = page.waitForResponse((r) => /\/risks\/\d+$/.test(r.url()) && r.request().method() === 'POST');
     await slider.fill('10'); // saves on change
+    await saved;
+    await page.waitForLoadState();
     await expect(page.locator('.risk .lk')).toHaveText('10%');
   } else {
     await slider.fill('10');

@@ -510,3 +510,5 @@ button.x { border: 0; background: none; color: var(--text-3); cursor: pointer; p
 button.x:hover { color: var(--red); }
 .field .seg { justify-self: start; }
 main > form + section, main > section + form { margin-top: 36px; }
+.notice-unattached { display: block; }
+.amber-text { color: var(--amber); }

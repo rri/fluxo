@@ -11,6 +11,22 @@
   </div>
   {% endif %}
 
+  {% if unattached && !archived %}
+  <div class="callout notice-unattached mb-12" id="unattached" role="note">
+    <p><b>This task isn’t attached to any goal.</b> Work that feeds no goal can’t show up on a critical path or in a forecast. Attach it to the goal it really serves, or remove it if it’s no longer needed.</p>
+    <div class="inline mt-8">
+      {% if can_edit && !parent_options.is_empty() %}
+      <form class="inline grow" method="post" action="/nodes/{{ node_id }}/parents"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="add">
+        <select name="goal" class="input input-sm grow" aria-label="Goal to attach this task to">{% for o in parent_options %}<option value="{{ o.value }}">{{ o.label }}</option>{% endfor %}</select>
+        <button class="btn sm primary">Attach to this goal</button></form>
+      {% else if can_edit %}
+      <a class="btn sm primary" href="/goals/new">Create the goal it serves</a>
+      {% endif %}
+      {% if is_owner %}<form method="post" action="/nodes/{{ node_id }}/archive"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn sm">Remove (archive, then delete)</button></form>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+
   <form id="top" method="post" action="/tasks/{{ node_id }}">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <div class="page-head"><div class="grow">
@@ -77,8 +93,9 @@
         <span class="inline grow small">{% for n in unblocks %}{% if !loop.first %} · {% endif %}{% if n.href.is_empty() %}{{ n.title }}{% else %}<a href="{{ n.href }}">{{ n.title }}</a>{% endif %}{% endfor %}{% if unblocks.is_empty() %}<span class="muted">Nothing waits on it</span>{% endif %}</span></div>
       <div class="row row-top conn"><span class="label conn-label">Feeds goals</span>
         <span class="inline grow">
+          {% if feeds.is_empty() %}<span class="small amber-text">No goal yet</span>{% endif %}
           {% for p in feeds %}<span class="pill{% if p.home %} accent{% endif %}">{% if p.href.is_empty() %}{{ p.title }}{% else %}<a href="{{ p.href }}">{{ p.title }}</a>{% endif %}{% if p.home %} · home{% endif %}
-            {% if can_edit && feeds.len() > 1 %}<form class="inline-form" method="post" action="/nodes/{{ node_id }}/parents"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="remove"><input type="hidden" name="goal" value="{{ p.id }}"><button class="x" aria-label="Stop feeding {{ p.title }}">×</button></form>{% endif %}</span>
+            {% if can_edit && (feeds.len() > 1 || is_owner) %}<form class="inline-form" method="post" action="/nodes/{{ node_id }}/parents"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="remove"><input type="hidden" name="goal" value="{{ p.id }}"><button class="x" aria-label="Stop feeding {{ p.title }}">×</button></form>{% endif %}</span>
             {% if can_edit && !p.home %}<form class="inline-form" method="post" action="/nodes/{{ node_id }}/parents"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="home"><input type="hidden" name="goal" value="{{ p.id }}"><button class="btn sm ghost">Make home</button></form>{% endif %}
           {% endfor %}
         </span></div>

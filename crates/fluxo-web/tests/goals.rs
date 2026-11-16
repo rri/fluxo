@@ -170,10 +170,21 @@ async fn links_refuse_loops_and_keep_tasks_attached() {
     let r = send(&app, "POST", &format!("/nodes/{g1}/parents"), Some(&c), Some(&format!("csrf={t}&action=add&goal={g1}"))).await;
     assert_eq!(r.location.as_deref(), Some(format!("/goals/{g1}?error=loop#links-h").as_str()));
 
-    // A task must keep at least one goal.
-    send(&app, "POST", &format!("/nodes/{b}/parents"), Some(&c), Some(&format!("csrf={t}&action=remove&goal={g1}"))).await;
+    // A task can be left attached to no goal: allowed, with a notice and a place to find it.
     let r = send(&app, "POST", &format!("/nodes/{b}/parents"), Some(&c), Some(&format!("csrf={t}&action=remove&goal={g1}"))).await;
-    assert_eq!(r.location.as_deref(), Some(format!("/tasks/{b}?error=last-parent#links-h").as_str()));
+    assert_eq!(r.location.as_deref(), Some(format!("/tasks/{b}#top").as_str()));
+    let r = send(&app, "GET", &format!("/tasks/{b}"), Some(&c), None).await;
+    assert!(r.body.contains("This task isn’t attached to any goal."));
+    assert!(r.body.contains("Attach to this goal"));
+    let r = send(&app, "GET", "/goals", Some(&c), None).await;
+    assert!(r.body.contains("Tasks not attached to any goal"));
+    assert!(r.body.contains(&format!(r#"<a class="grow" href="/tasks/{b}#unattached">B</a>"#)));
+    let r = send(&app, "GET", &format!("/goals/{g1}"), Some(&c), None).await;
+    assert!(!r.body.contains(&format!(r#"data-id="{b}""#)), "no longer on that goal's path");
+    // Attach it again from the notice.
+    send(&app, "POST", &format!("/nodes/{b}/parents"), Some(&c), Some(&format!("csrf={t}&action=add&goal={g2}"))).await;
+    assert!(!send(&app, "GET", &format!("/tasks/{b}"), Some(&c), None).await.body.contains("isn’t attached"));
+    assert!(!send(&app, "GET", "/goals", Some(&c), None).await.body.contains("Tasks not attached"));
 }
 
 #[tokio::test]
@@ -222,7 +233,7 @@ async fn archive_restore_and_delete() {
     let r = send(&app, "POST", &format!("/nodes/{g}/delete"), Some(&c), Some(&format!("csrf={t}"))).await;
     assert_eq!(r.location.as_deref(), Some(format!("/goals/{g}?error=archive-first#top").as_str()));
     send(&app, "POST", &format!("/nodes/{g}/archive"), Some(&c), Some(&format!("csrf={t}"))).await;
-    assert!(send(&app, "GET", "/goals", Some(&c), None).await.body.contains("Archived goals"));
+    assert!(send(&app, "GET", "/goals", Some(&c), None).await.body.contains("<b class=\"small grow\">Archived</b>"));
     let r = send(&app, "POST", &format!("/nodes/{g}/delete"), Some(&c), Some(&format!("csrf={t}"))).await;
     assert_eq!(r.location.as_deref(), Some("/goals"));
     let left: Vec<String> = sqlx::query_scalar("SELECT title FROM nodes ORDER BY id").fetch_all(&app.db).await.unwrap();

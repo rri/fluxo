@@ -248,6 +248,7 @@ Each phase ends with something usable and demonstrable. The riskiest unknowns co
 - A goal is finished when its owner marks it achieved; fluxo suggests it once every step is done. Achieved goals leave forecasts but stay visible.
 - Removal archives first (owner only, restorable); an archived item can then be deleted permanently.
 - Steps are added with an inline form on the goal page; full details live on each step's own page.
+- A task may be attached to no goal (owners can remove its last goal). Its page shows a notice recommending it be attached to the goal it serves or removed, and the Goals page lists such tasks. Principle: model people's real work and avoid rules they'd work around (jobs to be done).
 
 Dogfooding: from Phase 3 on, this plan's phases are entered into fluxo itself as the "Launch fluxo.dev
 beta" goal.
