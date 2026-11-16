@@ -321,9 +321,9 @@ beta" goal.
 - First-time setup needs a **one-time setup link printed to the server log**, so only someone with server access can create the first Administrator.
 - **Backups:** nightly snapshots (7 kept) and pre-deploy copies (5 kept) on the data volume. No off-site replication (decided 2026-11-16).
 
-## 11. Hardening review (2026-11-16, pending confirmation)
+## 11. Hardening review (2026-11-16, confirmed)
 
-Made as recommended, to be confirmed or changed (details in `docs/threat-model.md` §6):
+Confirmed by the owner (details in `docs/threat-model.md` §6):
 
 - **Relinking**: a Contributor can't make a link change that changes who owns an item or
   whether it's private; an owner can.

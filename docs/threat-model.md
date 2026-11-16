@@ -131,7 +131,7 @@ Status: **Mitigated** (it was already in place), **Fixed** (fixed in this review
   directory, has no capabilities, and is limited to `@system-service` system calls and IP and
   Unix sockets (**added**; tested locally under the same settings).
 
-## 6. Decisions for the owner
+## 6. Decisions (confirmed 2026-11-16)
 
 1. **Relinking (T2)**: Contributors keep the freedom to link work wherever it serves, except
    where that would change who owns it or who can see it. Those changes need an owner.
