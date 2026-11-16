@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin · fluxo</title>
+<script src="theme.js"></script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%203%2024%2018%22%3E%3Cpath%20d%3D%22M6.8%2018.5A5.2%205.2%200%200%201%2017.2%2018.5Z%22%20fill%3D%22%235b5bf7%22/%3E%3Cpath%20d%3D%22M5%2018.5L1.09%2017.06L1.09%2019.94ZM5.94%2015L3.27%2011.8L1.84%2014.29ZM8.5%2012.44L7.79%208.34L5.3%209.77ZM12%2011.5L13.44%207.59L10.56%207.59ZM15.5%2012.44L18.7%209.77L16.21%208.34ZM18.06%2015L22.16%2014.29L20.73%2011.8ZM19%2018.5L22.91%2019.94L22.91%2017.06Z%22%20fill%3D%22%235b5bf7%22%20stroke%3D%22%235b5bf7%22%20stroke-width%3D%22.8%22%20stroke-linejoin%3D%22round%22/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<header class="topbar"><div class="topbar-inner">
+  <a class="wordmark" href="focus.html"><svg class="mark" viewBox="0 5.5 24 14" aria-hidden="true"><path d="M6.8 18.5A5.2 5.2 0 0 1 17.2 18.5Z" fill="var(--accent)"/><path d="M5 18.5L1.09 17.06L1.09 19.94ZM5.94 15L3.27 11.8L1.84 14.29ZM8.5 12.44L7.79 8.34L5.3 9.77ZM12 11.5L13.44 7.59L10.56 7.59ZM15.5 12.44L18.7 9.77L16.21 8.34ZM18.06 15L22.16 14.29L20.73 11.8ZM19 18.5L22.91 19.94L22.91 17.06Z" fill="currentColor" stroke="currentColor" stroke-width=".8" stroke-linejoin="round"/></svg>fluxo</a>
+  <a class="navlink" href="focus.html">Focus <span class="count" title="5 unread">5</span></a>
+  <a class="navlink" href="goals.html">Goals</a>
+  <span class="spacer"></span>
+  <button class="iconbtn" data-theme-toggle hidden aria-label="Toggle theme"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/></svg></button>
+  <details class="menu">
+    <summary aria-label="Account"><span class="avatar">AD</span></summary>
+    <div class="menu-pop right" style="min-width:200px">
+      <div class="menu-item"><b>ada</b><span class="meta">Admin</span></div>
+      <div class="menu-sep"></div>
+      <a class="menu-item" href="settings.html">Settings</a>
+      <a class="menu-item" href="admin.html">Admin</a>
+      <a class="menu-item" href="login.html">Sign out</a>
+    </div>
+  </details>
+</div></header>
+<main>
+  <div class="page-head"><div><h1>Admin</h1><p class="sub">fluxo.dev · 14 people · 2 Admins · set up Oct 1, 2026</p></div></div>
+
+  <section aria-labelledby="lk-h">
+    <div class="section-head"><h2 id="lk-h">Help someone who’s locked out</h2></div>
+    <div class="card card-pad">
+      <form class="inline" action="admin.html#issued" method="get" data-next="admin.html#issued">
+        <label class="sr-only" for="lk-u">Username</label>
+        <input id="lk-u" class="input" placeholder="Username" value="rui" style="max-width:240px">
+        <button class="btn primary">Generate recovery code</button>
+      </form>
+      <p class="xs faint" style="margin-top:8px">Check who you’re talking to first. The code works once, for 24 hours. rui sets a new password after signing in, and their 2FA is turned off until they set it up again. You never see their password.</p>
+      <div class="issued" id="issued" style="margin-top:16px">
+        <div class="inline" style="justify-content:space-between">
+          <div><div class="xs muted">Recovery code for <b>rui</b></div><div class="code">R7KQ-2M9X-PD4T</div></div>
+          <button class="btn sm js-only" type="button" onclick="var b=this;navigator.clipboard&&navigator.clipboard.writeText('R7KQ-2M9X-PD4T').then(function(){b.textContent='Copied'},function(){})">Copy</button>
+        </div>
+        <p class="xs muted" style="margin-top:8px">Expires Nov 17, 14:32 · shown once. Give it to rui directly, over a channel you trust.</p>
+      </div>
+    </div>
+    <div class="card table-wrap" style="margin-top:12px">
+      <table class="data">
+        <thead><tr><th>Person</th><th>Issued by</th><th>When</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>rui</td><td>ada (you)</td><td class="mono small">just now</td><td><span class="pill accent">Active</span></td><td><button class="btn sm ghost" type="button">Revoke</button></td></tr>
+          <tr><td>lin</td><td>sam</td><td class="mono small">Nov 2</td><td><span class="pill green">Used</span></td><td></td></tr>
+          <tr><td>kofi</td><td>ada (you)</td><td class="mono small">Oct 20</td><td><span class="pill">Expired</span></td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="or-h">
+    <div class="section-head"><h2 id="or-h">Goals and tasks without an owner</h2><span class="hint">Left behind when an account was deleted and no one could take them over</span></div>
+    <div class="card table-wrap">
+      <table class="data">
+        <thead><tr><th>Item</th><th>Was owned by</th><th>Part of</th><th>New owner</th><th></th></tr></thead>
+        <tbody>
+          <tr><td><b>Pricing experiments</b><br><span class="xs faint">Goal · 3 steps · coverage low</span></td><td>max <span class="xs faint">(deleted Nov 12)</span></td><td class="small muted">Top-level</td>
+            <td><select class="input" style="height:30px;font-size:13px;min-width:120px" aria-label="New owner for Pricing experiments"><option>Choose…</option><option>ada</option><option>kofi</option><option>lin</option><option>sam</option></select></td><td><button class="btn sm" type="button">Assign</button></td></tr>
+          <tr><td><b>Load-test harness</b><br><span class="xs faint">Task · 4d · 1 open risk</span></td><td>max <span class="xs faint">(deleted Nov 12)</span></td><td class="small muted">Pricing experiments</td>
+            <td><select class="input" style="height:30px;font-size:13px;min-width:120px" aria-label="New owner for Load-test harness"><option>Choose…</option><option>ada</option><option>kofi</option><option>lin</option><option>sam</option></select></td><td><button class="btn sm" type="button">Assign</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="xs faint" style="margin-top:8px">The new owner is asked to accept, as with any ownership transfer. Until then, these stay in this list.</p>
+  </section>
+
+  <section aria-labelledby="pp-h">
+    <div class="section-head"><h2 id="pp-h">People</h2><span class="hint">Admins can make other people Admins</span></div>
+    <div class="card table-wrap">
+      <table class="data">
+        <thead><tr><th>Username</th><th>Role</th><th>2FA</th><th>Last active</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>ada <span class="xs faint">(you)</span></td><td><span class="pill accent">Admin</span></td><td>On</td><td class="mono small">now</td><td><button class="btn sm ghost" type="button">Remove Admin</button></td></tr>
+          <tr><td>sam</td><td><span class="pill accent">Admin</span></td><td>On</td><td class="mono small">2h ago</td><td><button class="btn sm ghost" type="button">Remove Admin</button></td></tr>
+          <tr><td>kofi</td><td>Member</td><td>On</td><td class="mono small">12m ago</td><td><button class="btn sm" type="button">Make Admin</button></td></tr>
+          <tr><td>lin</td><td>Member</td><td>Off</td><td class="mono small">1d ago</td><td><button class="btn sm" type="button">Make Admin</button></td></tr>
+          <tr><td>rui</td><td>Member</td><td>On</td><td class="mono small">9d ago</td><td><button class="btn sm" type="button">Make Admin</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="xs faint" style="margin-top:8px">The last Admin can’t remove their own Admin role or delete their account.</p>
+  </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recovery codes · fluxo</title>
+<script src="theme.js"></script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%203%2024%2018%22%3E%3Cpath%20d%3D%22M6.8%2018.5A5.2%205.2%200%200%201%2017.2%2018.5Z%22%20fill%3D%22%235b5bf7%22/%3E%3Cpath%20d%3D%22M5%2018.5L1.09%2017.06L1.09%2019.94ZM5.94%2015L3.27%2011.8L1.84%2014.29ZM8.5%2012.44L7.79%208.34L5.3%209.77ZM12%2011.5L13.44%207.59L10.56%207.59ZM15.5%2012.44L18.7%209.77L16.21%208.34ZM18.06%2015L22.16%2014.29L20.73%2011.8ZM19%2018.5L22.91%2019.94L22.91%2017.06Z%22%20fill%3D%22%235b5bf7%22%20stroke%3D%22%235b5bf7%22%20stroke-width%3D%22.8%22%20stroke-linejoin%3D%22round%22/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<main class="auth" style="max-width:none;padding:32px 16px">
+<div class="auth-card">
+<a class="wordmark" href="login.html"><svg class="mark" viewBox="0 5.5 24 14" aria-hidden="true"><path d="M6.8 18.5A5.2 5.2 0 0 1 17.2 18.5Z" fill="var(--accent)"/><path d="M5 18.5L1.09 17.06L1.09 19.94ZM5.94 15L3.27 11.8L1.84 14.29ZM8.5 12.44L7.79 8.34L5.3 9.77ZM12 11.5L13.44 7.59L10.56 7.59ZM15.5 12.44L18.7 9.77L16.21 8.34ZM18.06 15L22.16 14.29L20.73 11.8ZM19 18.5L22.91 19.94L22.91 17.06Z" fill="currentColor" stroke="currentColor" stroke-width=".8" stroke-linejoin="round"/></svg>fluxo</a>
+<div class="steps" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="on"></i></div>
+<h1>Save your recovery codes</h1>
+<p class="lede">If you lose your authenticator, each code signs you in once. fluxo can’t show them again.</p>
+<div class="card card-pad">
+  <div class="codes"><span>k7qd-2mxa</span><span>p9rt-4wze</span><span>b3nf-8hvc</span><span>x2lm-6tqa</span><span>f8ys-1kdp</span><span>r4ew-9gub</span><span>m6jc-3zno</span><span>t1hv-5sxe</span></div>
+  <div class="inline" style="margin-top:14px;justify-content:center">
+    <button class="btn sm js-only" type="button" onclick="navigator.clipboard&&navigator.clipboard.writeText([...document.querySelectorAll('.codes span')].map(s=>s.textContent).join('\n'));this.textContent='Copied'">Copy</button>
+    <a class="btn sm" download="fluxo-recovery-codes.txt" href="data:text/plain,k7qd-2mxa%0Ap9rt-4wze%0Ab3nf-8hvc%0Ax2lm-6tqa%0Af8ys-1kdp%0Ar4ew-9gub%0Am6jc-3zno%0At1hv-5sxe%0A">Download .txt</a>
+  </div>
+  <form action="focus.html" method="get" style="margin-top:18px">
+    <label class="inline small" style="justify-content:center"><input type="checkbox" required> I’ve saved these somewhere safe</label>
+    <button class="btn primary block" style="margin-top:14px">Continue to fluxo</button>
+  </form>
+</div>
+</div>
+</main>
+</body>
+</html>

@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings · fluxo</title>
+<script src="theme.js"></script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%203%2024%2018%22%3E%3Cpath%20d%3D%22M6.8%2018.5A5.2%205.2%200%200%201%2017.2%2018.5Z%22%20fill%3D%22%235b5bf7%22/%3E%3Cpath%20d%3D%22M5%2018.5L1.09%2017.06L1.09%2019.94ZM5.94%2015L3.27%2011.8L1.84%2014.29ZM8.5%2012.44L7.79%208.34L5.3%209.77ZM12%2011.5L13.44%207.59L10.56%207.59ZM15.5%2012.44L18.7%209.77L16.21%208.34ZM18.06%2015L22.16%2014.29L20.73%2011.8ZM19%2018.5L22.91%2019.94L22.91%2017.06Z%22%20fill%3D%22%235b5bf7%22%20stroke%3D%22%235b5bf7%22%20stroke-width%3D%22.8%22%20stroke-linejoin%3D%22round%22/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<header class="topbar"><div class="topbar-inner">
+  <a class="wordmark" href="focus.html"><svg class="mark" viewBox="0 5.5 24 14" aria-hidden="true"><path d="M6.8 18.5A5.2 5.2 0 0 1 17.2 18.5Z" fill="var(--accent)"/><path d="M5 18.5L1.09 17.06L1.09 19.94ZM5.94 15L3.27 11.8L1.84 14.29ZM8.5 12.44L7.79 8.34L5.3 9.77ZM12 11.5L13.44 7.59L10.56 7.59ZM15.5 12.44L18.7 9.77L16.21 8.34ZM18.06 15L22.16 14.29L20.73 11.8ZM19 18.5L22.91 19.94L22.91 17.06Z" fill="currentColor" stroke="currentColor" stroke-width=".8" stroke-linejoin="round"/></svg>fluxo</a>
+  <a class="navlink" href="focus.html">Focus <span class="count" title="5 unread">5</span></a>
+  <a class="navlink" href="goals.html">Goals</a>
+  <span class="spacer"></span>
+  <button class="iconbtn" data-theme-toggle hidden aria-label="Toggle theme"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/></svg></button>
+  <details class="menu">
+    <summary aria-label="Account"><span class="avatar">AD</span></summary>
+    <div class="menu-pop right" style="min-width:200px">
+      <div class="menu-item"><b>ada</b><span class="meta">Admin</span></div>
+      <div class="menu-sep"></div>
+      <a class="menu-item" href="settings.html">Settings</a>
+      <a class="menu-item" href="admin.html">Admin</a>
+      <a class="menu-item" href="login.html">Sign out</a>
+    </div>
+  </details>
+</div></header>
+
+<main>
+  <div class="page-head"><div><h1>Settings</h1><p class="sub">Signed in as <b>ada</b></p></div></div>
+
+  <section aria-labelledby="acc-h">
+    <div class="section-head"><h2 id="acc-h">Account</h2></div>
+    <form class="card card-pad" action="settings.html" method="get" data-next="settings.html">
+      <dl class="kv">
+        <dt>Role</dt><dd class="inline"><span class="pill accent">Admin</span><a class="small" href="admin.html">Open Admin</a></dd>
+        <dt>Username</dt><dd class="inline"><span class="mono">ada</span><span class="xs faint">Can’t be changed. People use it to invite you.</span></dd>
+        <dt><label for="dn">Display name</label></dt><dd><input id="dn" class="input" value="Ada" style="max-width:280px"></dd>
+      </dl>
+      <div style="margin-top:16px;text-align:right"><button class="btn">Save</button></div>
+    </form>
+  </section>
+
+  <section aria-labelledby="pw-h">
+    <div class="section-head"><h2 id="pw-h">Password</h2></div>
+    <form class="card card-pad" action="settings.html" method="get" data-next="settings.html">
+      <dl class="kv">
+        <dt><label for="cp">Current</label></dt><dd><input id="cp" type="password" class="input" autocomplete="current-password" style="max-width:280px"></dd>
+        <dt><label for="np">New</label></dt><dd><input id="np" type="password" class="input" autocomplete="new-password" minlength="12" style="max-width:280px" data-strength="#np-bar"><div class="strength" hidden style="max-width:280px"><i id="np-bar"></i></div></dd>
+        <dt><label for="np2">Confirm new</label></dt><dd><input id="np2" type="password" class="input" autocomplete="new-password" style="max-width:280px"></dd>
+      </dl>
+      <div style="margin-top:16px;text-align:right"><button class="btn">Change password</button></div>
+    </form>
+  </section>
+
+  <section aria-labelledby="tfa-h">
+    <div class="section-head"><h2 id="tfa-h">Two-factor authentication</h2><span class="pill green"><span class="dot"></span>On</span></div>
+    <div class="card">
+      <div class="row"><span style="flex:1"><b class="small">Authenticator app</b><br><span class="xs muted">Added Oct 2, 2026</span></span><a class="btn sm" href="2fa-setup.html">Replace</a></div>
+      <div class="row" style="border-top:1px solid var(--border)"><span style="flex:1"><b class="small">Recovery codes</b><br><span class="xs muted">6 of 8 unused</span></span><a class="btn sm" href="2fa-codes.html">Regenerate</a></div>
+      <div class="row" style="border-top:1px solid var(--border)"><span style="flex:1"><b class="small">Turn off 2FA</b><br><span class="xs muted">Asks for your password and a current code</span></span><button class="btn sm danger" type="button">Turn off…</button></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="app-h">
+    <div class="section-head"><h2 id="app-h">Appearance</h2></div>
+    <div class="card card-pad">
+      <dl class="kv">
+        <dt>Theme</dt>
+        <dd><span class="seg" role="radiogroup" aria-label="Theme">
+          <input type="radio" name="theme" id="t-s" value="system" checked><label for="t-s">System</label>
+          <input type="radio" name="theme" id="t-l" value="light"><label for="t-l">Light</label>
+          <input type="radio" name="theme" id="t-d" value="dark"><label for="t-d">Dark</label>
+        </span></dd>
+      </dl>
+    </div>
+  </section>
+
+  <section aria-labelledby="cal-h">
+    <div class="section-head"><h2 id="cal-h">Working calendar</h2><span class="hint">Turns working-day estimates into dates</span></div>
+    <form class="card card-pad" action="settings.html" method="get" data-next="settings.html">
+      <dl class="kv">
+        <dt>Working days</dt>
+        <dd class="inline small">
+          <label><input type="checkbox" checked> Mon</label><label><input type="checkbox" checked> Tue</label><label><input type="checkbox" checked> Wed</label>
+          <label><input type="checkbox" checked> Thu</label><label><input type="checkbox" checked> Fri</label><label><input type="checkbox"> Sat</label><label><input type="checkbox"> Sun</label>
+        </dd>
+        <dt><label for="tz">Time zone</label></dt>
+        <dd><select id="tz" class="input" style="max-width:280px"><option>Europe/Lisbon (UTC+0)</option><option>America/New_York (UTC−5)</option><option>Asia/Tokyo (UTC+9)</option></select></dd>
+        <dt><label for="off">Days off</label></dt>
+        <dd><textarea id="off" class="input mono" rows="2" style="font-size:13px" placeholder="2026-12-24, 2026-12-25">2026-12-24, 2026-12-25, 2027-01-01</textarea></dd>
+      </dl>
+      <div style="margin-top:16px;text-align:right"><button class="btn">Save</button></div>
+    </form>
+  </section>
+
+  <section aria-labelledby="ses-h">
+    <div class="section-head"><h2 id="ses-h">Sessions</h2></div>
+    <ul class="list card">
+      <li class="row"><span style="flex:1"><b class="small">Firefox on Linux</b> <span class="pill green" style="margin-left:6px">This device</span><br><span class="xs muted">Active now</span></span></li>
+      <li class="row"><span style="flex:1"><b class="small">Safari on iPhone</b><br><span class="xs muted">Last active 2 days ago</span></span><button class="btn sm ghost" type="button">Sign out</button></li>
+      <li class="row"><span style="flex:1"></span><button class="btn sm" type="button">Sign out all other sessions</button></li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="del-h">
+    <div class="section-head"><h2 id="del-h">Delete account</h2></div>
+    <div class="card card-pad danger-zone inline" style="justify-content:space-between">
+      <p class="small muted" style="max-width:520px">Your goals and tasks aren’t deleted. You’ll see who takes over each one before you confirm.</p>
+      <a class="btn danger" href="account-delete.html">Delete account…</a>
+    </div>
+  </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mocks · fluxo</title>
+<script src="theme.js"></script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%203%2024%2018%22%3E%3Cpath%20d%3D%22M6.8%2018.5A5.2%205.2%200%200%201%2017.2%2018.5Z%22%20fill%3D%22%235b5bf7%22/%3E%3Cpath%20d%3D%22M5%2018.5L1.09%2017.06L1.09%2019.94ZM5.94%2015L3.27%2011.8L1.84%2014.29ZM8.5%2012.44L7.79%208.34L5.3%209.77ZM12%2011.5L13.44%207.59L10.56%207.59ZM15.5%2012.44L18.7%209.77L16.21%208.34ZM18.06%2015L22.16%2014.29L20.73%2011.8ZM19%2018.5L22.91%2019.94L22.91%2017.06Z%22%20fill%3D%22%235b5bf7%22%20stroke%3D%22%235b5bf7%22%20stroke-width%3D%22.8%22%20stroke-linejoin%3D%22round%22/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<main>
+  <div class="page-head" style="width:100%">
+    <div style="flex:1"><h1>fluxo mocks</h1><p class="sub">Round 2 · static HTML/CSS/JS · open any screen</p></div>
+    <button class="iconbtn" data-theme-toggle hidden aria-label="Toggle theme"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/></svg></button>
+  </div>
+
+  <section>
+    <div class="section-head"><h2>Core</h2></div>
+    <div class="list card">
+      <a class="screen-link" href="focus.html"><b>Focus</b><span class="small muted">Immediate work, invitations, updates</span><span class="file">focus.html</span></a>
+      <a class="screen-link" href="goals.html" style="border-top:1px solid var(--border)"><b>Goals</b><span class="small muted">Top-level goals, descending into sub-goals</span><span class="file">goals.html</span></a>
+      <a class="screen-link" href="goal.html" style="border-top:1px solid var(--border)"><b>Goal</b><span class="small muted">Goal set apart, forecast, path rising to it</span><span class="file">goal.html</span></a>
+      <a class="screen-link" href="goal-auth.html" style="border-top:1px solid var(--border)"><b>Sub-goal</b><span class="small muted">Descending one level: Accounts &amp; auth</span><span class="file">goal-auth.html</span></a>
+      <a class="screen-link" href="goal-new.html" style="border-top:1px solid var(--border)"><b>New goal</b><span class="small muted">Statement, why, where it belongs</span><span class="file">goal-new.html</span></a>
+      <a class="screen-link" href="node.html" style="border-top:1px solid var(--border)"><b>Task</b><span class="small muted">Estimate, clarity, connections, risks, people</span><span class="file">node.html</span></a>
+      <a class="screen-link" href="settings.html" style="border-top:1px solid var(--border)"><b>Settings</b><span class="small muted">Account, password, 2FA, theme, calendar, sessions</span><span class="file">settings.html</span></a>
+      <a class="screen-link" href="admin.html" style="border-top:1px solid var(--border)"><b>Admin</b><span class="small muted">Recovery codes, items without an owner, Admin roles</span><span class="file">admin.html</span></a>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><h2>Flows</h2></div>
+    <div class="list card">
+      <a class="screen-link" href="setup.html"><b>First-time setup</b><span class="small muted">first user → Admin → 2FA → recovery codes</span><span class="file">setup.html</span></a>
+      <a class="screen-link" href="signup.html" style="border-top:1px solid var(--border)"><b>Sign up</b><span class="small muted">signup → 2FA (optional) → recovery codes → Focus</span><span class="file">signup.html</span></a>
+      <a class="screen-link" href="login.html" style="border-top:1px solid var(--border)"><b>Sign in</b><span class="small muted">login → 2FA code (or own recovery code) → Focus</span><span class="file">login.html</span></a>
+      <a class="screen-link" href="locked.html" style="border-top:1px solid var(--border)"><b>Locked out</b><span class="small muted">Admin’s code → new password → set up 2FA again</span><span class="file">locked.html</span></a>
+      <a class="screen-link" href="invite.html" style="border-top:1px solid var(--border)"><b>Accept invitation</b><span class="small muted">Focus → review → accept / decline</span><span class="file">invite.html</span></a>
+      <a class="screen-link" href="transfer.html" style="border-top:1px solid var(--border)"><b>Accept ownership</b><span class="small muted">Focus → review transfer → accept / decline</span><span class="file">transfer.html</span></a>
+      <a class="screen-link" href="account-delete.html" style="border-top:1px solid var(--border)"><b>Delete account</b><span class="small muted">Preview who takes over each item → confirm</span><span class="file">account-delete.html</span></a>
+    </div>
+  </section>
+
+  <p class="mock-note">Every screen works with JavaScript off (try it). JS adds the graph layout, filters, live risk sliders, OTP boxes, theme toggle and the shortcuts <span class="mono">g f</span> / <span class="mono">g g</span> / <span class="mono">g s</span>.</p>
+</main>
+</body>
+</html>
