@@ -19,7 +19,14 @@ async fn goal(app: &App, c: &str, title: &str, coverage: &str, parent: Option<i6
 async fn task(app: &App, c: &str, goal: i64, title: &str, days: &str, clarity: &str, needs: Option<i64>) -> i64 {
     let t = token(app, c, &format!("/goals/{goal}")).await;
     let n = needs.map(|n| n.to_string()).unwrap_or_default();
-    send(app, "POST", &format!("/goals/{goal}/steps"), Some(c), Some(&format!("csrf={t}&title={}&kind=task&estimate={days}&clarity={clarity}&needs={n}", enc(title)))).await;
+    send(
+        app,
+        "POST",
+        &format!("/goals/{goal}/steps"),
+        Some(c),
+        Some(&format!("csrf={t}&title={}&kind=task&estimate={days}&clarity={clarity}&needs={n}", enc(title))),
+    )
+    .await;
     sqlx::query_scalar("SELECT MAX(id) FROM nodes").fetch_one(&app.db).await.unwrap()
 }
 
@@ -47,7 +54,14 @@ async fn ranks_by_expected_delay_removed() {
     let long = task(&app, &c, g, "Long and fuzzy", "10", "low", None).await;
     task(&app, &c, g, "Short and clear", "1", "high", None).await;
     let t = token(&app, &c, &format!("/tasks/{long}")).await;
-    send(&app, "POST", &format!("/nodes/{long}/risks"), Some(&c), Some(&format!("csrf={t}&title=Vendor+slip&likelihood=50&min=4&max=8"))).await;
+    send(
+        &app,
+        "POST",
+        &format!("/nodes/{long}/risks"),
+        Some(&c),
+        Some(&format!("csrf={t}&title=Vendor+slip&likelihood=50&min=4&max=8")),
+    )
+    .await;
 
     let r = send(&app, "GET", "/", Some(&c), None).await;
     let items = ranked(&r.body);
@@ -56,7 +70,9 @@ async fn ranks_by_expected_delay_removed() {
     assert_eq!(titles[..2], ["Vendor slip", "Long and fuzzy"], "{items:?}");
     assert_eq!(*titles.last().unwrap(), "Short and clear", "off the critical path, little to gain");
     assert!(items.iter().all(|(_, g)| g.starts_with('−')), "top items are exact rechecks, no ~: {items:?}");
-    let gain = |name: &str| -> f64 { items.iter().find(|(t, _)| t == name).unwrap().1.trim_start_matches('−').trim_end_matches('d').parse().unwrap() };
+    let gain = |name: &str| -> f64 {
+        items.iter().find(|(t, _)| t == name).unwrap().1.trim_start_matches('−').trim_end_matches('d').parse().unwrap()
+    };
     // A 50% risk of 4–8 days on a task that's always critical removes about 3 days.
     assert!((gain("Vendor slip") - 3.0).abs() < 0.6, "{}", gain("Vendor slip"));
     assert!(gain("Long and fuzzy") > 1.0);
@@ -84,19 +100,28 @@ async fn blocked_work_starting_and_snoozing() {
 
     let t = csrf(&r.body);
     send(&app, "POST", &format!("/tasks/{first}/start"), Some(&c), Some(&format!("csrf={t}"))).await;
-    let status: String = sqlx::query_scalar("SELECT status FROM nodes WHERE id = ?").bind(first).fetch_one(&app.db).await.unwrap();
+    let status: String =
+        sqlx::query_scalar("SELECT status FROM nodes WHERE id = ?").bind(first).fetch_one(&app.db).await.unwrap();
     assert_eq!(status, "doing");
 
     send(&app, "POST", "/focus/snooze", Some(&c), Some(&format!("csrf={t}&item=task:{second}"))).await;
-    let titles: Vec<String> = ranked(&send(&app, "GET", "/", Some(&c), None).await.body).into_iter().map(|(t, _)| t).collect();
+    let titles: Vec<String> =
+        ranked(&send(&app, "GET", "/", Some(&c), None).await.body).into_iter().map(|(t, _)| t).collect();
     assert!(!titles.contains(&"API".to_string()), "snoozed until tomorrow");
 
     // Someone who can only read sees nothing to do; a Contributor sees it all, snooze is personal.
     let kofi = sign_in(&app, "kofi", None).await;
     assert!(ranked(&send(&app, "GET", "/", Some(&kofi), None).await.body).is_empty());
-    let kofi_id: i64 = sqlx::query_scalar("SELECT id FROM users WHERE username = 'kofi'").fetch_one(&app.db).await.unwrap();
-    sqlx::query("INSERT INTO memberships (node_id, user_id, role, invited_at) VALUES (?, ?, 'contributor', 0)").bind(g).bind(kofi_id).execute(&app.db).await.unwrap();
-    let titles: Vec<String> = ranked(&send(&app, "GET", "/", Some(&kofi), None).await.body).into_iter().map(|(t, _)| t).collect();
+    let kofi_id: i64 =
+        sqlx::query_scalar("SELECT id FROM users WHERE username = 'kofi'").fetch_one(&app.db).await.unwrap();
+    sqlx::query("INSERT INTO memberships (node_id, user_id, role, invited_at) VALUES (?, ?, 'contributor', 0)")
+        .bind(g)
+        .bind(kofi_id)
+        .execute(&app.db)
+        .await
+        .unwrap();
+    let titles: Vec<String> =
+        ranked(&send(&app, "GET", "/", Some(&kofi), None).await.body).into_iter().map(|(t, _)| t).collect();
     assert!(titles.contains(&"API".to_string()));
 }
 

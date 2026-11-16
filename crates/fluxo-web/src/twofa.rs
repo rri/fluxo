@@ -66,9 +66,10 @@ fn label(user_id: i64) -> String {
 
 /// Check a code for a user with 2FA on, and claim its time step so it can't be used again.
 pub(crate) async fn accept_code(app: &AppState, user_id: i64, code: &str) -> Result<bool> {
-    let u = sqlx::query!("SELECT totp_secret_enc, totp_last_step FROM users WHERE id = ? AND totp_enabled = 1", user_id)
-        .fetch_optional(&app.db)
-        .await?;
+    let u =
+        sqlx::query!("SELECT totp_secret_enc, totp_last_step FROM users WHERE id = ? AND totp_enabled = 1", user_id)
+            .fetch_optional(&app.db)
+            .await?;
     let Some(u) = u else { return Ok(false) };
     let secret = app.secrets.open(&label(user_id), &u.totp_secret_enc.ok_or("2FA is on but no secret is stored")?)?;
     let Some(step) = auth::totp::check(&secret, code, now() as u64, u.totp_last_step.map(|x| x as u64)) else {
@@ -125,8 +126,9 @@ async fn new_codes(app: &AppState, user_id: i64) -> Result<Vec<String>> {
         })
         .collect();
     let to_hash = codes.clone();
-    let hashes = tokio::task::spawn_blocking(move || to_hash.iter().map(|c| auth::password::hash(c)).collect::<Vec<_>>())
-        .await?;
+    let hashes =
+        tokio::task::spawn_blocking(move || to_hash.iter().map(|c| auth::password::hash(c)).collect::<Vec<_>>())
+            .await?;
     let t = now();
     let mut tx = app.db.begin().await?;
     sqlx::query!("DELETE FROM recovery_codes WHERE user_id = ?", user_id).execute(&mut *tx).await?;
@@ -141,13 +143,7 @@ async fn new_codes(app: &AppState, user_id: i64) -> Result<Vec<String>> {
 
 fn codes_page(theme: &str, codes: Vec<String>, first: bool) -> Result<Response> {
     let codes_text = codes.join("\n");
-    page(CodesPage {
-        theme,
-        codes,
-        codes_text,
-        continue_to: if first { "/" } else { "/settings#tfa-h" },
-        first,
-    })
+    page(CodesPage { theme, codes, codes_text, continue_to: if first { "/" } else { "/settings#tfa-h" }, first })
 }
 
 pub async fn setup_page(State(app): State<Shared>, jar: CookieJar, Query(q): Query<FirstQuery>) -> Result<Response> {
@@ -226,7 +222,11 @@ pub async fn setup_submit(State(app): State<Shared>, jar: CookieJar, Form(f): Fo
     codes_page(&ctx.theme, codes, first)
 }
 
-pub async fn regenerate_codes(State(app): State<Shared>, jar: CookieJar, Form(f): Form<PasswordForm>) -> Result<Response> {
+pub async fn regenerate_codes(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    Form(f): Form<PasswordForm>,
+) -> Result<Response> {
     let ctx = match require_user(&app, &jar).await? {
         Ok(c) => c,
         Err(r) => return Ok(r),
@@ -252,9 +252,8 @@ pub async fn turn_off(State(app): State<Shared>, jar: CookieJar, Form(f): Form<O
     if !ctx.csrf_ok(&f.csrf) {
         return Ok(forbidden());
     }
-    let hash = sqlx::query_scalar!("SELECT password_hash FROM users WHERE id = ?", ctx.user_id)
-        .fetch_one(&app.db)
-        .await?;
+    let hash =
+        sqlx::query_scalar!("SELECT password_hash FROM users WHERE id = ?", ctx.user_id).fetch_one(&app.db).await?;
     if !auth::password::verify(&f.password, &hash) || !accept_code(&app, ctx.user_id, &f.code).await? {
         return Ok(Redirect::to("/settings?error=2fa-off#tfa-h").into_response());
     }

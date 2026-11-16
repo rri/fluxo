@@ -7,6 +7,7 @@
 <form class="card card-pad" method="post" action="{{ action }}">
   {% if let Some(error) = error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
   <input type="hidden" name="csrf" value="{{ csrf }}">
+  {% if first_admin %}<input type="hidden" name="setup_token" value="{{ setup_token }}">{% endif %}
   <div class="field"><label for="u">Username</label>
     <input id="u" name="username" class="input" value="{{ username }}" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="3" maxlength="32" required>
     <span class="help">3–32 characters: lowercase letters, numbers, dots, hyphens and underscores. It can’t be changed later, and it’s how people invite you.</span></div>

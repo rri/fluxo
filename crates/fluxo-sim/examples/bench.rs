@@ -11,7 +11,10 @@ fn main() {
     let sizes: Vec<usize> = std::env::args().skip(1).filter_map(|a| a.parse().ok()).collect();
     let sizes = if sizes.is_empty() { vec![500, 2_000, 5_000] } else { sizes };
     println!("threads available: {}", rayon::current_num_threads());
-    println!("{:>6} {:>7} {:>10} {:>11} {:>10} {:>8} {:>8}", "nodes", "links", "compile", "1 thread", "parallel", "P50 d", "P85 d");
+    println!(
+        "{:>6} {:>7} {:>10} {:>11} {:>10} {:>8} {:>8}",
+        "nodes", "links", "compile", "1 thread", "parallel", "P50 d", "P85 d"
+    );
     for n in sizes {
         let m = synth::goal_tree(synth::Shape { nodes: n, ..Default::default() }, 1);
         let links: usize = m.nodes.iter().map(|x| x.parents.len() + x.needs.len()).sum();

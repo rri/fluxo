@@ -107,7 +107,11 @@ impl Model {
                     // PERT: Beta with shape parameters placing the mode at the likely estimate.
                     let alpha = 1.0 + 4.0 * (mode - low) / width;
                     let beta = 1.0 + 4.0 * (high - mode) / width;
-                    Ok(Work::Pert { low, width, beta: Beta::new(alpha, beta).expect("PERT shape parameters are positive") })
+                    Ok(Work::Pert {
+                        low,
+                        width,
+                        beta: Beta::new(alpha, beta).expect("PERT shape parameters are positive"),
+                    })
                 }
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -174,7 +178,7 @@ pub struct Settings {
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { runs: 10_000, seed: 0x5eed_f10, parallel: true }
+        Settings { runs: 10_000, seed: 0x05ee_df10, parallel: true }
     }
 }
 
@@ -336,8 +340,11 @@ impl Compiled {
                             }
                         }
                         s.finish_src[i] = src;
-                        let unknown =
-                            if *unknown_share > 0.0 { (known - start) * unknown_share * rng.random::<f64>() } else { 0.0 };
+                        let unknown = if *unknown_share > 0.0 {
+                            (known - start) * unknown_share * rng.random::<f64>()
+                        } else {
+                            0.0
+                        };
                         known + unknown
                     }
                 };

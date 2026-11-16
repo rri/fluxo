@@ -4,7 +4,7 @@
 use std::sync::atomic::Ordering;
 
 use askama::Template;
-use axum::extract::{Form, Path, State};
+use axum::extract::{Form, Path, Query, State};
 use axum::http::HeaderMap;
 use axum::response::{IntoResponse, Redirect, Response};
 use axum_extra::extract::cookie::CookieJar;
@@ -18,6 +18,7 @@ use crate::{AppState, Result, Shared, auth, forbidden, now, page, user_agent};
 #[template(path = "signup.html")]
 struct SignupPage<'a> {
     theme: &'a str,
+    setup_token: &'a str,
     csrf: &'a str,
     action: &'a str,
     heading: &'a str,
@@ -37,8 +38,15 @@ struct MessagePage<'a> {
 }
 
 #[derive(Deserialize)]
+pub struct SetupQuery {
+    token: Option<String>,
+}
+
+#[derive(Deserialize)]
 pub struct SignupForm {
     csrf: String,
+    #[serde(default)]
+    setup_token: String,
     username: String,
     password: String,
     confirm: String,
@@ -47,7 +55,8 @@ pub struct SignupForm {
 const SETUP_LEDE: &str = "You’re the first person here, so this account becomes the Administrator.";
 const SIGNUP_LEDE: &str = "Get to the critical path faster.";
 const NOT_OPEN: &str = "Sign-up isn’t open on this fluxo. Ask an Administrator for an invitation link.";
-const BAD_INVITE: &str = "This invitation link has expired, was revoked, or was already used. Ask an Administrator for a new one.";
+const BAD_INVITE: &str =
+    "This invitation link has expired, was revoked, or was already used. Ask an Administrator for a new one.";
 
 pub(crate) fn token_hash(token: &str) -> Vec<u8> {
     Sha256::digest(token.as_bytes()).to_vec()
@@ -110,14 +119,21 @@ async fn hash_password(password: String) -> Result<String> {
 
 /// Sign the new account in and send it on to (optional) 2FA setup.
 async fn welcome(app: &AppState, jar: CookieJar, old: &Session, user_id: i64, headers: &HeaderMap) -> Result<Response> {
-    let (_, jar) = session::advance(&app.db, jar, old, user_id, Stage::SignedIn, &user_agent(headers), app.secure_cookies)
-        .await?;
+    let (_, jar) =
+        session::advance(&app.db, jar, old, user_id, Stage::SignedIn, &user_agent(headers), app.secure_cookies).await?;
     Ok((jar, Redirect::to("/settings/2fa/setup?first=1")).into_response())
 }
 
-fn form<'a>(csrf: &'a str, action: &'a str, first_admin: bool, username: &'a str, error: Option<&'a str>) -> SignupPage<'a> {
+fn form<'a>(
+    csrf: &'a str,
+    action: &'a str,
+    first_admin: bool,
+    username: &'a str,
+    error: Option<&'a str>,
+) -> SignupPage<'a> {
     SignupPage {
         theme: "system",
+        setup_token: "",
         csrf,
         action,
         heading: if first_admin { "Set up fluxo" } else { "Create your account" },
@@ -139,12 +155,24 @@ async fn setup_finished(app: &AppState) -> Result<bool> {
     Ok(sqlx::query_scalar!("SELECT setup_completed_at FROM instance WHERE id = 1").fetch_one(&app.db).await?.is_some())
 }
 
-pub async fn setup_page(State(app): State<Shared>, jar: CookieJar, headers: HeaderMap) -> Result<Response> {
+const NEED_LINK: &str = "This fluxo isn’t set up yet. Open the setup link from the server’s log (for example: journalctl -u fluxo | grep setup) to create the Administrator account.";
+
+pub async fn setup_page(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    headers: HeaderMap,
+    Query(q): Query<SetupQuery>,
+) -> Result<Response> {
     if setup_finished(&app).await? {
         return Ok(Redirect::to("/login").into_response());
     }
+    let token = q.token.unwrap_or_default();
+    if !session::token_matches(&app.setup_token, &token) {
+        return message("Set up fluxo", NEED_LINK);
+    }
     let (s, jar) = anonymous(&app, jar, &headers).await?;
-    Ok((jar, page(form(&s.csrf_token, "/setup", true, "", None))?).into_response())
+    Ok((jar, page(SignupPage { setup_token: &token, ..form(&s.csrf_token, "/setup", true, "", None) })?)
+        .into_response())
 }
 
 pub async fn setup_submit(
@@ -154,21 +182,28 @@ pub async fn setup_submit(
     Form(f): Form<SignupForm>,
 ) -> Result<Response> {
     let Some(s) = session::load(&app.db, &jar).await? else { return Ok(Redirect::to("/setup").into_response()) };
-    if !session::token_matches(&s.csrf_token, &f.csrf) {
+    if !session::token_matches(&s.csrf_token, &f.csrf) || !session::token_matches(&app.setup_token, &f.setup_token) {
         return Ok(forbidden());
     }
     let username = match validate(&f) {
         Ok(u) => u,
-        Err(e) => return page(form(&s.csrf_token, "/setup", true, f.username.trim(), Some(e))),
+        Err(e) => {
+            let tok = f.setup_token.clone();
+            return page(SignupPage {
+                setup_token: &tok,
+                ..form(&s.csrf_token, "/setup", true, f.username.trim(), Some(e))
+            });
+        }
     };
     let hash = hash_password(f.password.clone()).await?;
     let mut tx = app.db.begin().await?;
     // Only the very first account becomes the Administrator this way, even if two people race.
     let t = now();
-    let claimed = sqlx::query!("UPDATE instance SET setup_completed_at = ? WHERE id = 1 AND setup_completed_at IS NULL", t)
-        .execute(&mut *tx)
-        .await?
-        .rows_affected();
+    let claimed =
+        sqlx::query!("UPDATE instance SET setup_completed_at = ? WHERE id = 1 AND setup_completed_at IS NULL", t)
+            .execute(&mut *tx)
+            .await?
+            .rows_affected();
     if claimed != 1 {
         return Ok(Redirect::to("/login").into_response());
     }

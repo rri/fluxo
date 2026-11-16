@@ -9,8 +9,8 @@ token() { curl -s -c "$J" -b "$J" "$B$1" | grep -o 'name="csrf" value="[^"]*"' |
 post() { curl -s -o /dev/null -w '%{redirect_url}' -c "$J" -b "$J" --data "$2" "$B$1"; }
 id_of() { sed 's|.*/||; s|#.*||; s|?.*||'; }
 
-T=$(token /setup)
-post /setup "csrf=$T&username=ada&password=a+long+enough+password&confirm=a+long+enough+password" >/dev/null
+T=$(token "/setup?token=${SETUP_TOKEN:?set SETUP_TOKEN to the server's setup token}")
+post /setup "csrf=$T&setup_token=$SETUP_TOKEN&username=ada&password=a+long+enough+password&confirm=a+long+enough+password" >/dev/null
 T=$(token /goals/new)
 G=$(post /goals "csrf=$T&title=Launch+fluxo.dev+beta&why=Invite+the+first+50+teams+to+plan+real+goals+on+fluxo.dev.&parent=" | id_of)
 

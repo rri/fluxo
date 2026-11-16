@@ -18,7 +18,7 @@ use crate::store::{Id, World};
 use crate::{AppState, Result, now};
 
 pub const RUNS: usize = 10_000;
-const SEED: u64 = 0xF1_0C5E;
+const SEED: u64 = 0x00F1_0C5E;
 const BINS: usize = 44;
 /// "Most likely critical path": critical in at least this share of runs (decided 2026-11-16).
 pub const PATH_THRESHOLD: f32 = 0.5;
@@ -214,13 +214,8 @@ pub async fn current(app: &AppState, world: &World) -> Result<Arc<Forecasts>> {
         .map(|g| {
             let id = by_index[&g.goal];
             let (bins, max) = histogram(&g.finishes);
-            let criticality = g
-                .criticality
-                .iter()
-                .enumerate()
-                .filter(|(_, c)| **c > 0.0)
-                .map(|(i, c)| (by_index[&i], *c))
-                .collect();
+            let criticality =
+                g.criticality.iter().enumerate().filter(|(_, c)| **c > 0.0).map(|(i, c)| (by_index[&i], *c)).collect();
             (id, NodeForecast { p50: g.percentile(0.5), p85: g.percentile(0.85), bins, max, criticality })
         })
         .collect();

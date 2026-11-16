@@ -25,7 +25,7 @@ export default defineConfig({
   })),
   webServer: servers.map((s) => ({
     command:
-      `sh -c 'D=$(mktemp -d) && FLUXO_DATA_DIR=$D FLUXO_ADDR=127.0.0.1:${s.port} ` +
+      `sh -c 'D=$(mktemp -d) && FLUXO_DATA_DIR=$D FLUXO_LISTEN=127.0.0.1:${s.port} FLUXO_SETUP_TOKEN=browser-test-setup ` +
       `FLUXO_SECURE_COOKIES=false RUST_LOG=warn exec ../../target/debug/fluxo'`,
     url: `http://127.0.0.1:${s.port}/static/styles.css`,
     reuseExistingServer: false,

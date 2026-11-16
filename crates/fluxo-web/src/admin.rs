@@ -65,12 +65,13 @@ pub async fn unowned(db: &SqlitePool, world: &World) -> Result<Vec<UnownedRow>> 
         .into_iter()
         .map(|r| (r.node_id, r.to_user))
         .collect();
-    let extra: HashMap<Id, (Option<i64>, Option<i64>)> = sqlx::query!("SELECT id AS \"id!\", previous_owner_id, unowned_since FROM nodes WHERE owner_id IS NULL")
-        .fetch_all(db)
-        .await?
-        .into_iter()
-        .map(|r| (r.id, (r.previous_owner_id, r.unowned_since)))
-        .collect();
+    let extra: HashMap<Id, (Option<i64>, Option<i64>)> =
+        sqlx::query!("SELECT id AS \"id!\", previous_owner_id, unowned_since FROM nodes WHERE owner_id IS NULL")
+            .fetch_all(db)
+            .await?
+            .into_iter()
+            .map(|r| (r.id, (r.previous_owner_id, r.unowned_since)))
+            .collect();
     let mut rows: Vec<UnownedRow> = world
         .nodes
         .values()
@@ -82,7 +83,11 @@ pub async fn unowned(db: &SqlitePool, world: &World) -> Result<Vec<UnownedRow>> 
                 title: n.title.clone(),
                 kind: if n.is_goal() { "Goal" } else { "Task" },
                 was: prev.and_then(|p| names.get(&p).cloned()).unwrap_or_else(|| "unknown".into()),
-                home: n.home_parent_id.and_then(|h| world.nodes.get(&h)).map(|h| h.title.clone()).unwrap_or_else(|| "Top-level".into()),
+                home: n
+                    .home_parent_id
+                    .and_then(|h| world.nodes.get(&h))
+                    .map(|h| h.title.clone())
+                    .unwrap_or_else(|| "Top-level".into()),
                 since: since.map(date).unwrap_or_default(),
                 pending_to: pending.get(&n.id).and_then(|u| names.get(u).cloned()).unwrap_or_default(),
             }
@@ -93,7 +98,9 @@ pub async fn unowned(db: &SqlitePool, world: &World) -> Result<Vec<UnownedRow>> 
 }
 
 async fn admin_count(db: &SqlitePool) -> Result<i64> {
-    Ok(sqlx::query_scalar!("SELECT COUNT(*) FROM users WHERE is_administrator = 1 AND deleted_at IS NULL").fetch_one(db).await?)
+    Ok(sqlx::query_scalar!("SELECT COUNT(*) FROM users WHERE is_administrator = 1 AND deleted_at IS NULL")
+        .fetch_one(db)
+        .await?)
 }
 
 fn back(query: &str, anchor: &str) -> Response {
@@ -129,7 +136,9 @@ pub async fn set_role(State(app): State<Shared>, jar: CookieJar, Form(f): Form<R
         return Ok(back("error=last-admin", "roles-h"));
     }
     let v = make as i64;
-    sqlx::query!("UPDATE users SET is_administrator = ? WHERE id = ? AND deleted_at IS NULL", v, f.user).execute(&app.db).await?;
+    sqlx::query!("UPDATE users SET is_administrator = ? WHERE id = ? AND deleted_at IS NULL", v, f.user)
+        .execute(&app.db)
+        .await?;
     tracing::info!(by = ctx.user_id, user = f.user, administrator = make, "Administrator role changed");
     Ok(back(if make { "done=admin-added" } else { "done=admin-removed" }, "roles-h"))
 }
@@ -147,21 +156,29 @@ pub async fn assign(State(app): State<Shared>, jar: CookieJar, Form(f): Form<Ass
         return Ok(r);
     }
     let name = f.username.trim().to_lowercase();
-    let Some(to) = sqlx::query_scalar!(r#"SELECT id AS "id!" FROM users WHERE username = ? AND deleted_at IS NULL"#, name)
-        .fetch_optional(&app.db)
-        .await?
+    let Some(to) =
+        sqlx::query_scalar!(r#"SELECT id AS "id!" FROM users WHERE username = ? AND deleted_at IS NULL"#, name)
+            .fetch_optional(&app.db)
+            .await?
     else {
         return Ok(back("error=no-user", "unowned-h"));
     };
-    let unowned = sqlx::query_scalar!("SELECT COUNT(*) FROM nodes WHERE id = ? AND owner_id IS NULL", f.node).fetch_one(&app.db).await? == 1;
+    let unowned = sqlx::query_scalar!("SELECT COUNT(*) FROM nodes WHERE id = ? AND owner_id IS NULL", f.node)
+        .fetch_one(&app.db)
+        .await?
+        == 1;
     if !unowned {
         return Ok(back("", "unowned-h"));
     }
     let t = now();
     let mut tx = app.db.begin().await?;
-    sqlx::query!("UPDATE transfers SET status = 'cancelled', resolved_at = ? WHERE node_id = ? AND status = 'pending'", t, f.node)
-        .execute(&mut *tx)
-        .await?;
+    sqlx::query!(
+        "UPDATE transfers SET status = 'cancelled', resolved_at = ? WHERE node_id = ? AND status = 'pending'",
+        t,
+        f.node
+    )
+    .execute(&mut *tx)
+    .await?;
     sqlx::query!(
         "INSERT INTO transfers (node_id, from_user, to_user, note, created_at) VALUES (?, NULL, ?, 'An Administrator is assigning this to you because it has no owner.', ?)",
         f.node,
@@ -189,7 +206,11 @@ pub struct HandoverRow {
 pub async fn handover(db: &SqlitePool, world: &World, me: Id) -> Result<Vec<HandoverRow>> {
     let names = store::usernames(db).await?;
     let deleted: std::collections::HashSet<Id> =
-        sqlx::query_scalar!(r#"SELECT id AS "id!" FROM users WHERE deleted_at IS NOT NULL"#).fetch_all(db).await?.into_iter().collect();
+        sqlx::query_scalar!(r#"SELECT id AS "id!" FROM users WHERE deleted_at IS NOT NULL"#)
+            .fetch_all(db)
+            .await?
+            .into_iter()
+            .collect();
     let contributors: Vec<(Id, Id, i64)> = sqlx::query!(
         "SELECT node_id, user_id, COALESCE(joined_at, invited_at) AS since FROM memberships WHERE role = 'contributor' AND status = 'active' ORDER BY since"
     )
@@ -203,9 +224,15 @@ pub async fn handover(db: &SqlitePool, world: &World, me: Id) -> Result<Vec<Hand
     Ok(owned
         .into_iter()
         .map(|n| {
-            let up = world.home_chain(n.id).into_iter().rev().find_map(|a| a.owner_id.filter(|o| *o != me && !deleted.contains(o)).map(|o| (o, a.title.clone())));
+            let up =
+                world.home_chain(n.id).into_iter().rev().find_map(|a| {
+                    a.owner_id.filter(|o| *o != me && !deleted.contains(o)).map(|o| (o, a.title.clone()))
+                });
             let (suggested, reason) = if let Some((o, above)) = up {
-                (Some(o), format!("{} owns {above}, the nearest goal above it.", names.get(&o).cloned().unwrap_or_default()))
+                (
+                    Some(o),
+                    format!("{} owns {above}, the nearest goal above it.", names.get(&o).cloned().unwrap_or_default()),
+                )
             } else if let Some((_, u, _)) = {
                 // Contributors on the item or on any goal above it (roles carry down), longest-standing first.
                 let mut above = std::collections::HashSet::from([n.id]);
@@ -219,11 +246,23 @@ pub async fn handover(db: &SqlitePool, world: &World, me: Id) -> Result<Vec<Hand
                 }
                 contributors.iter().find(|(node, u, _)| above.contains(node) && *u != me && !deleted.contains(u))
             } {
-                (Some(*u), format!("No one else owns a goal above it; {} is its longest-standing Contributor.", names.get(u).cloned().unwrap_or_default()))
+                (
+                    Some(*u),
+                    format!(
+                        "No one else owns a goal above it; {} is its longest-standing Contributor.",
+                        names.get(u).cloned().unwrap_or_default()
+                    ),
+                )
             } else {
                 (None, "No one else owns a goal above it, and it has no Contributors.".into())
             };
-            HandoverRow { id: n.id, title: n.title.clone(), kind: if n.is_goal() { "goal" } else { "task" }, suggested, reason }
+            HandoverRow {
+                id: n.id,
+                title: n.title.clone(),
+                kind: if n.is_goal() { "goal" } else { "task" },
+                suggested,
+                reason,
+            }
         })
         .collect())
 }
@@ -246,12 +285,15 @@ struct DeletePage<'a> {
 
 async fn delete_page_for(app: &crate::AppState, ctx: &Ctx, error: Option<&'static str>) -> Result<Response> {
     let world = World::load(&app.db).await?;
-    let people = sqlx::query!(r#"SELECT id AS "id!", username FROM users WHERE deleted_at IS NULL AND id != ? ORDER BY username"#, ctx.user_id)
-        .fetch_all(&app.db)
-        .await?
-        .into_iter()
-        .map(|r| (r.id, r.username))
-        .collect();
+    let people = sqlx::query!(
+        r#"SELECT id AS "id!", username FROM users WHERE deleted_at IS NULL AND id != ? ORDER BY username"#,
+        ctx.user_id
+    )
+    .fetch_all(&app.db)
+    .await?
+    .into_iter()
+    .map(|r| (r.id, r.username))
+    .collect();
     page(DeletePage {
         theme: &ctx.theme,
         nav: "settings",
@@ -276,7 +318,11 @@ pub async fn delete_page(State(app): State<Shared>, jar: CookieJar) -> Result<Re
 }
 
 /// The form: `csrf`, `confirm` (username), `password`, and `to_<id>` = user id or "admins".
-pub async fn delete_submit(State(app): State<Shared>, jar: CookieJar, Form(f): Form<HashMap<String, String>>) -> Result<Response> {
+pub async fn delete_submit(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    Form(f): Form<HashMap<String, String>>,
+) -> Result<Response> {
     let ctx = match require_user(&app, &jar).await? {
         Ok(c) => c,
         Err(r) => return Ok(r),
@@ -285,18 +331,28 @@ pub async fn delete_submit(State(app): State<Shared>, jar: CookieJar, Form(f): F
         return Ok(forbidden());
     }
     if ctx.is_admin && admin_count(&app.db).await? <= 1 {
-        return delete_page_for(&app, &ctx, Some("You’re the only Administrator. Make someone else an Administrator first.")).await;
+        return delete_page_for(
+            &app,
+            &ctx,
+            Some("You’re the only Administrator. Make someone else an Administrator first."),
+        )
+        .await;
     }
     if f.get("confirm").map(|s| s.trim().to_lowercase()) != Some(ctx.username.clone()) {
         return delete_page_for(&app, &ctx, Some("Type your username exactly to confirm.")).await;
     }
-    let hash = sqlx::query_scalar!("SELECT password_hash FROM users WHERE id = ?", ctx.user_id).fetch_one(&app.db).await?;
+    let hash =
+        sqlx::query_scalar!("SELECT password_hash FROM users WHERE id = ?", ctx.user_id).fetch_one(&app.db).await?;
     if !auth::password::verify(f.get("password").map(String::as_str).unwrap_or(""), &hash) {
         return delete_page_for(&app, &ctx, Some("That password isn’t right.")).await;
     }
     let world = World::load(&app.db).await?;
     let live: std::collections::HashSet<Id> =
-        sqlx::query_scalar!(r#"SELECT id AS "id!" FROM users WHERE deleted_at IS NULL"#).fetch_all(&app.db).await?.into_iter().collect();
+        sqlx::query_scalar!(r#"SELECT id AS "id!" FROM users WHERE deleted_at IS NULL"#)
+            .fetch_all(&app.db)
+            .await?
+            .into_iter()
+            .collect();
     let rows = handover(&app.db, &world, ctx.user_id).await?;
     let (me, t) = (ctx.user_id, now());
     let mut tx = app.db.begin().await?;
@@ -307,17 +363,35 @@ pub async fn delete_submit(State(app): State<Shared>, jar: CookieJar, Form(f): F
             Some(v) => v.parse::<Id>().ok().filter(|u| *u != me && live.contains(u)).or(row.suggested),
             None => row.suggested,
         };
-        sqlx::query!("UPDATE nodes SET owner_id = NULL, previous_owner_id = ?, unowned_since = ? WHERE id = ?", me, t, row.id)
-            .execute(&mut *tx)
-            .await?;
+        sqlx::query!(
+            "UPDATE nodes SET owner_id = NULL, previous_owner_id = ?, unowned_since = ? WHERE id = ?",
+            me,
+            t,
+            row.id
+        )
+        .execute(&mut *tx)
+        .await?;
         if let Some(to) = choice {
             let note = format!("{} deleted their account and asked you to take this over.", ctx.username);
-            sqlx::query!("INSERT INTO transfers (node_id, from_user, to_user, note, created_at) VALUES (?, ?, ?, ?, ?)", row.id, me, to, note, t)
-                .execute(&mut *tx)
-                .await?;
+            sqlx::query!(
+                "INSERT INTO transfers (node_id, from_user, to_user, note, created_at) VALUES (?, ?, ?, ?, ?)",
+                row.id,
+                me,
+                to,
+                note,
+                t
+            )
+            .execute(&mut *tx)
+            .await?;
         }
     }
-    sqlx::query!("UPDATE transfers SET status = 'cancelled', resolved_at = ? WHERE to_user = ? AND status = 'pending'", t, me).execute(&mut *tx).await?;
+    sqlx::query!(
+        "UPDATE transfers SET status = 'cancelled', resolved_at = ? WHERE to_user = ? AND status = 'pending'",
+        t,
+        me
+    )
+    .execute(&mut *tx)
+    .await?;
     sqlx::query!("DELETE FROM memberships WHERE user_id = ?", me).execute(&mut *tx).await?;
     sqlx::query!("DELETE FROM recovery_codes WHERE user_id = ?", me).execute(&mut *tx).await?;
     sqlx::query!("DELETE FROM focus_snoozes WHERE user_id = ?", me).execute(&mut *tx).await?;

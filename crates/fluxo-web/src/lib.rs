@@ -4,13 +4,15 @@
 //! page), so the app works without JavaScript; `static/app.js` only enhances.
 
 pub mod auth;
+pub mod backup;
 pub mod forecast;
-pub mod slips;
 pub mod session;
+pub mod slips;
 pub mod util;
 
 mod account;
 mod admin;
+mod export;
 mod focus;
 mod goals;
 mod nodes;
@@ -21,6 +23,7 @@ mod settings;
 mod signin;
 mod store;
 mod tasks;
+mod throttle;
 mod twofa;
 mod updates;
 mod views;
@@ -57,11 +60,33 @@ pub struct AppState {
     pub forecasts: std::sync::Mutex<Option<Arc<forecast::Forecasts>>>,
     /// Focus rechecks ("what if this were resolved"), keyed by forecast fingerprint.
     pub rechecks: std::sync::Mutex<ranking::RecheckCache>,
+    /// Where people reach fluxo, e.g. `https://fluxo.dev`, for links (else the request's Host).
+    pub public_url: Option<String>,
+    /// Proxies (Caddy) whose X-Forwarded-For names the real visitor.
+    pub trusted_proxies: Vec<std::net::IpAddr>,
+    /// Needed in the /setup link until the first Administrator exists (printed to the log).
+    pub setup_token: String,
 }
 
 impl AppState {
     pub fn new(db: SqlitePool, secrets: SecretBox, secure_cookies: bool) -> Self {
-        AppState { db, secrets, secure_cookies, setup_done: AtomicBool::new(false), forecasts: Default::default(), rechecks: Default::default() }
+        AppState {
+            db,
+            secrets,
+            secure_cookies,
+            setup_done: AtomicBool::new(false),
+            forecasts: Default::default(),
+            rechecks: Default::default(),
+            public_url: None,
+            trusted_proxies: vec![std::net::IpAddr::from([127, 0, 0, 1])],
+            setup_token: {
+                use base64::Engine;
+                use rand::Rng;
+                let mut b = [0u8; 18];
+                rand::rng().fill_bytes(&mut b);
+                base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(b)
+            },
+        }
     }
 }
 
@@ -74,6 +99,8 @@ pub fn now() -> i64 {
 pub fn router(state: Shared) -> Router {
     Router::new()
         .route("/", get(focus::show))
+        .route("/api/health", get(health))
+        .route("/settings/export", get(export::download))
         .route("/updates/read", post(focus::mark_read))
         .route("/focus/snooze", post(focus::snooze))
         .route("/tasks/{id}/start", post(focus::start))
@@ -125,7 +152,9 @@ pub fn router(state: Shared) -> Router {
         .route("/settings/delete", get(admin::delete_page).post(admin::delete_submit))
         .route("/settings/admin/recovery/revoke", post(settings::revoke_recovery_code))
         .route("/static/{file}", get(asset))
+        .fallback(not_found_page)
         .layer(middleware::from_fn_with_state(state.clone(), setup_gate))
+        .layer(middleware::from_fn_with_state(state.clone(), throttle::remember_ip))
         .layer(middleware::from_fn(security_headers))
         .with_state(state)
 }
@@ -143,7 +172,37 @@ impl<E: std::fmt::Display> From<E> for AppError {
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         tracing::error!(error = %self.0, "request failed");
-        (StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong on our side. Try again in a moment.").into_response()
+        (StatusCode::INTERNAL_SERVER_ERROR, Html(error_page("Something went wrong", "Something went wrong on our side. Try again in a moment; if it keeps happening, tell an Administrator.")))
+            .into_response()
+    }
+}
+
+/// A small, self-contained error page (works even if templates or the database are the problem).
+fn error_page(heading: &str, text: &str) -> String {
+    format!(
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\
+         <title>{heading} · fluxo</title><link rel=\"icon\" href=\"/static/favicon.svg\"><link rel=\"stylesheet\" href=\"/static/styles.css\"></head>\
+         <body><main class=\"auth auth-main\"><div class=\"auth-card\"><h1>{heading}</h1><p class=\"lede\">{text}</p>\
+         <p class=\"auth-foot\"><a href=\"/\">Go to Focus</a></p></div></main></body></html>"
+    )
+}
+
+async fn not_found_page() -> Response {
+    (
+        StatusCode::NOT_FOUND,
+        Html(error_page(
+            "Not found",
+            "There’s nothing at this address. It may have moved, or the link may be mistyped.",
+        )),
+    )
+        .into_response()
+}
+
+/// For the deploy script and monitoring: 200 when the database answers.
+async fn health(State(app): State<Shared>) -> Response {
+    match sqlx::query_scalar::<_, i64>("SELECT 1").fetch_one(&app.db).await {
+        Ok(_) => (StatusCode::OK, "ok").into_response(),
+        Err(_) => (StatusCode::SERVICE_UNAVAILABLE, "database unavailable").into_response(),
     }
 }
 
@@ -233,7 +292,7 @@ async fn setup_gate(State(app): State<Shared>, req: Request, next: Next) -> Resp
             app.setup_done.store(true, Ordering::Relaxed);
         } else {
             let path = req.uri().path();
-            if path != "/setup" && !path.starts_with("/static/") {
+            if path != "/setup" && path != "/api/health" && !path.starts_with("/static/") {
                 return Redirect::to("/setup").into_response();
             }
         }

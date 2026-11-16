@@ -9,9 +9,32 @@ pub const MAX: usize = 32;
 
 /// Names that could pass for fluxo itself or for its staff, or that match app paths.
 const RESERVED: &[&str] = &[
-    "admin", "admins", "administrator", "administrators", "api", "focus", "fluxo", "goals", "help", "join", "login",
-    "logout", "me", "moderator", "null", "owner", "root", "security", "settings", "setup", "signup", "staff", "static",
-    "support", "system", "undefined",
+    "admin",
+    "admins",
+    "administrator",
+    "administrators",
+    "api",
+    "focus",
+    "fluxo",
+    "goals",
+    "help",
+    "join",
+    "login",
+    "logout",
+    "me",
+    "moderator",
+    "null",
+    "owner",
+    "root",
+    "security",
+    "settings",
+    "setup",
+    "signup",
+    "staff",
+    "static",
+    "support",
+    "system",
+    "undefined",
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

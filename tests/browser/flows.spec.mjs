@@ -61,6 +61,9 @@ const js = (testInfo) => testInfo.project.use.javaScriptEnabled !== false;
 test('first person sets up fluxo and turns on 2FA', async ({ page }, info) => {
   await page.goto('/');
   await expect(page).toHaveURL(/\/setup$/);
+  // Without the link from the server's log, setup stays closed.
+  await expect(page.getByText('Open the setup link from the server’s log')).toBeVisible();
+  await page.goto('/setup?token=browser-test-setup');
   await expect(page.getByRole('heading', { name: 'Set up fluxo' })).toBeVisible();
   await page.getByLabel('Username').fill('Ada');
   await page.getByLabel('Password', { exact: true }).fill(PASSWORD);

@@ -200,7 +200,11 @@ pub async fn list_signed_in(db: &SqlitePool, user_id: i64) -> sqlx::Result<Vec<L
     .await?;
     Ok(rows
         .into_iter()
-        .map(|r| Listed { reference: URL_SAFE_NO_PAD.encode(&r.id_hash), user_agent: r.user_agent, last_seen_at: r.last_seen_at })
+        .map(|r| Listed {
+            reference: URL_SAFE_NO_PAD.encode(&r.id_hash),
+            user_agent: r.user_agent,
+            last_seen_at: r.last_seen_at,
+        })
         .collect())
 }
 

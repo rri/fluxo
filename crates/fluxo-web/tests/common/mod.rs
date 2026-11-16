@@ -80,7 +80,9 @@ pub async fn send(app: &App, method: &str, path: &str, cookie: Option<&str>, for
         req = req.header(header::COOKIE, format!("fluxo_session={c}"));
     }
     let req = match form {
-        Some(f) => req.header(header::CONTENT_TYPE, "application/x-www-form-urlencoded").body(Body::from(f.to_string())),
+        Some(f) => {
+            req.header(header::CONTENT_TYPE, "application/x-www-form-urlencoded").body(Body::from(f.to_string()))
+        }
         None => req.body(Body::empty()),
     }
     .unwrap();
@@ -115,12 +117,22 @@ pub fn field(body: &str, marker: &str) -> String {
 pub async fn sign_in(app: &App, username: &str, totp_secret: Option<&[u8]>) -> String {
     let r = send(app, "GET", "/login", None, None).await;
     let (anon, token) = (r.cookie.unwrap(), csrf(&r.body));
-    let r = send(app, "POST", "/login", Some(&anon), Some(&format!("csrf={token}&username={username}&password=a+long+enough+password"))).await;
+    let r = send(
+        app,
+        "POST",
+        "/login",
+        Some(&anon),
+        Some(&format!("csrf={token}&username={username}&password=a+long+enough+password")),
+    )
+    .await;
     let c = r.cookie.expect("signed past the password");
     let Some(secret) = totp_secret else { return c };
     let token = csrf(&send(app, "GET", "/login/2fa", Some(&c), None).await.body);
     let code = totp::code_at(secret, now() as u64);
-    send(app, "POST", "/login/2fa", Some(&c), Some(&format!("csrf={token}&code={code}"))).await.cookie.expect("signed in")
+    send(app, "POST", "/login/2fa", Some(&c), Some(&format!("csrf={token}&code={code}")))
+        .await
+        .cookie
+        .expect("signed in")
 }
 
 pub fn enc(s: &str) -> String {

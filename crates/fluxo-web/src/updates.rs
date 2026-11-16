@@ -55,19 +55,22 @@ pub fn hears(world: &World, user: Id, node: Id) -> bool {
 }
 
 pub async fn recent(db: &SqlitePool, since: i64) -> Result<Vec<Event>> {
-    Ok(sqlx::query!(r#"SELECT id AS "id!", node_id, actor_id, kind, detail, at FROM events WHERE at >= ? ORDER BY id DESC"#, since)
-        .fetch_all(db)
-        .await?
-        .into_iter()
-        .map(|r| Event {
-            id: r.id,
-            node: r.node_id,
-            actor: r.actor_id,
-            kind: r.kind,
-            detail: serde_json::from_str(&r.detail).unwrap_or(Value::Null),
-            at: r.at,
-        })
-        .collect())
+    Ok(sqlx::query!(
+        r#"SELECT id AS "id!", node_id, actor_id, kind, detail, at FROM events WHERE at >= ? ORDER BY id DESC"#,
+        since
+    )
+    .fetch_all(db)
+    .await?
+    .into_iter()
+    .map(|r| Event {
+        id: r.id,
+        node: r.node_id,
+        actor: r.actor_id,
+        kind: r.kind,
+        detail: serde_json::from_str(&r.detail).unwrap_or(Value::Null),
+        at: r.at,
+    })
+    .collect())
 }
 
 /// Updates for `user`, newest first.
@@ -76,7 +79,9 @@ pub async fn for_user(db: &SqlitePool, world: &World, user: Id) -> Result<Vec<Ev
     Ok(recent(db, since)
         .await?
         .into_iter()
-        .filter(|e| e.actor != Some(user) && is_update(e) && world.nodes.contains_key(&e.node) && hears(world, user, e.node))
+        .filter(|e| {
+            e.actor != Some(user) && is_update(e) && world.nodes.contains_key(&e.node) && hears(world, user, e.node)
+        })
         .collect())
 }
 
@@ -110,9 +115,10 @@ pub async fn waiting_count(db: &SqlitePool, user: Id) -> Result<i64> {
     )
     .fetch_one(db)
     .await?;
-    let transfers = sqlx::query_scalar!("SELECT COUNT(*) FROM transfers WHERE to_user = ? AND status = 'pending'", user)
-        .fetch_one(db)
-        .await?;
+    let transfers =
+        sqlx::query_scalar!("SELECT COUNT(*) FROM transfers WHERE to_user = ? AND status = 'pending'", user)
+            .fetch_one(db)
+            .await?;
     Ok(invites + transfers)
 }
 
@@ -145,7 +151,8 @@ pub fn describe(e: &Event, world: &World, names: &HashMap<Id, String>, me: Id, r
     };
     let actor = who(e.actor);
     let node = world.nodes.get(&e.node);
-    let (subject, href) = node.map(|n| (n.title.clone(), n.href())).unwrap_or_else(|| ("something".into(), String::new()));
+    let (subject, href) =
+        node.map(|n| (n.title.clone(), n.href())).unwrap_or_else(|| ("something".into(), String::new()));
     let s = |v: &Value| v.as_str().unwrap_or("").to_string();
     let role = |v: &Value| if v == "watcher" { "a Watcher" } else { "a Contributor" };
     let (before, after, context) = match e.kind.as_str() {
@@ -159,7 +166,9 @@ pub fn describe(e: &Event, world: &World, names: &HashMap<Id, String>, me: Id, r
             format!(" are slipping: P85 {} → {}", s(&e.detail["from_label"]), s(&e.detail["to_label"])),
             "No progress recorded as time passed".into(),
         ),
-        "statement_changed" => (format!("{actor} reworded"), String::new(), format!("Was: {}", s(&e.detail["from"]["title"]))),
+        "statement_changed" => {
+            (format!("{actor} reworded"), String::new(), format!("Was: {}", s(&e.detail["from"]["title"])))
+        }
         "achieved" => (format!("{actor} marked"), " achieved".into(), String::new()),
         "reopened" => (format!("{actor} reopened"), String::new(), String::new()),
         "risk_added" => (format!("{actor} added a risk to"), String::new(), s(&e.detail["title"])),
@@ -244,9 +253,14 @@ pub async fn note_forecast_moves(db: &SqlitePool, world: &World, f: &crate::fore
                 "p85_from_label": label(p85), "p85_to_label": label(nf.p85),
             })
             .to_string();
-            sqlx::query!("INSERT INTO events (node_id, actor_id, kind, detail, at) VALUES (?, NULL, 'forecast_moved', ?, ?)", id, detail, t)
-                .execute(db)
-                .await?;
+            sqlx::query!(
+                "INSERT INTO events (node_id, actor_id, kind, detail, at) VALUES (?, NULL, 'forecast_moved', ?, ?)",
+                id,
+                detail,
+                t
+            )
+            .execute(db)
+            .await?;
         }
         if moved || !marks.contains_key(id) {
             crate::slips::reset_mark(db, world, *id, nf.p85, &cals).await?;

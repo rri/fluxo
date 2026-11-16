@@ -157,21 +157,17 @@ fn link_base(headers: &HeaderMap, secure: bool) -> String {
 }
 
 async fn render(app: &AppState, ctx: &Ctx, n: (&str, &str, bool), shown: Shown) -> Result<Response> {
-    let u = sqlx::query!(
-        "SELECT display_name, totp_enabled, totp_enabled_at FROM users WHERE id = ?",
-        ctx.user_id
-    )
-    .fetch_one(&app.db)
-    .await?;
-    let codes_left = sqlx::query_scalar!(
-        "SELECT COUNT(*) FROM recovery_codes WHERE user_id = ? AND used_at IS NULL",
-        ctx.user_id
-    )
-    .fetch_one(&app.db)
-    .await?;
-    let cal = sqlx::query!("SELECT workdays_mask, time_zone, days_off FROM user_calendar WHERE user_id = ?", ctx.user_id)
-        .fetch_optional(&app.db)
+    let u = sqlx::query!("SELECT display_name, totp_enabled, totp_enabled_at FROM users WHERE id = ?", ctx.user_id)
+        .fetch_one(&app.db)
         .await?;
+    let codes_left =
+        sqlx::query_scalar!("SELECT COUNT(*) FROM recovery_codes WHERE user_id = ? AND used_at IS NULL", ctx.user_id)
+            .fetch_one(&app.db)
+            .await?;
+    let cal =
+        sqlx::query!("SELECT workdays_mask, time_zone, days_off FROM user_calendar WHERE user_id = ?", ctx.user_id)
+            .fetch_optional(&app.db)
+            .await?;
     let (mask, time_zone, days_off) = match cal {
         Some(c) => (c.workdays_mask, c.time_zone, c.days_off),
         None => (31, "UTC".into(), "[]".into()),
@@ -190,7 +186,8 @@ async fn render(app: &AppState, ctx: &Ctx, n: (&str, &str, bool), shown: Shown) 
         })
         .collect();
     let admin = if ctx.is_admin {
-        let signup_mode = sqlx::query_scalar!("SELECT signup_mode FROM instance WHERE id = 1").fetch_one(&app.db).await?;
+        let signup_mode =
+            sqlx::query_scalar!("SELECT signup_mode FROM instance WHERE id = 1").fetch_one(&app.db).await?;
         let rows = sqlx::query!(
             r#"SELECT i.id AS "id!", i.note, i.created_at, i.expires_at, i.used_at, i.revoked_at, u.username AS "used_by?"
                FROM signup_invites i LEFT JOIN users u ON u.id = i.used_by
@@ -232,7 +229,8 @@ async fn render(app: &AppState, ctx: &Ctx, n: (&str, &str, bool), shown: Shown) 
                 } else {
                     ("Active".into(), true)
                 };
-                let issued_by = if r.issued_by == ctx.username { format!("{} (you)", r.issued_by) } else { r.issued_by };
+                let issued_by =
+                    if r.issued_by == ctx.username { format!("{} (you)", r.issued_by) } else { r.issued_by };
                 CodeRow { id: r.id, username: r.username, issued_by, created: date(r.created_at), status, active }
             })
             .collect();
@@ -346,7 +344,8 @@ pub struct PasswordForm {
 pub async fn password(State(app): State<Shared>, jar: CookieJar, Form(f): Form<PasswordForm>) -> Result<Response> {
     let ctx = signed_in!(app, jar);
     check_csrf!(ctx, f.csrf);
-    let hash = sqlx::query_scalar!("SELECT password_hash FROM users WHERE id = ?", ctx.user_id).fetch_one(&app.db).await?;
+    let hash =
+        sqlx::query_scalar!("SELECT password_hash FROM users WHERE id = ?", ctx.user_id).fetch_one(&app.db).await?;
     if !auth::password::verify(&f.current, &hash) {
         return Ok(back("error=password-current", "pw-h"));
     }
@@ -448,7 +447,11 @@ pub struct CsrfForm {
     csrf: String,
 }
 
-pub async fn end_other_sessions(State(app): State<Shared>, jar: CookieJar, Form(f): Form<CsrfForm>) -> Result<Response> {
+pub async fn end_other_sessions(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    Form(f): Form<CsrfForm>,
+) -> Result<Response> {
     let ctx = signed_in!(app, jar);
     check_csrf!(ctx, f.csrf);
     session::end_others(&app.db, ctx.user_id, &ctx.session).await?;
@@ -510,7 +513,8 @@ pub async fn create_invite(
     .execute(&app.db)
     .await?;
     // The link is shown once, on this page, and never stored.
-    let link = format!("{}/join/{token}", link_base(&headers, app.secure_cookies));
+    let base = app.public_url.clone().unwrap_or_else(|| link_base(&headers, app.secure_cookies));
+    let link = format!("{base}/join/{token}");
     let shown = Shown { new_link: Some(link), ..Default::default() };
     render(&app, &ctx, ("admin", "Invitation created. Copy the link now: it won’t be shown again.", false), shown).await
 }
@@ -544,7 +548,11 @@ pub struct RecoveryForm {
     username: String,
 }
 
-pub async fn issue_recovery_code(State(app): State<Shared>, jar: CookieJar, Form(f): Form<RecoveryForm>) -> Result<Response> {
+pub async fn issue_recovery_code(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    Form(f): Form<RecoveryForm>,
+) -> Result<Response> {
     let ctx = signed_in!(app, jar);
     check_csrf!(ctx, f.csrf);
     if !ctx.is_admin {
@@ -557,7 +565,9 @@ pub async fn issue_recovery_code(State(app): State<Shared>, jar: CookieJar, Form
             ("recovery", "Recovery code created. Give it to them directly; it won’t be shown again.", false),
             Shown { issued: Some(i), ..Default::default() },
         ),
-        IssueOutcome::NoSuchUser => (("recovery", "No one has that username.", true), Shown { lookup, ..Default::default() }),
+        IssueOutcome::NoSuchUser => {
+            (("recovery", "No one has that username.", true), Shown { lookup, ..Default::default() })
+        }
         IssueOutcome::Yourself => (
             ("recovery", "You can’t make a recovery code for yourself. Ask another Administrator.", true),
             Shown { lookup, ..Default::default() },
@@ -572,15 +582,23 @@ pub struct RevokeCodeForm {
     code: i64,
 }
 
-pub async fn revoke_recovery_code(State(app): State<Shared>, jar: CookieJar, Form(f): Form<RevokeCodeForm>) -> Result<Response> {
+pub async fn revoke_recovery_code(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    Form(f): Form<RevokeCodeForm>,
+) -> Result<Response> {
     let ctx = signed_in!(app, jar);
     check_csrf!(ctx, f.csrf);
     if !ctx.is_admin {
         return Ok(forbidden());
     }
     let t = now();
-    sqlx::query!("UPDATE admin_codes SET revoked_at = ? WHERE id = ? AND used_at IS NULL AND revoked_at IS NULL", t, f.code)
-        .execute(&app.db)
-        .await?;
+    sqlx::query!(
+        "UPDATE admin_codes SET revoked_at = ? WHERE id = ? AND used_at IS NULL AND revoked_at IS NULL",
+        t,
+        f.code
+    )
+    .execute(&app.db)
+    .await?;
     Ok(back("done=code-revoked", "rec-h"))
 }

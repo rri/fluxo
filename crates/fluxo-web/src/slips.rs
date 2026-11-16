@@ -23,7 +23,13 @@ fn owner_calendar(world: &World, goal: Id, cals: &HashMap<Id, Calendar>) -> Cale
 }
 
 /// Record `p85_days` (as a date today) as the baseline for `goal`.
-pub async fn reset_mark(db: &SqlitePool, world: &World, goal: Id, p85_days: f64, cals: &HashMap<Id, Calendar>) -> Result<()> {
+pub async fn reset_mark(
+    db: &SqlitePool,
+    world: &World,
+    goal: Id,
+    p85_days: f64,
+    cals: &HashMap<Id, Calendar>,
+) -> Result<()> {
     let cal = owner_calendar(world, goal, cals);
     let (t, date) = (now(), cal.finish_date(now(), p85_days).to_string());
     sqlx::query!(
@@ -43,8 +49,12 @@ pub async fn check(app: &AppState) -> Result<usize> {
     let world = World::load(&app.db).await?;
     let f = crate::forecast::current(app, &world).await?;
     let cals = crate::forecast::calendars(&app.db).await?;
-    let marks: HashMap<Id, String> =
-        sqlx::query!("SELECT goal_id, p85_date FROM slip_marks").fetch_all(&app.db).await?.into_iter().map(|r| (r.goal_id, r.p85_date)).collect();
+    let marks: HashMap<Id, String> = sqlx::query!("SELECT goal_id, p85_date FROM slip_marks")
+        .fetch_all(&app.db)
+        .await?
+        .into_iter()
+        .map(|r| (r.goal_id, r.p85_date))
+        .collect();
     let mut reported = 0;
     for (id, nf) in &f.by_node {
         let Some(n) = world.nodes.get(id) else { continue };
@@ -70,9 +80,14 @@ pub async fn check(app: &AppState) -> Result<usize> {
             })
             .to_string();
             let t = now();
-            sqlx::query!("INSERT INTO events (node_id, actor_id, kind, detail, at) VALUES (?, NULL, 'forecast_slipped', ?, ?)", id, detail, t)
-                .execute(&app.db)
-                .await?;
+            sqlx::query!(
+                "INSERT INTO events (node_id, actor_id, kind, detail, at) VALUES (?, NULL, 'forecast_slipped', ?, ?)",
+                id,
+                detail,
+                t
+            )
+            .execute(&app.db)
+            .await?;
             reset_mark(&app.db, &world, *id, nf.p85, &cals).await?;
             reported += 1;
         }

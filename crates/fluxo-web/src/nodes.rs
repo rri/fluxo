@@ -71,7 +71,12 @@ pub struct ParentForm {
     goal: Id,
 }
 
-pub async fn parents(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>, Form(f): Form<ParentForm>) -> Result<Response> {
+pub async fn parents(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    Path(id): Path<Id>,
+    Form(f): Form<ParentForm>,
+) -> Result<Response> {
     let (ctx, world, _) = gate!(app, jar, f.csrf, id, Access::Contribute);
     let node = &world.nodes[&id];
     let current = world.parents.get(&id).cloned().unwrap_or_default();
@@ -107,7 +112,9 @@ pub async fn parents(State(app): State<Shared>, jar: CookieJar, Path(id): Path<I
             if current.len() == 1 && !world.access(ctx.user_id, id).is_owner() {
                 return Ok(forbidden());
             }
-            sqlx::query!("DELETE FROM node_parents WHERE child_id = ? AND parent_id = ?", id, f.goal).execute(&app.db).await?;
+            sqlx::query!("DELETE FROM node_parents WHERE child_id = ? AND parent_id = ?", id, f.goal)
+                .execute(&app.db)
+                .await?;
             if node.home_parent_id == Some(f.goal) {
                 let next = current.iter().copied().find(|&p| p != f.goal);
                 sqlx::query!("UPDATE nodes SET home_parent_id = ? WHERE id = ?", next, id).execute(&app.db).await?;
@@ -132,7 +139,12 @@ pub struct NeedForm {
     other: Id,
 }
 
-pub async fn needs(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>, Form(f): Form<NeedForm>) -> Result<Response> {
+pub async fn needs(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    Path(id): Path<Id>,
+    Form(f): Form<NeedForm>,
+) -> Result<Response> {
     let (ctx, world, _) = gate!(app, jar, f.csrf, id, Access::Contribute);
     match f.action.as_str() {
         "add" => {
@@ -154,7 +166,9 @@ pub async fn needs(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>
             store::record(&app.db, id, ctx.user_id, "need_added", json!({ "needs": f.other })).await?;
         }
         "remove" => {
-            sqlx::query!("DELETE FROM dependencies WHERE node_id = ? AND needs_id = ?", id, f.other).execute(&app.db).await?;
+            sqlx::query!("DELETE FROM dependencies WHERE node_id = ? AND needs_id = ?", id, f.other)
+                .execute(&app.db)
+                .await?;
             store::record(&app.db, id, ctx.user_id, "need_removed", json!({ "needs": f.other })).await?;
         }
         _ => {}
@@ -183,7 +197,12 @@ fn percent(s: &str) -> Option<i64> {
     (0..=100).contains(&v).then_some(v)
 }
 
-pub async fn add_risk(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>, Form(f): Form<NewRiskForm>) -> Result<Response> {
+pub async fn add_risk(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    Path(id): Path<Id>,
+    Form(f): Form<NewRiskForm>,
+) -> Result<Response> {
     let (ctx, world, _) = gate!(app, jar, f.csrf, id, Access::Contribute);
     let title = f.title.trim();
     let (Some(p), Some(min), Some(max)) = (percent(&f.likelihood), days(&f.min), days(&f.max)) else {
@@ -206,9 +225,15 @@ pub async fn add_risk(State(app): State<Shared>, jar: CookieJar, Path(id): Path<
     )
     .fetch_one(&mut *tx)
     .await?;
-    sqlx::query!("INSERT INTO risk_likelihood (risk_id, likelihood_pct, set_by, set_at) VALUES (?, ?, ?, ?)", rid, p, ctx.user_id, t)
-        .execute(&mut *tx)
-        .await?;
+    sqlx::query!(
+        "INSERT INTO risk_likelihood (risk_id, likelihood_pct, set_by, set_at) VALUES (?, ?, ?, ?)",
+        rid,
+        p,
+        ctx.user_id,
+        t
+    )
+    .execute(&mut *tx)
+    .await?;
     tx.commit().await?;
     store::record(&app.db, id, ctx.user_id, "risk_added", json!({ "risk": rid, "title": title })).await?;
     Ok(back_to(&world, id, "", "risks"))
@@ -222,8 +247,14 @@ pub struct RiskForm {
     likelihood: String,
 }
 
-pub async fn risk(State(app): State<Shared>, jar: CookieJar, Path(rid): Path<Id>, Form(f): Form<RiskForm>) -> Result<Response> {
-    let Some(r) = sqlx::query!("SELECT node_id, title FROM risks WHERE id = ?", rid).fetch_optional(&app.db).await? else {
+pub async fn risk(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    Path(rid): Path<Id>,
+    Form(f): Form<RiskForm>,
+) -> Result<Response> {
+    let Some(r) = sqlx::query!("SELECT node_id, title FROM risks WHERE id = ?", rid).fetch_optional(&app.db).await?
+    else {
         return Ok(not_found());
     };
     let (node_id, risk_title) = (r.node_id, r.title);
@@ -248,8 +279,14 @@ pub async fn risk(State(app): State<Shared>, jar: CookieJar, Path(rid): Path<Id>
                 )
                 .execute(&app.db)
                 .await?;
-                store::record(&app.db, node_id, ctx.user_id, "risk_likelihood", json!({ "risk": rid, "title": risk_title, "from": current, "to": p }))
-                    .await?;
+                store::record(
+                    &app.db,
+                    node_id,
+                    ctx.user_id,
+                    "risk_likelihood",
+                    json!({ "risk": rid, "title": risk_title, "from": current, "to": p }),
+                )
+                .await?;
             }
         }
         "remove" => {
@@ -268,19 +305,37 @@ pub struct CsrfForm {
     csrf: String,
 }
 
-pub async fn archive(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>, Form(f): Form<CsrfForm>) -> Result<Response> {
+pub async fn archive(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    Path(id): Path<Id>,
+    Form(f): Form<CsrfForm>,
+) -> Result<Response> {
     let (ctx, world, _) = gate!(app, jar, f.csrf, id, Access::Own);
     let t = now();
-    sqlx::query!("UPDATE nodes SET archived_at = ?, archived_by = ? WHERE id = ? AND archived_at IS NULL", t, ctx.user_id, id)
-        .execute(&app.db)
-        .await?;
+    sqlx::query!(
+        "UPDATE nodes SET archived_at = ?, archived_by = ? WHERE id = ? AND archived_at IS NULL",
+        t,
+        ctx.user_id,
+        id
+    )
+    .execute(&app.db)
+    .await?;
     store::record(&app.db, id, ctx.user_id, "archived", json!({})).await?;
     // Back to where it lived, which now lists it under "Archived".
-    let to = world.nodes[&id].home_parent_id.map(|p| format!("/goals/{p}#archived")).unwrap_or_else(|| "/goals#archived".into());
+    let to = world.nodes[&id]
+        .home_parent_id
+        .map(|p| format!("/goals/{p}#archived"))
+        .unwrap_or_else(|| "/goals#archived".into());
     Ok(Redirect::to(&to).into_response())
 }
 
-pub async fn restore(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>, Form(f): Form<CsrfForm>) -> Result<Response> {
+pub async fn restore(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    Path(id): Path<Id>,
+    Form(f): Form<CsrfForm>,
+) -> Result<Response> {
     let (ctx, world, _) = gate!(app, jar, f.csrf, id, Access::Own);
     sqlx::query!("UPDATE nodes SET archived_at = NULL, archived_by = NULL WHERE id = ?", id).execute(&app.db).await?;
     store::record(&app.db, id, ctx.user_id, "restored", json!({})).await?;
@@ -306,7 +361,12 @@ pub(crate) fn doomed(world: &World, id: Id) -> Vec<Id> {
 
 /// Permanently delete an archived item, with everything beneath it that feeds nothing else.
 /// Archiving is the person's own action; deleting for good is an Administrator's (Settings).
-pub async fn delete(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>, Form(f): Form<CsrfForm>) -> Result<Response> {
+pub async fn delete(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    Path(id): Path<Id>,
+    Form(f): Form<CsrfForm>,
+) -> Result<Response> {
     let ctx = match require_user(&app, &jar).await? {
         Ok(c) => c,
         Err(r) => return Ok(r),

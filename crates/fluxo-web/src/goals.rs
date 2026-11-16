@@ -59,8 +59,15 @@ fn role_label(a: Access) -> &'static str {
     }
 }
 
-fn card(world: &World, user: Id, g: &Node, f: &crate::forecast::Forecasts, cals: &HashMap<Id, fluxo_core::calendar::Calendar>) -> GoalCard {
-    let kids: Vec<&Node> = world.children_of(g.id).into_iter().filter(|k| world.access(user, k.id).can_read()).collect();
+fn card(
+    world: &World,
+    user: Id,
+    g: &Node,
+    f: &crate::forecast::Forecasts,
+    cals: &HashMap<Id, fluxo_core::calendar::Calendar>,
+) -> GoalCard {
+    let kids: Vec<&Node> =
+        world.children_of(g.id).into_iter().filter(|k| world.access(user, k.id).can_read()).collect();
     let subgoals = kids
         .iter()
         .filter(|k| k.is_goal())
@@ -97,10 +104,13 @@ fn card(world: &World, user: Id, g: &Node, f: &crate::forecast::Forecasts, cals:
             .and_then(|nf| {
                 // Most critical first; among equals, one that can start now (everything it needs
                 // is done), then the earliest added.
-                let ready = |k: &Node| world.needs_of(k.id).iter().all(|d| world.nodes.get(d).is_none_or(|n| n.is_done()));
+                let ready =
+                    |k: &Node| world.needs_of(k.id).iter().all(|d| world.nodes.get(d).is_none_or(|n| n.is_done()));
                 kids.iter()
                     .filter(|k| !k.is_done())
-                    .filter_map(|k| nf.criticality.get(&k.id).map(|c| (*c, ready(k), std::cmp::Reverse(k.created_at), k)))
+                    .filter_map(|k| {
+                        nf.criticality.get(&k.id).map(|c| (*c, ready(k), std::cmp::Reverse(k.created_at), k))
+                    })
                     .max_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)).then(a.2.cmp(&b.2)))
                     .map(|(.., k)| k.title.clone())
             })
@@ -121,10 +131,16 @@ pub async fn index(State(app): State<Shared>, jar: CookieJar) -> Result<Response
         .filter(|n| world.access(ctx.user_id, n.id).can_read())
         .collect();
     // Yours first, then the ones you work on, then everything else you can see; oldest first within.
-    tops.sort_by_key(|n| (std::cmp::Reverse(world.access(ctx.user_id, n.id)), n.achieved_at.is_some(), n.created_at, n.id));
+    tops.sort_by_key(|n| {
+        (std::cmp::Reverse(world.access(ctx.user_id, n.id)), n.achieved_at.is_some(), n.created_at, n.id)
+    });
     let forecasts = crate::forecast::current(&app, &world).await?;
     let cals = crate::forecast::calendars(&app.db).await?;
-    let goals = tops.iter().filter(|n| n.archived_at.is_none()).map(|g| card(&world, ctx.user_id, g, &forecasts, &cals)).collect();
+    let goals = tops
+        .iter()
+        .filter(|n| n.archived_at.is_none())
+        .map(|g| card(&world, ctx.user_id, g, &forecasts, &cals))
+        .collect();
     // Tasks attached to no goal that this person can work on, so they're easy to find and place.
     let loose = |n: &&Node| !n.is_goal() && world.parents.get(&n.id).is_none_or(Vec::is_empty);
     let mut unattached: Vec<&Node> = world
@@ -192,8 +208,10 @@ fn parent_options(world: &World, user: Id, selected: Option<Id>, exclude: Option
         .filter(|n| world.access(user, n.id).can_contribute())
         .filter(|n| exclude.is_none_or(|x| !world.graph.would_contain_itself(x, n.id)))
         .collect();
-    v.sort_by(|a, b| views::path_label(world, a).cmp(&views::path_label(world, b)));
-    v.into_iter().map(|n| Option_ { value: n.id, label: views::path_label(world, n), selected: Some(n.id) == selected }).collect()
+    v.sort_by_cached_key(|n| views::path_label(world, n));
+    v.into_iter()
+        .map(|n| Option_ { value: n.id, label: views::path_label(world, n), selected: Some(n.id) == selected })
+        .collect()
 }
 
 pub async fn new_page(State(app): State<Shared>, jar: CookieJar, Query(q): Query<NewQuery>) -> Result<Response> {
@@ -225,18 +243,25 @@ pub struct NewGoalForm {
     parent: String,
 }
 
+/// What kind of node to create, with what it needs.
+pub(crate) enum NewKind<'a> {
+    Goal { coverage: &'a str },
+    Task { estimate: f64, clarity: &'a str },
+}
+
 pub(crate) async fn insert_node(
     app: &crate::AppState,
     user: Id,
-    kind: &str,
     title: &str,
     why: &str,
     parent: Option<Id>,
-    task: Option<(f64, &str)>,
-    coverage: Option<&str>,
+    new: NewKind<'_>,
 ) -> Result<Id> {
     let t = now();
-    let (estimate, clarity) = task.map(|(e, c)| (Some(e), Some(c))).unwrap_or((None, None));
+    let (kind, coverage, estimate, clarity) = match new {
+        NewKind::Goal { coverage } => ("goal", Some(coverage), None, None),
+        NewKind::Task { estimate, clarity } => ("task", None, Some(estimate), Some(clarity)),
+    };
     let mut tx = app.db.begin().await?;
     let id = sqlx::query_scalar!(
         r#"INSERT INTO nodes (kind, title, why, owner_id, home_parent_id, coverage, clarity, estimate_days,
@@ -282,7 +307,8 @@ pub async fn create(State(app): State<Shared>, jar: CookieJar, Form(f): Form<New
         }
     }
     let (title, why) = (f.title.trim(), f.why.trim());
-    let error = views::check_title(title).or_else(|| (why.chars().count() > 2000).then_some("Keep the why under 2,000 characters."));
+    let error = views::check_title(title)
+        .or_else(|| (why.chars().count() > 2000).then_some("Keep the why under 2,000 characters."));
     if let Some(error) = error {
         return page(NewGoalPage {
             focus_count: crate::updates::badge(&app.db, ctx.user_id).await?,
@@ -297,7 +323,7 @@ pub async fn create(State(app): State<Shared>, jar: CookieJar, Form(f): Form<New
             why,
         });
     }
-    let id = insert_node(&app, ctx.user_id, "goal", title, why, parent, None, Some("low")).await?;
+    let id = insert_node(&app, ctx.user_id, title, why, parent, NewKind::Goal { coverage: "low" }).await?;
     Ok(Redirect::to(&format!("/goals/{id}")).into_response())
 }
 
@@ -368,7 +394,12 @@ pub struct PageQuery {
     pub(crate) done: Option<String>,
 }
 
-pub async fn show(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>, Query(q): Query<PageQuery>) -> Result<Response> {
+pub async fn show(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    Path(id): Path<Id>,
+    Query(q): Query<PageQuery>,
+) -> Result<Response> {
     let (ctx, world, access) = match with_access(&app, &jar, None, id, Access::Read).await? {
         Ok(x) => x,
         Err(r) => return Ok(r),
@@ -383,7 +414,8 @@ pub async fn show(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>,
     let steps = views::steps(&world, ctx.user_id, id, fc.map(|f| &f.criticality));
     let needed_inside: std::collections::HashSet<Id> =
         steps.iter().flat_map(|s| s.deps.split(' ').filter_map(|d| d.parse::<Id>().ok())).collect();
-    let anchor_deps = steps.iter().filter(|s| !needed_inside.contains(&s.id)).map(|s| s.id.to_string()).collect::<Vec<_>>().join(" ");
+    let anchor_deps =
+        steps.iter().filter(|s| !needed_inside.contains(&s.id)).map(|s| s.id.to_string()).collect::<Vec<_>>().join(" ");
     let all_done = !steps.is_empty() && steps.iter().all(|s| s.done);
     let stamp = if goal.statement_changed_at > goal.created_at + 60 {
         format!("Set {} · statement changed {}", date(goal.created_at), date(goal.statement_changed_at))
@@ -394,7 +426,8 @@ pub async fn show(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>,
     let (path_risks, exposure) = views::path_risks(&app.db, &world, ctx.user_id, id).await?;
     let nebulous = goal.coverage.as_deref() == Some("low");
     let empty = world.children_of(id).is_empty();
-    let unsized_goals: Vec<Crumb> = views::unsized_below(&world, ctx.user_id, id).into_iter().filter(|c| c.href != goal.href()).collect();
+    let unsized_goals: Vec<Crumb> =
+        views::unsized_below(&world, ctx.user_id, id).into_iter().filter(|c| c.href != goal.href()).collect();
     let band = match fc.filter(|_| !empty || goal.size.is_some()) {
         Some(f) => {
             let cals = crate::forecast::calendars(&app.db).await?;
@@ -406,8 +439,20 @@ pub async fn show(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>,
                 p85: d.p85,
                 spread: d.spread_days,
                 exposure: views::days(exposure),
-                runs: format!("{} runs", crate::forecast::RUNS.to_string().as_bytes().rchunks(3).rev().map(|c| std::str::from_utf8(c).unwrap()).collect::<Vec<_>>().join(",")),
-                updated: crate::util::ago(forecasts.computed_at, crate::now()).to_lowercase().replace("active now", "just now"),
+                runs: format!(
+                    "{} runs",
+                    crate::forecast::RUNS
+                        .to_string()
+                        .as_bytes()
+                        .rchunks(3)
+                        .rev()
+                        .map(|c| std::str::from_utf8(c).unwrap())
+                        .collect::<Vec<_>>()
+                        .join(",")
+                ),
+                updated: crate::util::ago(forecasts.computed_at, crate::now())
+                    .to_lowercase()
+                    .replace("active now", "just now"),
                 chart: views::histogram_svg(&f.bins, f.max, f.p50, f.p85),
                 calendar_owner: match views::owner_label(goal.owner_id, ctx.user_id, &names).as_str() {
                     "you" => "your".to_string(),
@@ -512,7 +557,12 @@ fn parse_size(min: &str, max: &str) -> Result<Option<(f64, f64)>, ()> {
     }
 }
 
-pub async fn add_step(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>, Form(f): Form<StepForm>) -> Result<Response> {
+pub async fn add_step(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    Path(id): Path<Id>,
+    Form(f): Form<StepForm>,
+) -> Result<Response> {
     let (ctx, world, _) = gate!(app, jar, f.csrf, id, Access::Contribute);
     let goal = &world.nodes[&id];
     if !goal.is_goal() || goal.archived_at.is_some() {
@@ -523,21 +573,25 @@ pub async fn add_step(State(app): State<Shared>, jar: CookieJar, Path(id): Path<
         return Ok(Redirect::to(&format!("/goals/{id}?error=title#add")).into_response());
     }
     let new_id = if f.kind == "goal" {
-        let coverage = if matches!(f.coverage.as_str(), "low" | "partial" | "full") { f.coverage.as_str() } else { "low" };
+        let coverage =
+            if matches!(f.coverage.as_str(), "low" | "partial" | "full") { f.coverage.as_str() } else { "low" };
         let Ok(size) = parse_size(&f.size_min, &f.size_max) else {
             return Ok(Redirect::to(&format!("/goals/{id}?error=size#add")).into_response());
         };
-        let new = insert_node(&app, ctx.user_id, "goal", title, "", Some(id), None, Some(coverage)).await?;
+        let new = insert_node(&app, ctx.user_id, title, "", Some(id), NewKind::Goal { coverage }).await?;
         if let Some((lo, hi)) = size {
-            sqlx::query!("UPDATE nodes SET size_min_days = ?, size_max_days = ? WHERE id = ?", lo, hi, new).execute(&app.db).await?;
+            sqlx::query!("UPDATE nodes SET size_min_days = ?, size_max_days = ? WHERE id = ?", lo, hi, new)
+                .execute(&app.db)
+                .await?;
         }
         new
     } else {
         let Some(estimate) = views::parse_days(&f.estimate) else {
             return Ok(Redirect::to(&format!("/goals/{id}?error=estimate#add")).into_response());
         };
-        let clarity = if matches!(f.clarity.as_str(), "low" | "medium" | "high") { f.clarity.as_str() } else { "medium" };
-        insert_node(&app, ctx.user_id, "task", title, "", Some(id), Some((estimate, clarity)), None).await?
+        let clarity =
+            if matches!(f.clarity.as_str(), "low" | "medium" | "high") { f.clarity.as_str() } else { "medium" };
+        insert_node(&app, ctx.user_id, title, "", Some(id), NewKind::Task { estimate, clarity }).await?
     };
     if let Ok(needs) = f.needs.trim().parse::<Id>() {
         let world = World::load(&app.db).await?;
@@ -558,7 +612,12 @@ pub struct StatementForm {
     why: String,
 }
 
-pub async fn statement(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>, Form(f): Form<StatementForm>) -> Result<Response> {
+pub async fn statement(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    Path(id): Path<Id>,
+    Form(f): Form<StatementForm>,
+) -> Result<Response> {
     let (ctx, world, _) = gate!(app, jar, f.csrf, id, Access::Own);
     let goal = &world.nodes[&id];
     let (title, why) = (f.title.trim(), f.why.trim());
@@ -590,14 +649,28 @@ pub struct ShapeForm {
     private: Option<String>,
 }
 
-pub async fn shape(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>, Form(f): Form<ShapeForm>) -> Result<Response> {
+pub async fn shape(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    Path(id): Path<Id>,
+    Form(f): Form<ShapeForm>,
+) -> Result<Response> {
     let (ctx, world, _) = gate!(app, jar, f.csrf, id, Access::Own);
     if !world.nodes[&id].is_goal() || !matches!(f.coverage.as_str(), "low" | "partial" | "full") {
         return Ok(Redirect::to(&format!("/goals/{id}#edit")).into_response());
     }
     let private = f.private.is_some() as i64;
-    sqlx::query!("UPDATE nodes SET coverage = ?, private = ? WHERE id = ?", f.coverage, private, id).execute(&app.db).await?;
-    store::record(&app.db, id, ctx.user_id, "shape_changed", json!({ "coverage": f.coverage, "private": private == 1 })).await?;
+    sqlx::query!("UPDATE nodes SET coverage = ?, private = ? WHERE id = ?", f.coverage, private, id)
+        .execute(&app.db)
+        .await?;
+    store::record(
+        &app.db,
+        id,
+        ctx.user_id,
+        "shape_changed",
+        json!({ "coverage": f.coverage, "private": private == 1 }),
+    )
+    .await?;
     Ok(Redirect::to(&format!("/goals/{id}#edit")).into_response())
 }
 
@@ -607,7 +680,12 @@ pub struct AchievedForm {
     achieved: String,
 }
 
-pub async fn achieved(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>, Form(f): Form<AchievedForm>) -> Result<Response> {
+pub async fn achieved(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    Path(id): Path<Id>,
+    Form(f): Form<AchievedForm>,
+) -> Result<Response> {
     let (ctx, _, _) = gate!(app, jar, f.csrf, id, Access::Own);
     let when = (f.achieved == "1").then(now);
     sqlx::query!("UPDATE nodes SET achieved_at = ? WHERE id = ? AND kind = 'goal'", when, id).execute(&app.db).await?;
@@ -625,7 +703,12 @@ pub struct SizeForm {
 }
 
 /// Set or clear a goal's rough size (a path estimate, so Contributors can change it).
-pub async fn size(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>, Form(f): Form<SizeForm>) -> Result<Response> {
+pub async fn size(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    Path(id): Path<Id>,
+    Form(f): Form<SizeForm>,
+) -> Result<Response> {
     let (ctx, world, _) = gate!(app, jar, f.csrf, id, Access::Contribute);
     if !world.nodes[&id].is_goal() {
         return Ok(not_found());
@@ -634,7 +717,9 @@ pub async fn size(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>,
         return Ok(Redirect::to(&format!("/goals/{id}?error=size#path")).into_response());
     };
     let (lo, hi) = (size.map(|s| s.0), size.map(|s| s.1));
-    sqlx::query!("UPDATE nodes SET size_min_days = ?, size_max_days = ? WHERE id = ?", lo, hi, id).execute(&app.db).await?;
+    sqlx::query!("UPDATE nodes SET size_min_days = ?, size_max_days = ? WHERE id = ?", lo, hi, id)
+        .execute(&app.db)
+        .await?;
     store::record(&app.db, id, ctx.user_id, "size_changed", json!({ "min": lo, "max": hi })).await?;
     Ok(Redirect::to(&format!("/goals/{id}#path")).into_response())
 }

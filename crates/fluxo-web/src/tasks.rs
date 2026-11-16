@@ -73,7 +73,12 @@ fn link(world: &World, user: Id, id: Id) -> Option<Link> {
     })
 }
 
-pub async fn show(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>, Query(q): Query<PageQuery>) -> Result<Response> {
+pub async fn show(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    Path(id): Path<Id>,
+    Query(q): Query<PageQuery>,
+) -> Result<Response> {
     let (ctx, world, access) = match with_access(&app, &jar, None, id, Access::Read).await? {
         Ok(x) => x,
         Err(r) => return Ok(r),
@@ -92,7 +97,8 @@ pub async fn show(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>,
         _ => (0.75, 1.6),
     };
     let base = if task.status == "doing" { task.remaining_days.unwrap_or(estimate) } else { estimate };
-    let spread = format!("{}–{}", views::days(base * lo).trim_end_matches('d'), views::days(base * hi).trim_end_matches('d'));
+    let spread =
+        format!("{}–{}", views::days(base * lo).trim_end_matches('d'), views::days(base * hi).trim_end_matches('d'));
 
     // "Needs" choices: siblings first, then everything else visible (D16).
     let siblings: std::collections::HashSet<Id> =
@@ -105,7 +111,7 @@ pub async fn show(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>,
     let mut elsewhere: Vec<&Node> =
         world.nodes.values().filter(candidate).filter(|n| !siblings.contains(&n.id) && !n.is_goal()).collect();
     nearby.sort_by_key(|n| (n.created_at, n.id));
-    elsewhere.sort_by(|a, b| views::path_label(&world, a).cmp(&views::path_label(&world, b)));
+    elsewhere.sort_by_cached_key(|n| views::path_label(&world, n));
     let opt = |n: &Node, label: String| Option_ { value: n.id, label, selected: false };
 
     let current_parents = world.parents.get(&id).cloned().unwrap_or_default();
@@ -115,7 +121,7 @@ pub async fn show(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>,
         .filter(|n| n.is_goal() && n.archived_at.is_none() && !current_parents.contains(&n.id))
         .filter(|n| world.access(user, n.id).can_contribute())
         .collect();
-    parent_options.sort_by(|a, b| views::path_label(&world, a).cmp(&views::path_label(&world, b)));
+    parent_options.sort_by_cached_key(|n| views::path_label(&world, n));
 
     let forecasts = crate::forecast::current(&app, &world).await?;
     let critical_in = world
@@ -127,16 +133,17 @@ pub async fn show(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>,
             (p.title.clone(), p.href(), format!("{:.0}%", c * 100.0))
         })
         .collect();
-    let (done_p50, done_p85) = match forecasts.by_node.get(&id).filter(|_| task.status != "done" && !current_parents.is_empty()) {
-        Some(f) => {
-            let cals = crate::forecast::calendars(&app.db).await?;
-            let home_owner = task.home_parent_id.and_then(|h| world.nodes.get(&h)).and_then(|h| h.owner_id);
-            let cal = home_owner.or(task.owner_id).and_then(|o| cals.get(&o).cloned()).unwrap_or_default();
-            let d = crate::forecast::dated(f, &cal);
-            (d.p50, d.p85)
-        }
-        None => (String::new(), String::new()),
-    };
+    let (done_p50, done_p85) =
+        match forecasts.by_node.get(&id).filter(|_| task.status != "done" && !current_parents.is_empty()) {
+            Some(f) => {
+                let cals = crate::forecast::calendars(&app.db).await?;
+                let home_owner = task.home_parent_id.and_then(|h| world.nodes.get(&h)).and_then(|h| h.owner_id);
+                let cal = home_owner.or(task.owner_id).and_then(|o| cals.get(&o).cloned()).unwrap_or_default();
+                let d = crate::forecast::dated(f, &cal);
+                (d.p50, d.p85)
+            }
+            None => (String::new(), String::new()),
+        };
     let people = crate::people::view(&app.db, &world, user, id, access).await?;
     let history = views::history(&app.db, &world, user, id).await?;
     page(TaskPage {
@@ -194,7 +201,12 @@ pub struct TaskForm {
     remaining: String,
 }
 
-pub async fn update(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>, Form(f): Form<TaskForm>) -> Result<Response> {
+pub async fn update(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    Path(id): Path<Id>,
+    Form(f): Form<TaskForm>,
+) -> Result<Response> {
     let (ctx, world, _) = gate!(app, jar, f.csrf, id, Access::Contribute);
     let task = &world.nodes[&id];
     if task.is_goal() || task.archived_at.is_some() {
@@ -209,7 +221,11 @@ pub async fn update(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id
     };
     let clarity = if matches!(f.clarity.as_str(), "low" | "medium" | "high") { f.clarity.as_str() } else { "medium" };
     let status = if matches!(f.status.as_str(), "todo" | "doing" | "done") { f.status.as_str() } else { "todo" };
-    let remaining = if status == "doing" { views::parse_days(&f.remaining).or(task.remaining_days).or(Some(estimate)) } else { None };
+    let remaining = if status == "doing" {
+        views::parse_days(&f.remaining).or(task.remaining_days).or(Some(estimate))
+    } else {
+        None
+    };
     let started = match (status, task.started_at) {
         ("todo", _) => None,
         (_, Some(s)) => Some(s),

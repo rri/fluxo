@@ -64,13 +64,15 @@ pub async fn show(State(app): State<Shared>, jar: CookieJar, Query(q): Query<Foc
         Some("clarify") => "clarify",
         _ => "all",
     };
-    let items: Vec<crate::ranking::Item> = ranked.into_iter().filter(|i| show == "all" || i.kind.key() == show).take(30).collect();
+    let items: Vec<crate::ranking::Item> =
+        ranked.into_iter().filter(|i| show == "all" || i.kind.key() == show).take(30).collect();
     let names = store::usernames(&app.db).await?;
     let read = updates::last_read(&app.db, ctx.user_id).await?;
     let events = updates::for_user(&app.db, &world, ctx.user_id).await?;
     let unread = events.iter().filter(|e| e.id > read).count();
     let more = events.len().saturating_sub(SHOWN);
-    let lines: Vec<Line> = events.iter().take(SHOWN).map(|e| updates::describe(e, &world, &names, ctx.user_id, read)).collect();
+    let lines: Vec<Line> =
+        events.iter().take(SHOWN).map(|e| updates::describe(e, &world, &names, ctx.user_id, read)).collect();
     let waiting = people::waiting(&app.db, &world, ctx.user_id).await?;
     page(FocusPage {
         theme: &ctx.theme,
@@ -122,7 +124,8 @@ pub async fn snooze(State(app): State<Shared>, jar: CookieJar, Form(f): Form<Sno
     if !ctx.csrf_ok(&f.csrf) {
         return Ok(forbidden());
     }
-    let ok = f.item.split_once(':').is_some_and(|(k, v)| matches!(k, "task" | "risk" | "goal") && v.parse::<i64>().is_ok());
+    let ok =
+        f.item.split_once(':').is_some_and(|(k, v)| matches!(k, "task" | "risk" | "goal") && v.parse::<i64>().is_ok());
     if ok {
         let cals = crate::forecast::calendars(&app.db).await?;
         let until = cals.get(&ctx.user_id).cloned().unwrap_or_default().first_day(crate::now()).to_string();
@@ -145,18 +148,29 @@ pub struct StartForm {
 }
 
 /// "Mark started" from Focus: the task moves to In progress, with its estimate as remaining days.
-pub async fn start(State(app): State<Shared>, jar: CookieJar, Path(id): Path<i64>, Form(f): Form<StartForm>) -> Result<Response> {
-    let (ctx, world, _) = match crate::nodes::with_access(&app, &jar, Some(&f.csrf), id, fluxo_core::access::Access::Contribute).await? {
-        Ok(x) => x,
-        Err(r) => return Ok(r),
-    };
+pub async fn start(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    Path(id): Path<i64>,
+    Form(f): Form<StartForm>,
+) -> Result<Response> {
+    let (ctx, world, _) =
+        match crate::nodes::with_access(&app, &jar, Some(&f.csrf), id, fluxo_core::access::Access::Contribute).await? {
+            Ok(x) => x,
+            Err(r) => return Ok(r),
+        };
     let n = &world.nodes[&id];
     if !n.is_goal() && n.status == "todo" {
         let t = crate::now();
-        sqlx::query!("UPDATE nodes SET status = 'doing', started_at = ?, remaining_days = estimate_days WHERE id = ?", t, id)
-            .execute(&app.db)
+        sqlx::query!(
+            "UPDATE nodes SET status = 'doing', started_at = ?, remaining_days = estimate_days WHERE id = ?",
+            t,
+            id
+        )
+        .execute(&app.db)
+        .await?;
+        store::record(&app.db, id, ctx.user_id, "status_changed", serde_json::json!({ "from": "todo", "to": "doing" }))
             .await?;
-        store::record(&app.db, id, ctx.user_id, "status_changed", serde_json::json!({ "from": "todo", "to": "doing" })).await?;
     }
     Ok(Redirect::to("/#next-h").into_response())
 }

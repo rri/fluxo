@@ -18,7 +18,14 @@ async fn goal(app: &App, c: &str, title: &str, parent: Option<i64>) -> i64 {
 
 async fn task(app: &App, c: &str, goal: i64, title: &str) -> i64 {
     let t = token(app, c, &format!("/goals/{goal}")).await;
-    send(app, "POST", &format!("/goals/{goal}/steps"), Some(c), Some(&format!("csrf={t}&title={}&kind=task&estimate=2&clarity=high", enc(title)))).await;
+    send(
+        app,
+        "POST",
+        &format!("/goals/{goal}/steps"),
+        Some(c),
+        Some(&format!("csrf={t}&title={}&kind=task&estimate=2&clarity=high", enc(title))),
+    )
+    .await;
     sqlx::query_scalar("SELECT MAX(id) FROM nodes").fetch_one(&app.db).await.unwrap()
 }
 
@@ -42,13 +49,19 @@ async fn there_is_always_an_administrator() {
     let t = token(&app, &ada, "/settings").await;
     let kt = token(&app, &kofi, "/settings").await;
 
-    let r = send(&app, "POST", "/settings/admin/role", Some(&kofi), Some(&format!("csrf={kt}&user={kofi_id}&admin=1"))).await;
+    let r = send(&app, "POST", "/settings/admin/role", Some(&kofi), Some(&format!("csrf={kt}&user={kofi_id}&admin=1")))
+        .await;
     assert_eq!(r.status, StatusCode::FORBIDDEN, "members can't promote themselves");
-    let r = send(&app, "POST", "/settings/admin/role", Some(&ada), Some(&format!("csrf={t}&user={ada_id}&admin=0"))).await;
+    let r =
+        send(&app, "POST", "/settings/admin/role", Some(&ada), Some(&format!("csrf={t}&user={ada_id}&admin=0"))).await;
     assert_eq!(r.location.as_deref(), Some("/settings?error=last-admin#roles-h"));
     send(&app, "POST", "/settings/admin/role", Some(&ada), Some(&format!("csrf={t}&user={kofi_id}&admin=1"))).await;
-    assert!(send(&app, "GET", "/settings", Some(&kofi), None).await.body.contains(r#"id="adm-h""#), "kofi is now an Administrator");
-    let r = send(&app, "POST", "/settings/admin/role", Some(&ada), Some(&format!("csrf={t}&user={ada_id}&admin=0"))).await;
+    assert!(
+        send(&app, "GET", "/settings", Some(&kofi), None).await.body.contains(r#"id="adm-h""#),
+        "kofi is now an Administrator"
+    );
+    let r =
+        send(&app, "POST", "/settings/admin/role", Some(&ada), Some(&format!("csrf={t}&user={ada_id}&admin=0"))).await;
     assert_eq!(r.location.as_deref(), Some("/settings?done=admin-removed#roles-h"), "fine while another remains");
 }
 
@@ -81,8 +94,7 @@ async fn deleting_an_account_hands_work_over() {
     let selected = |id: i64| {
         let sel = body.split(&format!(r#"name="to_{id}""#)).nth(1).unwrap();
         let sel = &sel[..sel.find("</select>").unwrap()];
-        let opt = sel.split("<option ").find(|o| o.contains(" selected>")).unwrap().to_string();
-        opt
+        sel.split("<option ").find(|o| o.contains(" selected>")).unwrap().to_string()
     };
     assert!(selected(g).contains(&format!(r#"value="{kofi_id}""#)), "top-level: longest-standing Contributor");
     assert!(selected(t_under_g).contains(&format!(r#"value="{kofi_id}""#)), "inherited Contributor counts");
@@ -90,7 +102,14 @@ async fn deleting_an_account_hands_work_over() {
     assert!(selected(lonely).contains(r#"value="admins""#), "no one: the Administrators");
 
     let t = csrf(body);
-    let r = send(&app, "POST", "/settings/delete", Some(&ada), Some(&format!("csrf={t}&confirm=ada&password=wrong&to_{g}={kofi_id}"))).await;
+    let r = send(
+        &app,
+        "POST",
+        "/settings/delete",
+        Some(&ada),
+        Some(&format!("csrf={t}&confirm=ada&password=wrong&to_{g}={kofi_id}")),
+    )
+    .await;
     assert!(r.body.contains("That password isn’t right"));
     // Change one suggestion: the task goes to lin instead.
     let form = format!(
@@ -101,7 +120,14 @@ async fn deleting_an_account_hands_work_over() {
     assert_eq!(send(&app, "GET", "/", Some(&ada), None).await.location.as_deref(), Some("/login"), "signed out");
     let r = send(&app, "GET", "/login", None, None).await;
     let (anon, lt) = (r.cookie.unwrap(), csrf(&r.body));
-    let r = send(&app, "POST", "/login", Some(&anon), Some(&format!("csrf={lt}&username=ada&password=a+long+enough+password"))).await;
+    let r = send(
+        &app,
+        "POST",
+        "/login",
+        Some(&anon),
+        Some(&format!("csrf={lt}&username=ada&password=a+long+enough+password")),
+    )
+    .await;
     assert!(r.body.contains("don’t match"), "deleted accounts can't sign in");
     let n: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM nodes").fetch_one(&app.db).await.unwrap();
     assert_eq!(n, 5, "nothing was deleted");
@@ -109,13 +135,25 @@ async fn deleting_an_account_hands_work_over() {
     // kofi accepts Launch; lin declines the task, which goes to the Administrators.
     let f = send(&app, "GET", "/", Some(&kofi), None).await.body;
     assert!(f.contains("wants you to own <b>Launch</b>"));
-    let tid: i64 = sqlx::query_scalar("SELECT id FROM transfers WHERE node_id = ?").bind(g).fetch_one(&app.db).await.unwrap();
+    let tid: i64 =
+        sqlx::query_scalar("SELECT id FROM transfers WHERE node_id = ?").bind(g).fetch_one(&app.db).await.unwrap();
     let r = send(&app, "GET", &format!("/transfers/{tid}"), Some(&kofi), None).await;
     assert!(r.body.contains("ada (account deleted)"));
     assert!(r.body.contains("deleted their account and asked you to take this over"));
-    send(&app, "POST", &format!("/transfers/{tid}"), Some(&kofi), Some(&format!("csrf={}&answer=accept", csrf(&r.body)))).await;
+    send(
+        &app,
+        "POST",
+        &format!("/transfers/{tid}"),
+        Some(&kofi),
+        Some(&format!("csrf={}&answer=accept", csrf(&r.body))),
+    )
+    .await;
     assert!(send(&app, "GET", &format!("/goals/{g}"), Some(&kofi), None).await.body.contains("Owner: you"));
-    let tid: i64 = sqlx::query_scalar("SELECT id FROM transfers WHERE node_id = ?").bind(t_under_g).fetch_one(&app.db).await.unwrap();
+    let tid: i64 = sqlx::query_scalar("SELECT id FROM transfers WHERE node_id = ?")
+        .bind(t_under_g)
+        .fetch_one(&app.db)
+        .await
+        .unwrap();
     let lt = token(&app, &lin, &format!("/transfers/{tid}")).await;
     send(&app, "POST", &format!("/transfers/{tid}"), Some(&lin), Some(&format!("csrf={lt}&answer=decline"))).await;
 
@@ -124,7 +162,14 @@ async fn deleting_an_account_hands_work_over() {
     assert!(r.body.contains("<b>Schema</b>"));
     assert!(r.body.contains("<b>Lonely</b>"));
     let kt = csrf(&r.body);
-    let r = send(&app, "POST", "/settings/admin/assign", Some(&kofi), Some(&format!("csrf={kt}&node={lonely}&username=lin"))).await;
+    let r = send(
+        &app,
+        "POST",
+        "/settings/admin/assign",
+        Some(&kofi),
+        Some(&format!("csrf={kt}&node={lonely}&username=lin")),
+    )
+    .await;
     assert_eq!(r.location.as_deref(), Some("/settings?done=assigned#unowned-h"));
     assert!(send(&app, "GET", "/settings", Some(&kofi), None).await.body.contains("Offered to <b>lin</b>"));
     let f = send(&app, "GET", "/", Some(&lin), None).await.body;
@@ -139,8 +184,16 @@ async fn administrators_see_titles_of_private_unowned_items_but_cannot_open_them
     let kofi = sign_in(&app, "kofi", None).await;
     let p = goal(&app, &ada, "Secret plan", None).await;
     let t = token(&app, &ada, &format!("/goals/{p}")).await;
-    send(&app, "POST", &format!("/goals/{p}/shape"), Some(&ada), Some(&format!("csrf={t}&coverage=low&private=1"))).await;
-    send(&app, "POST", "/settings/delete", Some(&ada), Some(&format!("csrf={t}&confirm=ada&password=a+long+enough+password&to_{p}=admins"))).await;
+    send(&app, "POST", &format!("/goals/{p}/shape"), Some(&ada), Some(&format!("csrf={t}&coverage=low&private=1")))
+        .await;
+    send(
+        &app,
+        "POST",
+        "/settings/delete",
+        Some(&ada),
+        Some(&format!("csrf={t}&confirm=ada&password=a+long+enough+password&to_{p}=admins")),
+    )
+    .await;
     assert!(send(&app, "GET", "/settings", Some(&kofi), None).await.body.contains("<b>Secret plan</b>"));
     assert_eq!(send(&app, "GET", &format!("/goals/{p}"), Some(&kofi), None).await.status, StatusCode::NOT_FOUND);
 }

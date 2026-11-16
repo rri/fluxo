@@ -92,7 +92,9 @@ pub fn error_text(key: Option<&str>) -> Option<&'static str> {
         "no-user" => "No one has that username.",
         "already" => "They already have a role here.",
         "already-owner" => "They already own it.",
-        "size" => "Give a rough size as two numbers of working days, smallest first, like 5 and 15. Leave both blank for none.",
+        "size" => {
+            "Give a rough size as two numbers of working days, smallest first, like 5 and 15. Leave both blank for none."
+        }
         _ => return None,
     })
 }
@@ -223,7 +225,10 @@ pub fn unsized_below(world: &World, user: Id, goal: Id) -> Vec<Crumb> {
         let kids = world.children_of(i);
         if n.is_goal() && n.achieved_at.is_none() && kids.is_empty() && n.size.is_none() {
             let visible = world.access(user, i).can_read();
-            out.push(Crumb { title: if visible { n.title.clone() } else { "A private goal".into() }, href: if visible { n.href() } else { String::new() } });
+            out.push(Crumb {
+                title: if visible { n.title.clone() } else { "A private goal".into() },
+                href: if visible { n.href() } else { String::new() },
+            });
         }
         stack.extend(kids.iter().map(|k| k.id));
     }
@@ -335,16 +340,32 @@ pub fn histogram_svg(bins: &[u32], max: f64, p50: f64, p85: f64) -> String {
     let (w, h, top) = (600.0, 64.0, 14.0);
     let peak = bins.iter().copied().max().unwrap_or(1).max(1) as f64;
     let bw = w / bins.len() as f64;
-    let mut out = format!(r#"<svg class="dist-svg" viewBox="0 0 {w} {h}" preserveAspectRatio="none" role="img" aria-label="Finish distribution: half of runs by {p50:.0} working days, 85% by {p85:.0}">"#);
+    let mut out = format!(
+        r#"<svg class="dist-svg" viewBox="0 0 {w} {h}" preserveAspectRatio="none" role="img" aria-label="Finish distribution: half of runs by {p50:.0} working days, 85% by {p85:.0}">"#
+    );
     for (i, &c) in bins.iter().enumerate() {
         let bh = c as f64 / peak * (h - top);
         let mid = (i as f64 + 0.5) / bins.len() as f64 * max;
-        let class = if mid <= p50 { "b50" } else if mid <= p85 { "b85" } else { "btail" };
-        out += &format!(r#"<rect class="{class}" x="{:.1}" y="{:.1}" width="{:.1}" height="{bh:.1}" rx="1.5"/>"#, i as f64 * bw + 1.0, h - bh, (bw - 2.0).max(0.5));
+        let class = if mid <= p50 {
+            "b50"
+        } else if mid <= p85 {
+            "b85"
+        } else {
+            "btail"
+        };
+        out += &format!(
+            r#"<rect class="{class}" x="{:.1}" y="{:.1}" width="{:.1}" height="{bh:.1}" rx="1.5"/>"#,
+            i as f64 * bw + 1.0,
+            h - bh,
+            (bw - 2.0).max(0.5)
+        );
     }
     for (d, label) in [(p50, "P50"), (p85, "P85")] {
         let x = (d / max * w).min(w - 1.0);
-        out += &format!(r#"<line class="mark" x1="{x:.1}" x2="{x:.1}" y1="0" y2="{h}"/><text class="mark-label" x="{:.1}" y="10">{label}</text>"#, x + 4.0);
+        out += &format!(
+            r#"<line class="mark" x1="{x:.1}" x2="{x:.1}" y1="0" y2="{h}"/><text class="mark-label" x="{:.1}" y="10">{label}</text>"#,
+            x + 4.0
+        );
     }
     out + "</svg>"
 }

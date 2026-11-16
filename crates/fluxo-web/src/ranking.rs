@@ -67,7 +67,8 @@ fn tops(world: &World, id: Id) -> Vec<Id> {
             continue;
         }
         let ps: Vec<Id> = world.parents.get(&i).cloned().unwrap_or_default();
-        let live: Vec<Id> = ps.into_iter().filter(|p| world.nodes.get(p).is_some_and(|n| n.archived_at.is_none())).collect();
+        let live: Vec<Id> =
+            ps.into_iter().filter(|p| world.nodes.get(p).is_some_and(|n| n.archived_at.is_none())).collect();
         if live.is_empty() {
             if i != id || world.nodes[&i].is_goal() {
                 let n = &world.nodes[&i];
@@ -107,7 +108,8 @@ pub async fn rank(app: &AppState, db: &SqlitePool, world: &World, f: &Forecasts,
     let risks = forecast::open_risks(db).await?;
     let mut items = Vec::new();
     let can_act = |id: Id| world.access(user, id).can_contribute() && world.nodes[&id].archived_at.is_none();
-    let goal_names = |ts: &[Id]| ts.iter().filter_map(|g| world.nodes.get(g)).map(|g| g.title.clone()).collect::<Vec<_>>();
+    let goal_names =
+        |ts: &[Id]| ts.iter().filter_map(|g| world.nodes.get(g)).map(|g| g.title.clone()).collect::<Vec<_>>();
 
     for n in world.nodes.values() {
         if n.archived_at.is_some() || !can_act(n.id) {
@@ -116,11 +118,16 @@ pub async fn rank(app: &AppState, db: &SqlitePool, world: &World, f: &Forecasts,
         let ts = tops(world, n.id);
         if !n.is_goal() && !n.is_done() && !ts.is_empty() {
             // Do: expected overrun of a PERT over the clarity range: L * (lo + hi - 2) / 6.
-            let likely = if n.status == "doing" { n.remaining_days.or(n.estimate_days) } else { n.estimate_days }.unwrap_or(0.0);
+            let likely =
+                if n.status == "doing" { n.remaining_days.or(n.estimate_days) } else { n.estimate_days }.unwrap_or(0.0);
             let (lo, hi) = spread(n.clarity.as_deref());
             let overrun = likely * (lo + hi - 2.0) / 6.0;
             let c: f64 = ts.iter().map(|g| crit(f, *g, n.id)).sum();
-            let blocker = world.needs_of(n.id).iter().filter_map(|d| world.nodes.get(d)).find(|d| d.archived_at.is_none() && !d.is_done());
+            let blocker = world
+                .needs_of(n.id)
+                .iter()
+                .filter_map(|d| world.nodes.get(d))
+                .find(|d| d.archived_at.is_none() && !d.is_done());
             let main = ts.iter().map(|g| (crit(f, *g, n.id), *g)).max_by(|a, b| a.0.total_cmp(&b.0));
             let why = match main {
                 Some((cg, g)) if cg > 0.0 => format!(
@@ -130,7 +137,11 @@ pub async fn rank(app: &AppState, db: &SqlitePool, world: &World, f: &Forecasts,
                     days(likely * lo).trim_end_matches('d'),
                     days(likely * hi).trim_end_matches('d')
                 ),
-                _ => format!("Not on the critical path right now; it could take {}–{} days.", days(likely * lo).trim_end_matches('d'), days(likely * hi).trim_end_matches('d')),
+                _ => format!(
+                    "Not on the critical path right now; it could take {}–{} days.",
+                    days(likely * lo).trim_end_matches('d'),
+                    days(likely * hi).trim_end_matches('d')
+                ),
             };
             items.push(Item {
                 kind: Kind::Do,
@@ -201,7 +212,10 @@ pub async fn rank(app: &AppState, db: &SqlitePool, world: &World, f: &Forecasts,
         if n.archived_at.is_some() || n.is_done() || !can_act(n.id) {
             continue;
         }
-        let ts = { let t = tops(world, n.id); if t.is_empty() && n.is_goal() { vec![n.id] } else { t } };
+        let ts = {
+            let t = tops(world, n.id);
+            if t.is_empty() && n.is_goal() { vec![n.id] } else { t }
+        };
         if ts.is_empty() {
             continue;
         }
@@ -244,11 +258,14 @@ fn sort(items: &mut [Item]) {
 /// Replace the estimates of the top items with exact rechecks, cached per forecast fingerprint
 /// and shared by everyone (an item's effect doesn't depend on who's looking).
 async fn refine(app: &AppState, world: &World, risks: &[OpenRisk], items: &mut [Item]) -> Result<()> {
-    let fingerprint = app.forecasts.lock().expect("forecast cache lock").as_ref().map(|f| f.fingerprint.clone()).unwrap_or_default();
+    let fingerprint =
+        app.forecasts.lock().expect("forecast cache lock").as_ref().map(|f| f.fingerprint.clone()).unwrap_or_default();
     let mut todo: Vec<usize> = Vec::new();
     {
         let cache = app.rechecks.lock().expect("recheck cache lock");
-        for (i, it) in items.iter_mut().enumerate().filter(|(_, it)| it.gain.is_some() && it.tweak != Tweak::None).take(EXACT) {
+        for (i, it) in
+            items.iter_mut().enumerate().filter(|(_, it)| it.gain.is_some() && it.tweak != Tweak::None).take(EXACT)
+        {
             match cache.get(&(fingerprint.clone(), it.tweak)) {
                 Some(&g) => {
                     it.gain = Some(g);
@@ -270,7 +287,11 @@ async fn refine(app: &AppState, world: &World, risks: &[OpenRisk], items: &mut [
     let base = forecast::means(world, risks, Tweak::None, &all_tops).await?;
     for i in todo {
         let after = forecast::means(world, risks, items[i].tweak, &items[i].tops).await?;
-        let gain: f64 = items[i].tops.iter().map(|g| (base.get(g).copied().unwrap_or(0.0) - after.get(g).copied().unwrap_or(0.0)).max(0.0)).sum();
+        let gain: f64 = items[i]
+            .tops
+            .iter()
+            .map(|g| (base.get(g).copied().unwrap_or(0.0) - after.get(g).copied().unwrap_or(0.0)).max(0.0))
+            .sum();
         items[i].gain = Some(gain);
         items[i].exact = true;
         let mut cache = app.rechecks.lock().expect("recheck cache lock");

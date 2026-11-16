@@ -51,7 +51,9 @@ pub enum IssueOutcome {
 pub(crate) async fn issue(app: &crate::AppState, admin_id: i64, username: &str) -> Result<IssueOutcome> {
     let name = username.trim().to_lowercase();
     let Some(user_id) =
-        sqlx::query_scalar!(r#"SELECT id AS "id!" FROM users WHERE username = ? AND deleted_at IS NULL"#, name).fetch_optional(&app.db).await?
+        sqlx::query_scalar!(r#"SELECT id AS "id!" FROM users WHERE username = ? AND deleted_at IS NULL"#, name)
+            .fetch_optional(&app.db)
+            .await?
     else {
         return Ok(IssueOutcome::NoSuchUser);
     };
@@ -135,6 +137,7 @@ pub async fn locked_submit(
     State(app): State<Shared>,
     jar: CookieJar,
     headers: HeaderMap,
+    axum::Extension(crate::throttle::ClientIp(ip)): axum::Extension<crate::throttle::ClientIp>,
     Form(f): Form<LockedForm>,
 ) -> Result<Response> {
     let Some(s) = session::load(&app.db, &jar).await?.filter(|s| s.stage == Stage::Anonymous) else {
@@ -144,9 +147,19 @@ pub async fn locked_submit(
         return Ok(forbidden());
     }
     let username = f.username.trim().to_lowercase();
-    let user_id = sqlx::query_scalar!(r#"SELECT id AS "id!" FROM users WHERE username = ? AND deleted_at IS NULL"#, username)
-        .fetch_optional(&app.db)
-        .await?;
+    if crate::throttle::blocked(&app.db, &username, &ip).await? {
+        let body = page(LockedPage {
+            theme: "system",
+            csrf: &s.csrf_token,
+            username: &username,
+            error: Some(crate::throttle::MESSAGE),
+        })?;
+        return Ok((axum::http::StatusCode::TOO_MANY_REQUESTS, body).into_response());
+    }
+    let user_id =
+        sqlx::query_scalar!(r#"SELECT id AS "id!" FROM users WHERE username = ? AND deleted_at IS NULL"#, username)
+            .fetch_optional(&app.db)
+            .await?;
     let t = now();
     let mut tx = app.db.begin().await?;
     let used = match (user_id, canonical(&f.code)) {
@@ -169,6 +182,7 @@ pub async fn locked_submit(
     };
     let (Some(user_id), true) = (user_id, used) else {
         drop(tx);
+        crate::throttle::failed(&app.db, &username, &ip).await?;
         if session::record_failure(&app.db, &s).await? >= MAX_TRIES {
             session::end(&app.db, &s).await?;
             return Ok((session::clear_cookie(jar), Redirect::to("/locked?reason=tries")).into_response());
@@ -240,7 +254,12 @@ pub async fn reset_submit(State(app): State<Shared>, jar: CookieJar, Form(f): Fo
         None
     };
     if let Some(error) = error {
-        return page(ResetPage { theme: &ctx.theme, csrf: &ctx.session.csrf_token, username: &ctx.username, error: Some(error) });
+        return page(ResetPage {
+            theme: &ctx.theme,
+            csrf: &ctx.session.csrf_token,
+            username: &ctx.username,
+            error: Some(error),
+        });
     }
     let new = f.new.clone();
     let h = tokio::task::spawn_blocking(move || auth::password::hash(&new)).await?;

@@ -18,7 +18,14 @@ async fn goal(app: &App, c: &str, title: &str, coverage: &str) -> i64 {
 async fn task(app: &App, c: &str, goal: i64, title: &str, days: &str, needs: Option<i64>) -> i64 {
     let t = token(app, c, &format!("/goals/{goal}")).await;
     let n = needs.map(|n| n.to_string()).unwrap_or_default();
-    send(app, "POST", &format!("/goals/{goal}/steps"), Some(c), Some(&format!("csrf={t}&title={}&kind=task&estimate={days}&clarity=high&needs={n}", enc(title)))).await;
+    send(
+        app,
+        "POST",
+        &format!("/goals/{goal}/steps"),
+        Some(c),
+        Some(&format!("csrf={t}&title={}&kind=task&estimate={days}&clarity=high&needs={n}", enc(title))),
+    )
+    .await;
     sqlx::query_scalar("SELECT MAX(id) FROM nodes").fetch_one(&app.db).await.unwrap()
 }
 
@@ -64,7 +71,14 @@ async fn goal_page_shows_dates_and_the_critical_path() {
 
     // A certain 20-day risk on the long task moves the finish: the forecast is recalculated.
     let t = token(&app, &c, &format!("/tasks/{long}")).await;
-    send(&app, "POST", &format!("/nodes/{long}/risks"), Some(&c), Some(&format!("csrf={t}&title=Vendor+slip&likelihood=100&min=20&max=20"))).await;
+    send(
+        &app,
+        "POST",
+        &format!("/nodes/{long}/risks"),
+        Some(&c),
+        Some(&format!("csrf={t}&title=Vendor+slip&likelihood=100&min=20&max=20")),
+    )
+    .await;
     let r = send(&app, "GET", &format!("/goals/{g}"), Some(&c), None).await;
     assert_ne!(band(&r.body, "P50 finish"), p50, "changed inputs, new forecast");
     assert_eq!(band(&r.body, "Risk exposure").trim(), "20d");
@@ -113,9 +127,23 @@ async fn time_zones_are_checked_for_real() {
     let (app, _) = with_ada(false).await;
     let c = sign_in(&app, "ada", None).await;
     let t = token(&app, &c, "/settings").await;
-    let r = send(&app, "POST", "/settings/calendar", Some(&c), Some(&format!("csrf={t}&d0=1&time_zone=Mars%2FPhobos&days_off="))).await;
+    let r = send(
+        &app,
+        "POST",
+        "/settings/calendar",
+        Some(&c),
+        Some(&format!("csrf={t}&d0=1&time_zone=Mars%2FPhobos&days_off=")),
+    )
+    .await;
     assert_eq!(r.location.as_deref(), Some("/settings?error=calendar-tz#cal-h"));
-    let r = send(&app, "POST", "/settings/calendar", Some(&c), Some(&format!("csrf={t}&d0=1&time_zone=Asia%2FKolkata&days_off="))).await;
+    let r = send(
+        &app,
+        "POST",
+        "/settings/calendar",
+        Some(&c),
+        Some(&format!("csrf={t}&d0=1&time_zone=Asia%2FKolkata&days_off=")),
+    )
+    .await;
     assert_eq!(r.location.as_deref(), Some("/settings?done=calendar#cal-h"));
 }
 
@@ -126,8 +154,16 @@ async fn empty_sub_goals_are_flagged_until_sized_or_broken_down() {
     let g = goal(&app, &c, "Launch", "full").await;
     task(&app, &c, g, "Build", "5", None).await;
     let t = token(&app, &c, &format!("/goals/{g}")).await;
-    send(&app, "POST", &format!("/goals/{g}/steps"), Some(&c), Some(&format!("csrf={t}&title=Accounts&kind=goal&coverage=full"))).await;
-    let sub: i64 = sqlx::query_scalar("SELECT id FROM nodes WHERE title = 'Accounts'").fetch_one(&app.db).await.unwrap();
+    send(
+        &app,
+        "POST",
+        &format!("/goals/{g}/steps"),
+        Some(&c),
+        Some(&format!("csrf={t}&title=Accounts&kind=goal&coverage=full")),
+    )
+    .await;
+    let sub: i64 =
+        sqlx::query_scalar("SELECT id FROM nodes WHERE title = 'Accounts'").fetch_one(&app.db).await.unwrap();
 
     let r = send(&app, "GET", &format!("/goals/{g}"), Some(&c), None).await;
     assert!(r.body.contains("1 sub-goal isn’t sized or broken down yet, so these dates leave it out"));
@@ -151,6 +187,13 @@ async fn empty_sub_goals_are_flagged_until_sized_or_broken_down() {
     assert!(r.body.contains("rough size of about 20–30 working days"));
 
     // A rough size can also be given when the sub-goal is added.
-    send(&app, "POST", &format!("/goals/{g}/steps"), Some(&c), Some(&format!("csrf={t}&title=Docs&kind=goal&coverage=full&size_min=2&size_max=4"))).await;
+    send(
+        &app,
+        "POST",
+        &format!("/goals/{g}/steps"),
+        Some(&c),
+        Some(&format!("csrf={t}&title=Docs&kind=goal&coverage=full&size_min=2&size_max=4")),
+    )
+    .await;
     assert!(send(&app, "GET", &format!("/goals/{g}"), Some(&c), None).await.body.contains("about 2–4d"));
 }

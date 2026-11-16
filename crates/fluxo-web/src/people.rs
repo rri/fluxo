@@ -51,11 +51,23 @@ pub async fn view(db: &sqlx::SqlitePool, world: &World, me: Id, id: Id, access: 
     let node = &world.nodes[&id];
     if let Some(o) = node.owner_id {
         seen.insert(o);
-        rows.push(PersonRow { user: o, username: name(o), initials: initials(&name(o)), role: "Owner".into(), from: String::new(), pending: false, editable: false, me: o == me });
+        rows.push(PersonRow {
+            user: o,
+            username: name(o),
+            initials: initials(&name(o)),
+            role: "Owner".into(),
+            from: String::new(),
+            pending: false,
+            editable: false,
+            me: o == me,
+        });
     }
-    let here = sqlx::query!("SELECT user_id, role, status, invited_at FROM memberships WHERE node_id = ? ORDER BY invited_at", id)
-        .fetch_all(db)
-        .await?;
+    let here = sqlx::query!(
+        "SELECT user_id, role, status, invited_at FROM memberships WHERE node_id = ? ORDER BY invited_at",
+        id
+    )
+    .fetch_all(db)
+    .await?;
     let cutoff = now() - INVITE_DAYS * 86_400;
     let mut my_direct_role = String::new();
     for m in &here {
@@ -90,20 +102,41 @@ pub async fn view(db: &sqlx::SqlitePool, world: &World, me: Id, id: Id, access: 
         let from = if world.access(me, a).can_read() { an.title.clone() } else { "a private goal".into() };
         if let Some(o) = an.owner_id {
             if seen.insert(o) {
-                rows.push(PersonRow { user: o, username: name(o), initials: initials(&name(o)), role: "Owner".into(), from: from.clone(), pending: false, editable: false, me: o == me });
+                rows.push(PersonRow {
+                    user: o,
+                    username: name(o),
+                    initials: initials(&name(o)),
+                    role: "Owner".into(),
+                    from: from.clone(),
+                    pending: false,
+                    editable: false,
+                    me: o == me,
+                });
             }
         }
-        let mut here: Vec<(Id, Role)> = world.graph.roles.iter().filter(|((n, _), _)| *n == a).map(|((_, u), r)| (*u, *r)).collect();
+        let mut here: Vec<(Id, Role)> =
+            world.graph.roles.iter().filter(|((n, _), _)| *n == a).map(|((_, u), r)| (*u, *r)).collect();
         here.sort_by_key(|(u, _)| name(*u));
         for (u, r) in here {
             if seen.insert(u) {
                 let role = if r == Role::Contributor { "Contributor" } else { "Watcher" };
-                rows.push(PersonRow { user: u, username: name(u), initials: initials(&name(u)), role: role.into(), from: from.clone(), pending: false, editable: false, me: u == me });
+                rows.push(PersonRow {
+                    user: u,
+                    username: name(u),
+                    initials: initials(&name(u)),
+                    role: role.into(),
+                    from: from.clone(),
+                    pending: false,
+                    editable: false,
+                    me: u == me,
+                });
             }
         }
         queue.extend(world.parents.get(&a).cloned().unwrap_or_default());
     }
-    let transfer = sqlx::query!(r#"SELECT to_user FROM transfers WHERE node_id = ? AND status = 'pending'"#, id).fetch_optional(db).await?;
+    let transfer = sqlx::query!(r#"SELECT to_user FROM transfers WHERE node_id = ? AND status = 'pending'"#, id)
+        .fetch_optional(db)
+        .await?;
     Ok(PeopleView {
         rows,
         can_invite: access.is_owner() && node.archived_at.is_none(),
@@ -121,7 +154,9 @@ fn back(world: &World, id: Id, query: &str) -> Response {
 
 async fn user_by_name(db: &sqlx::SqlitePool, name: &str) -> Result<Option<Id>> {
     let n = name.trim().to_lowercase();
-    Ok(sqlx::query_scalar!(r#"SELECT id AS "id!" FROM users WHERE username = ? AND deleted_at IS NULL"#, n).fetch_optional(db).await?)
+    Ok(sqlx::query_scalar!(r#"SELECT id AS "id!" FROM users WHERE username = ? AND deleted_at IS NULL"#, n)
+        .fetch_optional(db)
+        .await?)
 }
 
 // ---------------------------------------------------------------- invite, change, remove, watch, leave
@@ -138,7 +173,12 @@ pub struct PeopleForm {
     user: Id,
 }
 
-pub async fn people(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>, Form(f): Form<PeopleForm>) -> Result<Response> {
+pub async fn people(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    Path(id): Path<Id>,
+    Form(f): Form<PeopleForm>,
+) -> Result<Response> {
     let (ctx, world, access) = gate!(app, jar, f.csrf, id, Access::Read);
     let role = if f.role == "watcher" { "watcher" } else { "contributor" };
     let t = now();
@@ -147,13 +187,16 @@ pub async fn people(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id
             if !access.is_owner() {
                 return Ok(forbidden());
             }
-            let Some(u) = user_by_name(&app.db, &f.username).await? else { return Ok(back(&world, id, "error=no-user")) };
+            let Some(u) = user_by_name(&app.db, &f.username).await? else {
+                return Ok(back(&world, id, "error=no-user"));
+            };
             if world.nodes[&id].owner_id == Some(u) {
                 return Ok(back(&world, id, "error=already"));
             }
-            let existing = sqlx::query_scalar!("SELECT status FROM memberships WHERE node_id = ? AND user_id = ?", id, u)
-                .fetch_optional(&app.db)
-                .await?;
+            let existing =
+                sqlx::query_scalar!("SELECT status FROM memberships WHERE node_id = ? AND user_id = ?", id, u)
+                    .fetch_optional(&app.db)
+                    .await?;
             if existing.as_deref() == Some("active") {
                 return Ok(back(&world, id, "error=already"));
             }
@@ -173,14 +216,19 @@ pub async fn people(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id
             return Ok(back(&world, id, "done=invited"));
         }
         "role" if access.is_owner() => {
-            sqlx::query!("UPDATE memberships SET role = ? WHERE node_id = ? AND user_id = ?", role, id, f.user).execute(&app.db).await?;
+            sqlx::query!("UPDATE memberships SET role = ? WHERE node_id = ? AND user_id = ?", role, id, f.user)
+                .execute(&app.db)
+                .await?;
         }
         "remove" if access.is_owner() => {
-            let was_active = sqlx::query_scalar!("SELECT status FROM memberships WHERE node_id = ? AND user_id = ?", id, f.user)
-                .fetch_optional(&app.db)
-                .await?
-                .is_some_and(|s| s == "active");
-            sqlx::query!("DELETE FROM memberships WHERE node_id = ? AND user_id = ?", id, f.user).execute(&app.db).await?;
+            let was_active =
+                sqlx::query_scalar!("SELECT status FROM memberships WHERE node_id = ? AND user_id = ?", id, f.user)
+                    .fetch_optional(&app.db)
+                    .await?
+                    .is_some_and(|s| s == "active");
+            sqlx::query!("DELETE FROM memberships WHERE node_id = ? AND user_id = ?", id, f.user)
+                .execute(&app.db)
+                .await?;
             if was_active {
                 store::record(&app.db, id, ctx.user_id, "member_left", json!({ "user": f.user })).await?;
             }
@@ -202,10 +250,14 @@ pub async fn people(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id
             store::record(&app.db, id, ctx.user_id, "watch_started", json!({})).await?;
         }
         "leave" => {
-            let n = sqlx::query!("DELETE FROM memberships WHERE node_id = ? AND user_id = ? AND status = 'active'", id, ctx.user_id)
-                .execute(&app.db)
-                .await?
-                .rows_affected();
+            let n = sqlx::query!(
+                "DELETE FROM memberships WHERE node_id = ? AND user_id = ? AND status = 'active'",
+                id,
+                ctx.user_id
+            )
+            .execute(&app.db)
+            .await?
+            .rows_affected();
             if n == 1 {
                 store::record(&app.db, id, ctx.user_id, "member_left", json!({ "user": ctx.user_id })).await?;
             }
@@ -247,9 +299,13 @@ pub async fn invitation_page(State(app): State<Shared>, jar: CookieJar, Path(id)
         Ok(c) => c,
         Err(r) => return Ok(r),
     };
-    let m = sqlx::query!("SELECT role, invited_by, invited_at FROM memberships WHERE node_id = ? AND user_id = ? AND status = 'pending'", id, ctx.user_id)
-        .fetch_optional(&app.db)
-        .await?;
+    let m = sqlx::query!(
+        "SELECT role, invited_by, invited_at FROM memberships WHERE node_id = ? AND user_id = ? AND status = 'pending'",
+        id,
+        ctx.user_id
+    )
+    .fetch_optional(&app.db)
+    .await?;
     let world = World::load(&app.db).await?;
     let (Some(m), Some(n)) = (m, world.nodes.get(&id)) else { return Ok(not_found()) };
     let names = store::usernames(&app.db).await?;
@@ -287,7 +343,12 @@ pub struct AnswerForm {
     answer: String,
 }
 
-pub async fn invitation_answer(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>, Form(f): Form<AnswerForm>) -> Result<Response> {
+pub async fn invitation_answer(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    Path(id): Path<Id>,
+    Form(f): Form<AnswerForm>,
+) -> Result<Response> {
     let ctx = match require_user(&app, &jar).await? {
         Ok(c) => c,
         Err(r) => return Ok(r),
@@ -314,9 +375,13 @@ pub async fn invitation_answer(State(app): State<Shared>, jar: CookieJar, Path(i
             return Ok(Redirect::to(&href).into_response());
         }
     } else {
-        sqlx::query!("DELETE FROM memberships WHERE node_id = ? AND user_id = ? AND status = 'pending'", id, ctx.user_id)
-            .execute(&app.db)
-            .await?;
+        sqlx::query!(
+            "DELETE FROM memberships WHERE node_id = ? AND user_id = ? AND status = 'pending'",
+            id,
+            ctx.user_id
+        )
+        .execute(&app.db)
+        .await?;
     }
     Ok(Redirect::to("/").into_response())
 }
@@ -333,31 +398,53 @@ pub struct TransferForm {
     note: String,
 }
 
-pub async fn transfer(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>, Form(f): Form<TransferForm>) -> Result<Response> {
+pub async fn transfer(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    Path(id): Path<Id>,
+    Form(f): Form<TransferForm>,
+) -> Result<Response> {
     let (ctx, world, _) = gate!(app, jar, f.csrf, id, Access::Own);
     let t = now();
     match f.action.as_str() {
         "request" => {
-            let Some(u) = user_by_name(&app.db, &f.username).await? else { return Ok(back(&world, id, "error=no-user")) };
+            let Some(u) = user_by_name(&app.db, &f.username).await? else {
+                return Ok(back(&world, id, "error=no-user"));
+            };
             if world.nodes[&id].owner_id == Some(u) {
                 return Ok(back(&world, id, "error=already-owner"));
             }
             let note: String = f.note.trim().chars().take(500).collect();
             let from = world.nodes[&id].owner_id;
             let mut tx = app.db.begin().await?;
-            sqlx::query!("UPDATE transfers SET status = 'cancelled', resolved_at = ? WHERE node_id = ? AND status = 'pending'", t, id)
-                .execute(&mut *tx)
-                .await?;
-            sqlx::query!("INSERT INTO transfers (node_id, from_user, to_user, note, created_at) VALUES (?, ?, ?, ?, ?)", id, from, u, note, t)
-                .execute(&mut *tx)
-                .await?;
+            sqlx::query!(
+                "UPDATE transfers SET status = 'cancelled', resolved_at = ? WHERE node_id = ? AND status = 'pending'",
+                t,
+                id
+            )
+            .execute(&mut *tx)
+            .await?;
+            sqlx::query!(
+                "INSERT INTO transfers (node_id, from_user, to_user, note, created_at) VALUES (?, ?, ?, ?, ?)",
+                id,
+                from,
+                u,
+                note,
+                t
+            )
+            .execute(&mut *tx)
+            .await?;
             tx.commit().await?;
             Ok(back(&world, id, "done=transfer"))
         }
         "cancel" => {
-            sqlx::query!("UPDATE transfers SET status = 'cancelled', resolved_at = ? WHERE node_id = ? AND status = 'pending'", t, id)
-                .execute(&app.db)
-                .await?;
+            sqlx::query!(
+                "UPDATE transfers SET status = 'cancelled', resolved_at = ? WHERE node_id = ? AND status = 'pending'",
+                t,
+                id
+            )
+            .execute(&app.db)
+            .await?;
             Ok(back(&world, id, ""))
         }
         _ => {
@@ -390,9 +477,13 @@ pub async fn transfer_page(State(app): State<Shared>, jar: CookieJar, Path(tid):
         Ok(c) => c,
         Err(r) => return Ok(r),
     };
-    let tr = sqlx::query!("SELECT node_id, from_user, note FROM transfers WHERE id = ? AND to_user = ? AND status = 'pending'", tid, ctx.user_id)
-        .fetch_optional(&app.db)
-        .await?;
+    let tr = sqlx::query!(
+        "SELECT node_id, from_user, note FROM transfers WHERE id = ? AND to_user = ? AND status = 'pending'",
+        tid,
+        ctx.user_id
+    )
+    .fetch_optional(&app.db)
+    .await?;
     let world = World::load(&app.db).await?;
     let Some(tr) = tr else { return Ok(not_found()) };
     let Some(n) = world.nodes.get(&tr.node_id) else { return Ok(not_found()) };
@@ -411,7 +502,10 @@ pub async fn transfer_page(State(app): State<Shared>, jar: CookieJar, Path(tid):
         from: match tr.from_user {
             None => "An Administrator".into(),
             Some(u) => {
-                let gone = sqlx::query_scalar!("SELECT deleted_at FROM users WHERE id = ?", u).fetch_one(&app.db).await?.is_some();
+                let gone = sqlx::query_scalar!("SELECT deleted_at FROM users WHERE id = ?", u)
+                    .fetch_one(&app.db)
+                    .await?
+                    .is_some();
                 let n = names.get(&u).cloned().unwrap_or_else(|| "Someone".into());
                 if gone { format!("{n} (account deleted)") } else { n }
             }
@@ -421,7 +515,12 @@ pub async fn transfer_page(State(app): State<Shared>, jar: CookieJar, Path(tid):
     })
 }
 
-pub async fn transfer_answer(State(app): State<Shared>, jar: CookieJar, Path(tid): Path<Id>, Form(f): Form<AnswerForm>) -> Result<Response> {
+pub async fn transfer_answer(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    Path(tid): Path<Id>,
+    Form(f): Form<AnswerForm>,
+) -> Result<Response> {
     let ctx = match require_user(&app, &jar).await? {
         Ok(c) => c,
         Err(r) => return Ok(r),
@@ -430,26 +529,43 @@ pub async fn transfer_answer(State(app): State<Shared>, jar: CookieJar, Path(tid
         return Ok(forbidden());
     }
     let t = now();
-    let Some(tr) = sqlx::query!("SELECT node_id, from_user FROM transfers WHERE id = ? AND to_user = ? AND status = 'pending'", tid, ctx.user_id)
-        .fetch_optional(&app.db)
-        .await?
+    let Some(tr) = sqlx::query!(
+        "SELECT node_id, from_user FROM transfers WHERE id = ? AND to_user = ? AND status = 'pending'",
+        tid,
+        ctx.user_id
+    )
+    .fetch_optional(&app.db)
+    .await?
     else {
         return Ok(Redirect::to("/").into_response());
     };
     if f.answer != "accept" {
-        sqlx::query!("UPDATE transfers SET status = 'declined', resolved_at = ? WHERE id = ?", t, tid).execute(&app.db).await?;
+        sqlx::query!("UPDATE transfers SET status = 'declined', resolved_at = ? WHERE id = ?", t, tid)
+            .execute(&app.db)
+            .await?;
         return Ok(Redirect::to("/").into_response());
     }
     let mut tx = app.db.begin().await?;
-    sqlx::query!("UPDATE transfers SET status = 'accepted', resolved_at = ? WHERE id = ?", t, tid).execute(&mut *tx).await?;
+    sqlx::query!("UPDATE transfers SET status = 'accepted', resolved_at = ? WHERE id = ?", t, tid)
+        .execute(&mut *tx)
+        .await?;
     sqlx::query!("UPDATE nodes SET owner_id = ? WHERE id = ?", ctx.user_id, tr.node_id).execute(&mut *tx).await?;
     // The new owner needs no separate role here; the previous owner stays on as a Contributor.
-    sqlx::query!("DELETE FROM memberships WHERE node_id = ? AND user_id = ?", tr.node_id, ctx.user_id).execute(&mut *tx).await?;
+    sqlx::query!("DELETE FROM memberships WHERE node_id = ? AND user_id = ?", tr.node_id, ctx.user_id)
+        .execute(&mut *tx)
+        .await?;
     let prev_live = match tr.from_user {
-        Some(p) => sqlx::query_scalar!("SELECT COUNT(*) FROM users WHERE id = ? AND deleted_at IS NULL", p).fetch_one(&mut *tx).await? == 1,
+        Some(p) => {
+            sqlx::query_scalar!("SELECT COUNT(*) FROM users WHERE id = ? AND deleted_at IS NULL", p)
+                .fetch_one(&mut *tx)
+                .await?
+                == 1
+        }
         None => false,
     };
-    sqlx::query!("UPDATE nodes SET previous_owner_id = NULL, unowned_since = NULL WHERE id = ?", tr.node_id).execute(&mut *tx).await?;
+    sqlx::query!("UPDATE nodes SET previous_owner_id = NULL, unowned_since = NULL WHERE id = ?", tr.node_id)
+        .execute(&mut *tx)
+        .await?;
     if let (Some(prev), true) = (tr.from_user, prev_live) {
         sqlx::query!(
             "INSERT INTO memberships (node_id, user_id, role, status, invited_at, joined_at) VALUES (?, ?, 'contributor', 'active', ?, ?)
@@ -463,7 +579,14 @@ pub async fn transfer_answer(State(app): State<Shared>, jar: CookieJar, Path(tid
         .await?;
     }
     tx.commit().await?;
-    store::record(&app.db, tr.node_id, ctx.user_id, "owner_changed", json!({ "from": tr.from_user, "to": ctx.user_id })).await?;
+    store::record(
+        &app.db,
+        tr.node_id,
+        ctx.user_id,
+        "owner_changed",
+        json!({ "from": tr.from_user, "to": ctx.user_id }),
+    )
+    .await?;
     let href = World::load(&app.db).await?.nodes.get(&tr.node_id).map(|n| n.href()).unwrap_or_else(|| "/".into());
     Ok(Redirect::to(&href).into_response())
 }

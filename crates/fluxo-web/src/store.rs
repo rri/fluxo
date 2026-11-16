@@ -86,11 +86,21 @@ pub async fn all_nodes(db: &SqlitePool) -> Result<HashMap<Id, Node>> {
 }
 
 pub async fn parent_links(db: &SqlitePool) -> Result<Vec<(Id, Id)>> {
-    Ok(sqlx::query!("SELECT child_id, parent_id FROM node_parents").fetch_all(db).await?.into_iter().map(|r| (r.child_id, r.parent_id)).collect())
+    Ok(sqlx::query!("SELECT child_id, parent_id FROM node_parents")
+        .fetch_all(db)
+        .await?
+        .into_iter()
+        .map(|r| (r.child_id, r.parent_id))
+        .collect())
 }
 
 pub async fn need_links(db: &SqlitePool) -> Result<Vec<(Id, Id)>> {
-    Ok(sqlx::query!("SELECT node_id, needs_id FROM dependencies").fetch_all(db).await?.into_iter().map(|r| (r.node_id, r.needs_id)).collect())
+    Ok(sqlx::query!("SELECT node_id, needs_id FROM dependencies")
+        .fetch_all(db)
+        .await?
+        .into_iter()
+        .map(|r| (r.node_id, r.needs_id))
+        .collect())
 }
 
 /// The whole picture a page needs: nodes, links, and access rules.
@@ -233,19 +243,34 @@ impl World {
         if let Some((a, b)) = extra_need {
             link_need(&mut m, a, b);
         }
-        matches!(m.compile(), Err(fluxo_sim::ModelError::Cycle { .. }) | Err(fluxo_sim::ModelError::ParentIsNotAGoal { .. }))
+        matches!(
+            m.compile(),
+            Err(fluxo_sim::ModelError::Cycle { .. }) | Err(fluxo_sim::ModelError::ParentIsNotAGoal { .. })
+        )
     }
 }
 
 pub async fn usernames(db: &SqlitePool) -> Result<HashMap<Id, String>> {
-    Ok(sqlx::query!(r#"SELECT id AS "id!", username FROM users"#).fetch_all(db).await?.into_iter().map(|r| (r.id, r.username)).collect())
+    Ok(sqlx::query!(r#"SELECT id AS "id!", username FROM users"#)
+        .fetch_all(db)
+        .await?
+        .into_iter()
+        .map(|r| (r.id, r.username))
+        .collect())
 }
 
 pub async fn record(db: &SqlitePool, node: Id, actor: Id, kind: &str, detail: serde_json::Value) -> Result<()> {
     let (t, detail) = (now(), detail.to_string());
-    sqlx::query!("INSERT INTO events (node_id, actor_id, kind, detail, at) VALUES (?, ?, ?, ?, ?)", node, actor, kind, detail, t)
-        .execute(db)
-        .await?;
+    sqlx::query!(
+        "INSERT INTO events (node_id, actor_id, kind, detail, at) VALUES (?, ?, ?, ?, ?)",
+        node,
+        actor,
+        kind,
+        detail,
+        t
+    )
+    .execute(db)
+    .await?;
     Ok(())
 }
 

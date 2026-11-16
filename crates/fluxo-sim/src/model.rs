@@ -56,10 +56,15 @@ pub struct Task {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Kind {
     Task(Task),
-    Goal { coverage: Coverage },
+    Goal {
+        coverage: Coverage,
+    },
     /// A goal that hasn't been broken down yet but has a rough size: anywhere from `min_days` to
     /// `max_days` working days, all equally likely.
-    Rough { min_days: f64, max_days: f64 },
+    Rough {
+        min_days: f64,
+        max_days: f64,
+    },
 }
 
 /// Something that may add time to a node. Retired risks have `likelihood == 0.0`.
@@ -128,21 +133,38 @@ impl Model {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ModelError {
-    UnknownNode { node: NodeId, reference: NodeId },
-    ParentIsNotAGoal { node: NodeId, parent: NodeId },
-    BadEstimate { node: NodeId },
-    BadRisk { node: NodeId, risk: usize },
+    UnknownNode {
+        node: NodeId,
+        reference: NodeId,
+    },
+    ParentIsNotAGoal {
+        node: NodeId,
+        parent: NodeId,
+    },
+    BadEstimate {
+        node: NodeId,
+    },
+    BadRisk {
+        node: NodeId,
+        risk: usize,
+    },
     /// The feeds/needs links form a loop, so no order of work exists. `node` is one node on it.
-    Cycle { node: NodeId },
+    Cycle {
+        node: NodeId,
+    },
 }
 
 impl std::fmt::Display for ModelError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ModelError::UnknownNode { node, reference } => write!(f, "node {node} refers to missing node {reference}"),
-            ModelError::ParentIsNotAGoal { node, parent } => write!(f, "node {node} feeds node {parent}, which is a task"),
+            ModelError::ParentIsNotAGoal { node, parent } => {
+                write!(f, "node {node} feeds node {parent}, which is a task")
+            }
             ModelError::BadEstimate { node } => write!(f, "node {node} has a negative or non-finite estimate"),
-            ModelError::BadRisk { node, risk } => write!(f, "risk {risk} on node {node} has an invalid likelihood or impact"),
+            ModelError::BadRisk { node, risk } => {
+                write!(f, "risk {risk} on node {node} has an invalid likelihood or impact")
+            }
             ModelError::Cycle { node } => write!(f, "node {node} is part of a loop of dependencies"),
         }
     }

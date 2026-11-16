@@ -27,10 +27,18 @@ async fn password_then_code_then_focus() {
     assert!(r.cookie.is_none());
     let r = send(&app, "POST", "/login", Some(&anon), Some(&format!("csrf={token}&username=nobody&password=x"))).await;
     assert!(r.body.contains("don’t match"), "unknown users get the same answer");
-    let r = send(&app, "POST", "/login", Some(&anon), Some("csrf=forged&username=ada&password=a+long+enough+password")).await;
+    let r = send(&app, "POST", "/login", Some(&anon), Some("csrf=forged&username=ada&password=a+long+enough+password"))
+        .await;
     assert_eq!(r.status, StatusCode::FORBIDDEN);
 
-    let r = send(&app, "POST", "/login", Some(&anon), Some(&format!("csrf={token}&username=Ada&password=a+long+enough+password"))).await;
+    let r = send(
+        &app,
+        "POST",
+        "/login",
+        Some(&anon),
+        Some(&format!("csrf={token}&username=Ada&password=a+long+enough+password")),
+    )
+    .await;
     assert_eq!(r.location.as_deref(), Some("/login/2fa"));
     let second = r.cookie.expect("new session ID after the password step");
     assert_ne!(second, anon);
@@ -57,10 +65,16 @@ async fn password_then_code_then_focus() {
     // The same code can't be used again.
     let r = send(&app, "GET", "/login", None, None).await;
     let (anon, token) = (r.cookie.unwrap(), csrf(&r.body));
-    let second = send(&app, "POST", "/login", Some(&anon), Some(&format!("csrf={token}&username=ada&password=a+long+enough+password")))
-        .await
-        .cookie
-        .unwrap();
+    let second = send(
+        &app,
+        "POST",
+        "/login",
+        Some(&anon),
+        Some(&format!("csrf={token}&username=ada&password=a+long+enough+password")),
+    )
+    .await
+    .cookie
+    .unwrap();
     let token = csrf(&send(&app, "GET", "/login/2fa", Some(&second), None).await.body);
     let r = send(&app, "POST", "/login/2fa", Some(&second), Some(&format!("csrf={token}&code={code}"))).await;
     assert!(r.body.contains("didn’t work"), "replayed code is refused");
@@ -71,10 +85,16 @@ async fn five_wrong_codes_end_the_attempt() {
     let (app, _) = with_ada(true).await;
     let r = send(&app, "GET", "/login", None, None).await;
     let (anon, token) = (r.cookie.unwrap(), csrf(&r.body));
-    let second = send(&app, "POST", "/login", Some(&anon), Some(&format!("csrf={token}&username=ada&password=a+long+enough+password")))
-        .await
-        .cookie
-        .unwrap();
+    let second = send(
+        &app,
+        "POST",
+        "/login",
+        Some(&anon),
+        Some(&format!("csrf={token}&username=ada&password=a+long+enough+password")),
+    )
+    .await
+    .cookie
+    .unwrap();
     let token = csrf(&send(&app, "GET", "/login/2fa", Some(&second), None).await.body);
     for _ in 0..4 {
         let r = send(&app, "POST", "/login/2fa", Some(&second), Some(&format!("csrf={token}&code=000000"))).await;

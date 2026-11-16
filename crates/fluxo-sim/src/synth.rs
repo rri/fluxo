@@ -32,7 +32,8 @@ impl Default for Shape {
 pub fn goal_tree(shape: Shape, seed: u64) -> Model {
     let mut rng = Pcg64::seed_from_u64(seed);
     let mut m = Model::default();
-    let coverage = |rng: &mut Pcg64| [Coverage::Full, Coverage::Full, Coverage::Partial, Coverage::Low][rng.random_range(0..4)];
+    let coverage =
+        |rng: &mut Pcg64| [Coverage::Full, Coverage::Full, Coverage::Partial, Coverage::Low][rng.random_range(0..4)];
 
     let root = m.add(Node::goal(Coverage::Partial));
     let mut leaves_parents = Vec::new();
@@ -59,7 +60,11 @@ pub fn goal_tree(shape: Shape, seed: u64) -> Model {
         }
         if rng.random::<f64>() < shape.risky {
             let min = rng.random_range(1.0..3.0);
-            node.risks.push(Risk { likelihood: rng.random_range(0.1..0.5), min_days: min, max_days: min + rng.random_range(1.0..6.0) });
+            node.risks.push(Risk {
+                likelihood: rng.random_range(0.1..0.5),
+                min_days: min,
+                max_days: min + rng.random_range(1.0..6.0),
+            });
         }
         let id = m.add(node);
         branch_of.push(branch_of[p]);

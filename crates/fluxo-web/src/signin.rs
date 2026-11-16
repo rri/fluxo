@@ -60,7 +60,8 @@ pub struct CsrfForm {
 }
 
 const WRONG_PASSWORD: &str = "That username and password don’t match.";
-const WRONG_CODE: &str = "That code didn’t work. Check that your authenticator’s clock is right, then try the newest code.";
+const WRONG_CODE: &str =
+    "That code didn’t work. Check that your authenticator’s clock is right, then try the newest code.";
 const WRONG_RECOVERY: &str = "That recovery code didn’t work. Each code works only once.";
 const TOO_MANY_CODES: &str = "Too many wrong codes. Sign in again to get more tries.";
 const MAX_CODE_TRIES: i64 = 5;
@@ -90,13 +91,15 @@ pub async fn login_page(
     };
     let error = (q.reason.as_deref() == Some("codes")).then_some(TOO_MANY_CODES);
     let signup_open = signup_open(&app).await?;
-    Ok((jar, page(LoginPage { theme: "system", csrf: &s.csrf_token, username: "", error, signup_open })?).into_response())
+    Ok((jar, page(LoginPage { theme: "system", csrf: &s.csrf_token, username: "", error, signup_open })?)
+        .into_response())
 }
 
 pub async fn login_submit(
     State(app): State<Shared>,
     jar: CookieJar,
     headers: HeaderMap,
+    axum::Extension(crate::throttle::ClientIp(ip)): axum::Extension<crate::throttle::ClientIp>,
     Form(f): Form<LoginForm>,
 ) -> Result<Response> {
     let Some(s) = session::load(&app.db, &jar).await? else { return Ok(Redirect::to("/login").into_response()) };
@@ -104,6 +107,17 @@ pub async fn login_submit(
         return Ok(forbidden());
     }
     let username = f.username.trim().to_lowercase();
+    if crate::throttle::blocked(&app.db, &username, &ip).await? {
+        let signup_open = signup_open(&app).await?;
+        let body = page(LoginPage {
+            theme: "system",
+            csrf: &s.csrf_token,
+            username: &username,
+            error: Some(crate::throttle::MESSAGE),
+            signup_open,
+        })?;
+        return Ok((axum::http::StatusCode::TOO_MANY_REQUESTS, body).into_response());
+    }
     let user = sqlx::query!(
         r#"SELECT id AS "id!", password_hash, totp_enabled FROM users WHERE username = ? AND deleted_at IS NULL"#,
         username
@@ -119,6 +133,7 @@ pub async fn login_submit(
     };
     let (Some(user), true) = (user, ok) else {
         session::record_failure(&app.db, &s).await?;
+        crate::throttle::failed(&app.db, &username, &ip).await?;
         let signup_open = signup_open(&app).await?;
         return page(LoginPage {
             theme: "system",
@@ -171,7 +186,8 @@ pub async fn code_submit(
     }
     if crate::twofa::accept_code(&app, user_id, &f.code).await? {
         let (_, jar) =
-            session::advance(&app.db, jar, &s, user_id, Stage::SignedIn, &user_agent(&headers), app.secure_cookies).await?;
+            session::advance(&app.db, jar, &s, user_id, Stage::SignedIn, &user_agent(&headers), app.secure_cookies)
+                .await?;
         return Ok((jar, Redirect::to("/")).into_response());
     }
     let retry = page(CodePage { theme: "system", csrf: &s.csrf_token, error: Some(WRONG_CODE) })?;
@@ -199,7 +215,8 @@ pub async fn recovery_submit(
     }
     if crate::twofa::use_recovery_code(&app, user_id, &f.code).await? {
         let (_, jar) =
-            session::advance(&app.db, jar, &s, user_id, Stage::SignedIn, &user_agent(&headers), app.secure_cookies).await?;
+            session::advance(&app.db, jar, &s, user_id, Stage::SignedIn, &user_agent(&headers), app.secure_cookies)
+                .await?;
         return Ok((jar, Redirect::to("/settings?done=recovery-used#tfa-h")).into_response());
     }
     let retry = page(RecoveryPage { theme: "system", csrf: &s.csrf_token, error: Some(WRONG_RECOVERY) })?;
