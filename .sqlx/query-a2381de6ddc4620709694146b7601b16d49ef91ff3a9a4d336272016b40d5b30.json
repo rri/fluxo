@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT signup_mode FROM instance WHERE id = 1",
+  "describe": {
+    "columns": [
+      {
+        "name": "signup_mode",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "a2381de6ddc4620709694146b7601b16d49ef91ff3a9a4d336272016b40d5b30"
+}

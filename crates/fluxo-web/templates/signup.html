@@ -1,0 +1,22 @@
+{% extends "auth.html" %}
+{% block title %}{{ heading }}{% endblock %}
+{% block card %}
+<div class="steps" aria-hidden="true"><i class="on"></i><i></i><i></i></div>
+<h1>{{ heading }}</h1>
+<p class="lede">{{ lede }}</p>
+<form class="card card-pad" method="post" action="{{ action }}">
+  {% if let Some(error) = error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="field"><label for="u">Username</label>
+    <input id="u" name="username" class="input" value="{{ username }}" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="3" maxlength="32" required>
+    <span class="help">3–32 characters: lowercase letters, numbers, dots, hyphens and underscores. It can’t be changed later, and it’s how people invite you.</span></div>
+  <div class="field"><label for="p">Password</label>
+    <input id="p" name="password" class="input" type="password" autocomplete="new-password" minlength="12" required data-strength="#pw-bar">
+    <div class="strength" hidden><i id="pw-bar"></i></div>
+    <span class="help">At least 12 characters.</span></div>
+  <div class="field"><label for="p2">Confirm password</label><input id="p2" name="confirm" class="input" type="password" autocomplete="new-password" required></div>
+  {% if first_admin %}<div class="callout info mt-16">Administrators help locked-out people back in, look after goals left without an owner, decide who can sign up, and can make other people Administrators.</div>{% endif %}
+  <button class="btn primary block mt-20">{{ submit }}</button>
+</form>
+{% if !first_admin %}<p class="auth-foot">Already have an account? <a href="/login">Sign in</a></p>{% endif %}
+{% endblock %}

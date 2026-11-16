@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE signup_invites SET used_by = ? WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "d3f4ee7fc4ee93d3660d479090bc07dee61be095d2cc2bef2d4e8aff021fe228"
+}

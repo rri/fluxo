@@ -5,27 +5,48 @@
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
 
-  /* ---------- Theme ---------- */
-  function getTheme() { try { return localStorage.getItem('fluxo-theme') || 'system'; } catch (e) { return 'system'; } }
-  function setTheme(t) {
+  /* ---------- Theme (saved to the account) ---------- */
+  function getTheme() { return document.documentElement.getAttribute('data-theme') || 'system'; }
+  function applyTheme(t) {
     var d = document.documentElement;
     if (t === 'system') d.removeAttribute('data-theme'); else d.setAttribute('data-theme', t);
-    try { t === 'system' ? localStorage.removeItem('fluxo-theme') : localStorage.setItem('fluxo-theme', t); } catch (e) {}
     $$('input[name="theme"]').forEach(function (r) { r.checked = r.value === t; });
-    var btn = $('[data-theme-toggle]');
-    if (btn) btn.setAttribute('title', 'Theme: ' + t);
+    $$('[data-theme-toggle]').forEach(function (b) { b.setAttribute('title', 'Theme: ' + t); });
+  }
+  function saveTheme(t) {
+    var meta = $('meta[name="csrf"]');
+    if (!meta || !window.fetch) return;
+    fetch('/settings/theme', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'csrf=' + encodeURIComponent(meta.content) + '&theme=' + encodeURIComponent(t)
+    }).catch(function () {});
   }
   $$('[data-theme-toggle]').forEach(function (b) {
     b.hidden = false;
     b.addEventListener('click', function () {
       var order = ['system', 'light', 'dark'];
-      setTheme(order[(order.indexOf(getTheme()) + 1) % 3]);
+      var t = order[(order.indexOf(getTheme()) + 1) % 3];
+      applyTheme(t); saveTheme(t);
     });
   });
   $$('input[name="theme"]').forEach(function (r) {
-    r.addEventListener('change', function () { setTheme(r.value); });
+    r.addEventListener('change', function () { applyTheme(r.value); saveTheme(r.value); });
   });
-  setTheme(getTheme());
+  applyTheme(getTheme());
+
+  /* ---------- Copy buttons: data-copy="#id" copies that field's text ---------- */
+  $$('[data-copy]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var el = $(b.getAttribute('data-copy'));
+      if (!el) return;
+      var text = el.value != null ? el.value : el.textContent;
+      var done = function () { b.textContent = 'Copied'; };
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, function () { if (el.select) el.select(); });
+      else if (el.select) el.select();
+    });
+  });
 
   /* ---------- Menus (<details>): close on outside click / Escape ---------- */
   document.addEventListener('click', function (e) {

@@ -1,0 +1,56 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT i.id AS \"id!\", i.note, i.created_at, i.expires_at, i.used_at, i.revoked_at, u.username AS \"used_by?\"\n               FROM signup_invites i LEFT JOIN users u ON u.id = i.used_by\n               ORDER BY i.created_at DESC LIMIT 20",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "note",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 2,
+        "type_info": "Integer"
+      },
+      {
+        "name": "expires_at",
+        "ordinal": 3,
+        "type_info": "Integer"
+      },
+      {
+        "name": "used_at",
+        "ordinal": 4,
+        "type_info": "Integer"
+      },
+      {
+        "name": "revoked_at",
+        "ordinal": 5,
+        "type_info": "Integer"
+      },
+      {
+        "name": "used_by?",
+        "ordinal": 6,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "941e422645302abcb278a50e4c8800f19584fb7eb657f5fe1f6f18fcc3eaef08"
+}

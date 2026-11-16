@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE instance SET setup_completed_at = ? WHERE id = 1 AND setup_completed_at IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "da885126ddac29bf0409d1f38cc4f2e8eb245c3ac24466de31eb04518b460119"
+}

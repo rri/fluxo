@@ -174,3 +174,80 @@ pub async fn record_failure(db: &SqlitePool, s: &Session) -> sqlx::Result<i64> {
 pub fn clear_cookie(jar: CookieJar) -> CookieJar {
     jar.remove(Cookie::build(COOKIE).path("/"))
 }
+
+impl Session {
+    /// An opaque reference to this session for "sign out this device" forms. It's derived from
+    /// the stored hash, so it can't be turned back into a working cookie.
+    pub fn reference(&self) -> String {
+        URL_SAFE_NO_PAD.encode(&self.id_hash)
+    }
+}
+
+/// A signed-in session, for the Settings "Sessions" list.
+pub struct Listed {
+    pub reference: String,
+    pub user_agent: String,
+    pub last_seen_at: i64,
+}
+
+pub async fn list_signed_in(db: &SqlitePool, user_id: i64) -> sqlx::Result<Vec<Listed>> {
+    let rows = sqlx::query!(
+        "SELECT id_hash, user_agent, last_seen_at FROM sessions
+         WHERE user_id = ? AND stage = 'signed_in' ORDER BY last_seen_at DESC",
+        user_id
+    )
+    .fetch_all(db)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|r| Listed { reference: URL_SAFE_NO_PAD.encode(&r.id_hash), user_agent: r.user_agent, last_seen_at: r.last_seen_at })
+        .collect())
+}
+
+/// End one of `user_id`'s sessions, named by its [`Session::reference`].
+pub async fn end_by_reference(db: &SqlitePool, user_id: i64, reference: &str) -> sqlx::Result<bool> {
+    let Ok(id_hash) = URL_SAFE_NO_PAD.decode(reference) else { return Ok(false) };
+    let n = sqlx::query!("DELETE FROM sessions WHERE id_hash = ? AND user_id = ?", id_hash, user_id)
+        .execute(db)
+        .await?
+        .rows_affected();
+    Ok(n == 1)
+}
+
+/// End every session of `user_id` except `keep`.
+pub async fn end_others(db: &SqlitePool, user_id: i64, keep: &Session) -> sqlx::Result<u64> {
+    let n = sqlx::query!("DELETE FROM sessions WHERE user_id = ? AND id_hash != ?", user_id, keep.id_hash)
+        .execute(db)
+        .await?
+        .rows_affected();
+    Ok(n)
+}
+
+/// A short description of a browser from its User-Agent, like "Firefox on Linux".
+pub fn describe_agent(ua: &str) -> String {
+    let browser = if ua.contains("Edg/") {
+        "Edge"
+    } else if ua.contains("Firefox/") {
+        "Firefox"
+    } else if ua.contains("Chrome/") {
+        "Chrome"
+    } else if ua.contains("Safari/") {
+        "Safari"
+    } else {
+        "A browser"
+    };
+    let os = if ua.contains("iPhone") || ua.contains("iPad") {
+        "iOS"
+    } else if ua.contains("Android") {
+        "Android"
+    } else if ua.contains("Mac OS X") {
+        "macOS"
+    } else if ua.contains("Windows") {
+        "Windows"
+    } else if ua.contains("Linux") {
+        "Linux"
+    } else {
+        "an unknown system"
+    };
+    format!("{browser} on {os}")
+}

@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT username, theme, is_administrator FROM users WHERE id = ? AND deleted_at IS NULL",
+  "describe": {
+    "columns": [
+      {
+        "name": "username",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "theme",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "is_administrator",
+        "ordinal": 2,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "f36d76d6b4fc7c7db7332047fc9b485983116c5b420bd710f1a447d55502d6e7"
+}

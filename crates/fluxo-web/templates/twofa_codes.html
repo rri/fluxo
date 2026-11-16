@@ -1,0 +1,19 @@
+{% extends "auth.html" %}
+{% block title %}Recovery codes{% endblock %}
+{% block card %}
+{% if first %}<div class="steps" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="on"></i></div>{% endif %}
+<h1>Save your recovery codes</h1>
+<p class="lede">If you lose your authenticator, each code signs you in once. fluxo can’t show them again.</p>
+<div class="card card-pad">
+  <div class="codes" id="codes">{% for c in codes %}<span>{{ c }}</span>{% endfor %}</div>
+  <div class="inline center-row mt-16">
+    <button class="btn sm js-only" type="button" data-copy="#codes-text">Copy</button>
+    <a class="btn sm" download="fluxo-recovery-codes.txt" href="data:text/plain;charset=utf-8,{{ codes_text|urlencode }}">Download .txt</a>
+  </div>
+  <textarea id="codes-text" class="sr-only" readonly aria-hidden="true" tabindex="-1">{{ codes_text }}</textarea>
+  <form method="get" action="{{ continue_to }}" class="mt-16">
+    <label class="inline small center-row"><input type="checkbox" required> I’ve saved these somewhere safe</label>
+    <button class="btn primary block mt-16">Continue</button>
+  </form>
+</div>
+{% endblock %}

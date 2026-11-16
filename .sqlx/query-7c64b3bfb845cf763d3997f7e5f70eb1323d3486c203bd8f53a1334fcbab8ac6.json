@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO users (username, password_hash, is_administrator, created_at) VALUES (?, ?, ?, ?)\n         ON CONFLICT (username) DO NOTHING RETURNING id",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "7c64b3bfb845cf763d3997f7e5f70eb1323d3486c203bd8f53a1334fcbab8ac6"
+}

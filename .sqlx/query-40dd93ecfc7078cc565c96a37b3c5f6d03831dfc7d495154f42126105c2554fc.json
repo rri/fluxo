@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO user_calendar (user_id) VALUES (?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "40dd93ecfc7078cc565c96a37b3c5f6d03831dfc7d495154f42126105c2554fc"
+}

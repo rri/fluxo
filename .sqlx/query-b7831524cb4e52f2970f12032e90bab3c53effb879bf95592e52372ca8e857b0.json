@@ -1,10 +1,10 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT username FROM users WHERE id = ?",
+  "query": "SELECT password_hash FROM users WHERE id = ?",
   "describe": {
     "columns": [
       {
-        "name": "username",
+        "name": "password_hash",
         "ordinal": 0,
         "type_info": "Text"
       }
@@ -16,5 +16,5 @@
       false
     ]
   },
-  "hash": "06c945e50567c6801f1346d436cdc86a82a4e13dd45d8286295ba37cdbdc045e"
+  "hash": "b7831524cb4e52f2970f12032e90bab3c53effb879bf95592e52372ca8e857b0"
 }

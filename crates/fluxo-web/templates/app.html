@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block head %}<meta name="csrf" content="{{ csrf }}">{% endblock %}
 {% block body %}
 <header class="topbar"><div class="topbar-inner">
   <a class="wordmark" href="/">{% include "mark.html" %}fluxo</a>

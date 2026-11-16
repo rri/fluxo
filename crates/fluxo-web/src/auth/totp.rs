@@ -16,7 +16,22 @@ pub fn generate_secret() -> Vec<u8> {
 }
 
 fn totp(secret: &[u8]) -> TOTP {
-    TOTP::new(Algorithm::SHA1, 6, SKEW as u8, STEP, secret.to_vec()).expect("6 digits and a 160-bit secret are valid")
+    labelled(secret, "")
+}
+
+fn labelled(secret: &[u8], account: &str) -> TOTP {
+    TOTP::new(Algorithm::SHA1, 6, SKEW as u8, STEP, secret.to_vec(), Some("fluxo".into()), account.into())
+        .expect("6 digits, a 160-bit secret and a username without ':' are valid")
+}
+
+/// What an authenticator app needs to add the account: a QR code (PNG, base64) and the same
+/// secret as base32 text for typing in by hand, grouped in fours for readability.
+pub fn provisioning(secret: &[u8], username: &str) -> (String, String) {
+    let t = labelled(secret, username);
+    let qr = t.get_qr_base64().expect("an otpauth URL this short always fits a QR code");
+    let b32 = t.get_secret_base32();
+    let grouped = b32.as_bytes().chunks(4).map(|c| std::str::from_utf8(c).unwrap()).collect::<Vec<_>>().join(" ");
+    (qr, grouped)
 }
 
 /// The code an authenticator shows at `unix_time`. Used by tests and the setup confirmation.

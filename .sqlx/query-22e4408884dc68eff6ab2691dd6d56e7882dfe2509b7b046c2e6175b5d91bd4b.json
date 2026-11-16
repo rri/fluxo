@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id FROM signup_invites WHERE token_hash = ? AND used_at IS NULL AND revoked_at IS NULL AND expires_at > ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "22e4408884dc68eff6ab2691dd6d56e7882dfe2509b7b046c2e6175b5d91bd4b"
+}

@@ -1,0 +1,162 @@
+{% extends "app.html" %}
+{% block title %}Settings{% endblock %}
+
+{% macro note(section) %}
+{% if notice_for == section %}<p class="notice{% if is_error %} error{% endif %}" role="status">{{ notice }}</p>{% endif %}
+{% endmacro %}
+
+{% block main %}
+<main>
+  <div class="page-head"><div><h1>Settings</h1><p class="sub">Signed in as <b>{{ username }}</b></p></div></div>
+
+  <section aria-labelledby="acc-h">
+    <div class="section-head"><h2 id="acc-h">Account</h2></div>
+    {% call note("account") %}
+    <form class="card card-pad" method="post" action="/settings/profile">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <dl class="kv">
+        <dt>Role</dt><dd>{% if is_admin %}<span class="pill accent">Administrator</span> <a class="small" href="#adm-h">Administrator settings below</a>{% else %}Member{% endif %}</dd>
+        <dt>Username</dt><dd class="inline"><span class="mono">{{ username }}</span><span class="xs faint">Can’t be changed. People use it to invite you.</span></dd>
+        <dt><label for="dn">Display name</label></dt><dd><input id="dn" name="display_name" class="input w-280" value="{{ display_name }}" maxlength="64"></dd>
+      </dl>
+      <div class="form-actions"><button class="btn">Save</button></div>
+    </form>
+  </section>
+
+  <section aria-labelledby="pw-h">
+    <div class="section-head"><h2 id="pw-h">Password</h2></div>
+    {% call note("password") %}
+    <form class="card card-pad" method="post" action="/settings/password">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="text" name="username" value="{{ username }}" autocomplete="username" hidden>
+      <dl class="kv">
+        <dt><label for="cp">Current</label></dt><dd><input id="cp" name="current" type="password" class="input w-280" autocomplete="current-password" required></dd>
+        <dt><label for="np">New</label></dt><dd><input id="np" name="new" type="password" class="input w-280" autocomplete="new-password" minlength="12" required data-strength="#np-bar"><div class="strength w-280" hidden><i id="np-bar"></i></div></dd>
+        <dt><label for="np2">Confirm new</label></dt><dd><input id="np2" name="confirm" type="password" class="input w-280" autocomplete="new-password" required></dd>
+      </dl>
+      <div class="form-actions"><span class="xs faint">Changing it signs you out on your other devices.</span><button class="btn">Change password</button></div>
+    </form>
+  </section>
+
+  <section aria-labelledby="tfa-h">
+    <div class="section-head"><h2 id="tfa-h">Two-factor authentication</h2>{% if totp_enabled %}<span class="pill green"><span class="dot"></span>On</span>{% else %}<span class="pill">Off</span>{% endif %}</div>
+    {% call note("tfa") %}
+    {% if totp_enabled %}
+    <div class="card">
+      <div class="row"><span class="grow"><b class="small">Authenticator app</b><br><span class="xs muted">Added {{ totp_since }}</span></span><a class="btn sm" href="/settings/2fa/setup">Replace</a></div>
+      <form class="row row-top" method="post" action="/settings/2fa/codes">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <span class="grow"><b class="small">Recovery codes</b><br><span class="xs muted">{{ codes_left }} of 8 unused. Making new ones cancels the old ones.</span></span>
+        <input name="password" type="password" class="input input-sm w-160" placeholder="Your password" aria-label="Your password, to make new codes" autocomplete="current-password" required>
+        <button class="btn sm">Make new codes</button>
+      </form>
+      <form class="row row-top" method="post" action="/settings/2fa/off">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <span class="grow"><b class="small">Turn off 2FA</b><br><span class="xs muted">Needs your password and a current code</span></span>
+        <input name="password" type="password" class="input input-sm w-160" placeholder="Your password" aria-label="Your password, to turn off 2FA" autocomplete="current-password" required>
+        <input name="code" class="input input-sm w-90 mono" placeholder="Code" aria-label="Current authenticator code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" required>
+        <button class="btn sm danger">Turn off</button>
+      </form>
+    </div>
+    {% else %}
+    <div class="card row"><span class="grow small muted">Add a code from an authenticator app to every sign-in. Recommended.</span><a class="btn sm primary" href="/settings/2fa/setup">Set up 2FA</a></div>
+    {% endif %}
+  </section>
+
+  <section aria-labelledby="app-h">
+    <div class="section-head"><h2 id="app-h">Appearance</h2><span class="hint">Saved to your account, so it follows you to every device</span></div>
+    {% call note("appearance") %}
+    <form class="card card-pad" method="post" action="/settings/theme">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <dl class="kv">
+        <dt>Theme</dt>
+        <dd class="inline"><span class="seg" role="radiogroup" aria-label="Theme">
+          <input type="radio" name="theme" id="t-s" value="system"{% if theme == "system" %} checked{% endif %}><label for="t-s">System</label>
+          <input type="radio" name="theme" id="t-l" value="light"{% if theme == "light" %} checked{% endif %}><label for="t-l">Light</label>
+          <input type="radio" name="theme" id="t-d" value="dark"{% if theme == "dark" %} checked{% endif %}><label for="t-d">Dark</label>
+        </span><button class="btn sm no-js">Save</button></dd>
+      </dl>
+    </form>
+  </section>
+
+  <section aria-labelledby="cal-h">
+    <div class="section-head"><h2 id="cal-h">Working calendar</h2><span class="hint">Turns working-day estimates into dates for goals you own</span></div>
+    {% call note("calendar") %}
+    <form class="card card-pad" method="post" action="/settings/calendar">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <dl class="kv">
+        <dt>Working days</dt>
+        <dd class="inline small">{% for d in days %}<label><input type="checkbox" name="d{{ d.index }}" value="1"{% if d.on %} checked{% endif %}> {{ d.label }}</label>{% endfor %}</dd>
+        <dt><label for="tz">Time zone</label></dt>
+        <dd><input id="tz" name="time_zone" class="input w-280" value="{{ time_zone }}" list="tz-list" required>
+          <datalist id="tz-list"><option value="UTC"><option value="Europe/London"><option value="Europe/Lisbon"><option value="Europe/Berlin"><option value="America/New_York"><option value="America/Chicago"><option value="America/Los_Angeles"><option value="Asia/Kolkata"><option value="Asia/Singapore"><option value="Asia/Tokyo"><option value="Australia/Sydney"></datalist></dd>
+        <dt><label for="off">Days off</label></dt>
+        <dd><textarea id="off" name="days_off" class="input mono small" rows="2" placeholder="2026-12-24, 2026-12-25">{{ days_off }}</textarea></dd>
+      </dl>
+      <div class="form-actions"><button class="btn">Save</button></div>
+    </form>
+  </section>
+
+  <section aria-labelledby="ses-h">
+    <div class="section-head"><h2 id="ses-h">Sessions</h2></div>
+    {% call note("sessions") %}
+    <ul class="list card">
+      {% for s in sessions %}
+      <li class="row"><span class="grow"><b class="small">{{ s.device }}</b>{% if s.current %} <span class="pill green">This device</span>{% endif %}<br><span class="xs muted">{{ s.seen }}</span></span>
+        {% if !s.current %}<form method="post" action="/settings/sessions/end"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="session" value="{{ s.reference }}"><button class="btn sm ghost">Sign out</button></form>{% endif %}</li>
+      {% endfor %}
+      {% if sessions.len() > 1 %}
+      <li class="row"><span class="grow"></span><form method="post" action="/settings/sessions/end-others"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn sm">Sign out all other sessions</button></form></li>
+      {% endif %}
+    </ul>
+  </section>
+
+  {% if let Some(admin) = admin %}
+  <section id="administrator" aria-labelledby="adm-h">
+    <div class="section-head"><h2 id="adm-h">Administrator</h2><span class="hint">Only Administrators see this</span></div>
+    {% call note("admin") %}
+
+    <div class="admin-block">
+      <div class="section-head"><h3>Who can sign up</h3></div>
+      <form class="card card-pad" method="post" action="/settings/admin/signup">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <div class="choices">
+          <label class="choice"><input type="radio" name="mode" value="invite"{% if admin.signup_mode == "invite" %} checked{% endif %}> <b>Invitation only</b><span class="xs muted">People join with a link from an Administrator.</span></label>
+          <label class="choice"><input type="radio" name="mode" value="open"{% if admin.signup_mode == "open" %} checked{% endif %}> <b>Open</b><span class="xs muted">Anyone who reaches this site can create an account.</span></label>
+          <label class="choice"><input type="radio" name="mode" value="closed"{% if admin.signup_mode == "closed" %} checked{% endif %}> <b>Closed</b><span class="xs muted">No new accounts. Existing invitation links stop working too.</span></label>
+        </div>
+        <div class="form-actions"><button class="btn">Save</button></div>
+      </form>
+    </div>
+
+    <div class="admin-block">
+      <div class="section-head"><h3>Invitations</h3><span class="hint">Single-use links, valid for 7 days</span></div>
+      {% if let Some(link) = admin.new_link %}
+      <div class="issued mb-12">
+        <div class="xs muted">New invitation link</div>
+        <div class="inline"><input id="new-link" class="input mono grow" value="{{ link }}" readonly aria-label="Invitation link"><button class="btn sm js-only" type="button" data-copy="#new-link">Copy</button></div>
+      </div>
+      {% endif %}
+      <form class="card row" method="post" action="/settings/admin/invites">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input name="note" class="input grow" maxlength="100" placeholder="Who is it for? (optional, only Administrators see this)" aria-label="Note">
+        <button class="btn primary">Create invitation link</button>
+      </form>
+      {% if !admin.invites.is_empty() %}
+      <div class="card table-wrap mt-12">
+        <table class="data">
+          <thead><tr><th>Note</th><th>Created</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+          {% for i in admin.invites %}
+            <tr><td>{% if i.note.is_empty() %}<span class="faint">No note</span>{% else %}{{ i.note }}{% endif %}</td><td class="small">{{ i.created }}</td><td class="small">{{ i.status }}</td>
+              <td>{% if i.active %}<form method="post" action="/settings/admin/invites/revoke"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="invite" value="{{ i.id }}"><button class="btn sm ghost">Revoke</button></form>{% endif %}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+</main>
+{% endblock %}

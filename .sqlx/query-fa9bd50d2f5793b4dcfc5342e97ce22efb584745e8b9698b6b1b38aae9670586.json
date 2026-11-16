@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT display_name, totp_enabled, totp_enabled_at FROM users WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "display_name",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "totp_enabled",
+        "ordinal": 1,
+        "type_info": "Integer"
+      },
+      {
+        "name": "totp_enabled_at",
+        "ordinal": 2,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "fa9bd50d2f5793b4dcfc5342e97ce22efb584745e8b9698b6b1b38aae9670586"
+}

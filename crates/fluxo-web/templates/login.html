@@ -10,5 +10,5 @@
   <div class="field"><label for="p">Password</label><input id="p" name="password" class="input" type="password" autocomplete="current-password" required></div>
   <button class="btn primary block mt-20">Sign in</button>
 </form>
-<p class="auth-foot"><a href="/locked">Locked out?</a> · New to fluxo? <a href="/signup">Create an account</a></p>
+<p class="auth-foot"><a href="/locked">Locked out?</a>{% if signup_open %} · New to fluxo? <a href="/signup">Create an account</a>{% endif %}</p>
 {% endblock %}

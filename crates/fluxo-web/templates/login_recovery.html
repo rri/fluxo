@@ -1,0 +1,13 @@
+{% extends "auth.html" %}
+{% block title %}Recovery code{% endblock %}
+{% block card %}
+<h1>Use a recovery code</h1>
+<p class="lede">Each recovery code works once.</p>
+<form class="card card-pad" method="post" action="/login/recovery">
+  {% if let Some(error) = error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="field"><label for="rc">Recovery code</label><input id="rc" name="code" class="input mono" placeholder="xxxx-xxxx" autocomplete="off" autocapitalize="none" spellcheck="false" required></div>
+  <button class="btn primary block mt-20">Verify</button>
+</form>
+<p class="auth-foot"><a href="/login/2fa">Use your authenticator instead</a></p>
+{% endblock %}

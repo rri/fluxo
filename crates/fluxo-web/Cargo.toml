@@ -7,6 +7,7 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+fluxo-core = { path = "../fluxo-core" }
 argon2 = "0.6.0"
 askama = "0.14.0"
 axum = "0.8.9"
@@ -19,8 +20,9 @@ sha2 = "0.11.0"
 sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "macros", "migrate"] }
 thiserror = "2.0.21"
 tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros", "net", "signal", "time"] }
-totp-rs = "5.7.2"
+totp-rs = { version = "5.7.2", features = ["qr"] }
 tracing = "0.1.44"
+serde_json = "1.0.154"
 
 [dev-dependencies]
 http-body-util = "0.1.5"

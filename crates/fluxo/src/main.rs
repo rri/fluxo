@@ -77,7 +77,7 @@ async fn main() -> Result<(), BoxError> {
     let db = SqlitePoolOptions::new().max_connections(8).connect_with(options).await?;
     MIGRATOR.run(&db).await?;
 
-    let app = router(Arc::new(AppState { db, secrets, secure_cookies }));
+    let app = router(Arc::new(AppState::new(db, secrets, secure_cookies)));
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!(%addr, db = %db_path.display(), "fluxo is listening");
     axum::serve(listener, app)

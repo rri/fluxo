@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE recovery_codes SET used_at = ? WHERE id = ? AND used_at IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "098bae8561b266c98750108846406fd3c8fbb21a6247dbbed8f145aadf457613"
+}

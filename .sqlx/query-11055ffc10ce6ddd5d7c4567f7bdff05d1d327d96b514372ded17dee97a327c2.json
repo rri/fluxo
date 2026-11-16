@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE instance SET signup_mode = ? WHERE id = 1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "11055ffc10ce6ddd5d7c4567f7bdff05d1d327d96b514372ded17dee97a327c2"
+}

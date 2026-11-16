@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id_hash, user_agent, last_seen_at FROM sessions\n         WHERE user_id = ? AND stage = 'signed_in' ORDER BY last_seen_at DESC",
+  "describe": {
+    "columns": [
+      {
+        "name": "id_hash",
+        "ordinal": 0,
+        "type_info": "Blob"
+      },
+      {
+        "name": "user_agent",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "last_seen_at",
+        "ordinal": 2,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "294f5760a341903a2cc5120389cccfc99d0f9a3339b514cf4d9d78fc95dffbfe"
+}

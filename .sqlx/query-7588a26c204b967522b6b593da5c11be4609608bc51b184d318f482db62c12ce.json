@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT workdays_mask, time_zone, days_off FROM user_calendar WHERE user_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "workdays_mask",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "time_zone",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "days_off",
+        "ordinal": 2,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "7588a26c204b967522b6b593da5c11be4609608bc51b184d318f482db62c12ce"
+}

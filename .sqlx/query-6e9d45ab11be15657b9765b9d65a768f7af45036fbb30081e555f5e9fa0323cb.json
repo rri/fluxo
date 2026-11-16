@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT setup_completed_at FROM instance WHERE id = 1",
+  "describe": {
+    "columns": [
+      {
+        "name": "setup_completed_at",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "6e9d45ab11be15657b9765b9d65a768f7af45036fbb30081e555f5e9fa0323cb"
+}

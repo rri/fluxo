@@ -1,15 +1,15 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT totp_secret_enc, totp_last_step FROM users WHERE id = ?",
+  "query": "SELECT totp_pending_enc, totp_enabled FROM users WHERE id = ?",
   "describe": {
     "columns": [
       {
-        "name": "totp_secret_enc",
+        "name": "totp_pending_enc",
         "ordinal": 0,
         "type_info": "Blob"
       },
       {
-        "name": "totp_last_step",
+        "name": "totp_enabled",
         "ordinal": 1,
         "type_info": "Integer"
       }
@@ -19,8 +19,8 @@
     },
     "nullable": [
       true,
-      true
+      false
     ]
   },
-  "hash": "3d1f92d9b7e273f4f1bb15ed31dd210df919371b208e0cd589ba2d78200a599a"
+  "hash": "a288cd98946a3b437e3987b4149ce360e088b6ca03329a716d4bec10bd267a54"
 }

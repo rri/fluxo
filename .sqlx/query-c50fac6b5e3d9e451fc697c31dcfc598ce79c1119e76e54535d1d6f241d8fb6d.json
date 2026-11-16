@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE users SET totp_pending_enc = ? WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "c50fac6b5e3d9e451fc697c31dcfc598ce79c1119e76e54535d1d6f241d8fb6d"
+}

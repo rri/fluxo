@@ -1,23 +1,29 @@
-//! fluxo's web layer: routes, server-rendered pages (D1, D4), sign-in and sessions.
+//! fluxo's web layer: routes, server-rendered pages (D1, D4), accounts, sign-in and Settings.
 //!
-//! Every page is complete HTML and every action is a plain form POST followed by a redirect, so the
-//! app works without JavaScript; `static/app.js` only enhances.
+//! Every page is complete HTML and every action is a plain form POST followed by a redirect (or a
+//! page), so the app works without JavaScript; `static/app.js` only enhances.
 
 pub mod auth;
 pub mod session;
+pub mod util;
+
+mod account;
+mod settings;
+mod signin;
+mod twofa;
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use askama::Template;
-use axum::extract::{Form, Path, Query, Request, State};
+use axum::Router;
+use axum::extract::{Path, Request, State};
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::middleware::{self, Next};
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
-use axum::Router;
 use axum_extra::extract::cookie::CookieJar;
-use serde::Deserialize;
 use sqlx::SqlitePool;
 
 use auth::secrets::SecretBox;
@@ -29,8 +35,17 @@ pub static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("../../migrations"
 pub struct AppState {
     pub db: SqlitePool,
     pub secrets: SecretBox,
-    /// Mark cookies `Secure`. Browsers accept Secure cookies on http://localhost too.
+    /// Mark cookies `Secure` and build `https://` links. Browsers accept Secure cookies on
+    /// http://localhost too.
     pub secure_cookies: bool,
+    /// Set once the first Administrator exists; until then every page leads to /setup.
+    pub setup_done: AtomicBool,
+}
+
+impl AppState {
+    pub fn new(db: SqlitePool, secrets: SecretBox, secure_cookies: bool) -> Self {
+        AppState { db, secrets, secure_cookies, setup_done: AtomicBool::new(false) }
+    }
 }
 
 pub type Shared = Arc<AppState>;
@@ -42,15 +57,33 @@ pub fn now() -> i64 {
 pub fn router(state: Shared) -> Router {
     Router::new()
         .route("/", get(focus))
-        .route("/login", get(login_page).post(login_submit))
-        .route("/login/2fa", get(second_factor_page).post(second_factor_submit))
-        .route("/logout", post(logout))
+        .route("/setup", get(account::setup_page).post(account::setup_submit))
+        .route("/signup", get(account::signup_page).post(account::signup_submit))
+        .route("/join/{token}", get(account::join_page).post(account::join_submit))
+        .route("/login", get(signin::login_page).post(signin::login_submit))
+        .route("/login/2fa", get(signin::code_page).post(signin::code_submit))
+        .route("/login/recovery", get(signin::recovery_page).post(signin::recovery_submit))
+        .route("/logout", post(signin::logout))
+        .route("/settings", get(settings::show))
+        .route("/settings/profile", post(settings::profile))
+        .route("/settings/password", post(settings::password))
+        .route("/settings/theme", post(settings::theme))
+        .route("/settings/calendar", post(settings::calendar))
+        .route("/settings/sessions/end", post(settings::end_session))
+        .route("/settings/sessions/end-others", post(settings::end_other_sessions))
+        .route("/settings/2fa/setup", get(twofa::setup_page).post(twofa::setup_submit))
+        .route("/settings/2fa/codes", post(twofa::regenerate_codes))
+        .route("/settings/2fa/off", post(twofa::turn_off))
+        .route("/settings/admin/signup", post(settings::signup_mode))
+        .route("/settings/admin/invites", post(settings::create_invite))
+        .route("/settings/admin/invites/revoke", post(settings::revoke_invite))
         .route("/static/{file}", get(asset))
+        .layer(middleware::from_fn_with_state(state.clone(), setup_gate))
         .layer(middleware::from_fn(security_headers))
         .with_state(state)
 }
 
-// ---------------------------------------------------------------- errors
+// ---------------------------------------------------------------- errors and helpers
 
 pub struct AppError(String);
 
@@ -67,222 +100,103 @@ impl IntoResponse for AppError {
     }
 }
 
-type Result<T, E = AppError> = std::result::Result<T, E>;
+pub(crate) type Result<T, E = AppError> = std::result::Result<T, E>;
 
-fn page(t: impl Template) -> Result<Response> {
+pub(crate) fn page(t: impl Template) -> Result<Response> {
     Ok(Html(t.render()?).into_response())
 }
 
-fn forbidden() -> Response {
+pub(crate) fn forbidden() -> Response {
     (StatusCode::FORBIDDEN, "This form has expired. Go back, reload the page and try again.").into_response()
 }
 
-fn user_agent(headers: &HeaderMap) -> String {
+pub(crate) fn user_agent(headers: &HeaderMap) -> String {
     headers.get(header::USER_AGENT).and_then(|v| v.to_str().ok()).unwrap_or("").chars().take(200).collect()
 }
 
-// ---------------------------------------------------------------- pages
-
-#[derive(Template)]
-#[template(path = "login.html")]
-struct LoginPage<'a> {
-    csrf: &'a str,
-    username: &'a str,
-    error: Option<&'a str>,
+pub(crate) fn initials(username: &str) -> String {
+    username.chars().filter(|c| c.is_ascii_alphanumeric()).take(2).collect::<String>().to_uppercase()
 }
 
-#[derive(Template)]
-#[template(path = "login_2fa.html")]
-struct SecondFactorPage<'a> {
-    csrf: &'a str,
-    error: Option<&'a str>,
+/// The signed-in person behind a request.
+pub(crate) struct Ctx {
+    pub session: Session,
+    pub user_id: i64,
+    pub username: String,
+    pub theme: String,
+    pub is_admin: bool,
 }
+
+impl Ctx {
+    pub fn csrf_ok(&self, given: &str) -> bool {
+        session::token_matches(&self.session.csrf_token, given)
+    }
+}
+
+/// The signed-in person, or a redirect to the sign-in page.
+pub(crate) async fn require_user(app: &AppState, jar: &CookieJar) -> Result<std::result::Result<Ctx, Response>> {
+    let Some(s) = session::load(&app.db, jar).await?.filter(|s| s.stage == Stage::SignedIn) else {
+        return Ok(Err(Redirect::to("/login").into_response()));
+    };
+    let Some(user_id) = s.user_id else { return Ok(Err(Redirect::to("/login").into_response())) };
+    let u = sqlx::query!(
+        "SELECT username, theme, is_administrator FROM users WHERE id = ? AND deleted_at IS NULL",
+        user_id
+    )
+    .fetch_optional(&app.db)
+    .await?;
+    let Some(u) = u else { return Ok(Err(Redirect::to("/login").into_response())) };
+    Ok(Ok(Ctx { session: s, user_id, username: u.username, theme: u.theme, is_admin: u.is_administrator != 0 }))
+}
+
+// ---------------------------------------------------------------- Focus (placeholder until Phase 5)
 
 #[derive(Template)]
 #[template(path = "focus.html")]
 struct FocusPage<'a> {
+    theme: &'a str,
     nav: &'a str,
     csrf: &'a str,
     username: &'a str,
     initials: String,
 }
 
-#[derive(Deserialize)]
-struct LoginQuery {
-    reason: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct LoginForm {
-    csrf: String,
-    username: String,
-    password: String,
-}
-
-#[derive(Deserialize)]
-struct CodeForm {
-    csrf: String,
-    code: String,
-}
-
-#[derive(Deserialize)]
-struct CsrfForm {
-    csrf: String,
-}
-
-const WRONG_PASSWORD: &str = "That username and password don’t match.";
-const WRONG_CODE: &str = "That code didn’t work. Check that your authenticator’s clock is right, then try the newest code.";
-const TOO_MANY_CODES: &str = "Too many wrong codes. Sign in again to get more tries.";
-
-async fn login_page(
-    State(app): State<Shared>,
-    jar: CookieJar,
-    headers: HeaderMap,
-    Query(q): Query<LoginQuery>,
-) -> Result<Response> {
-    let existing = session::load(&app.db, &jar).await?;
-    if existing.as_ref().is_some_and(|s| s.stage == Stage::SignedIn) {
-        return Ok(Redirect::to("/").into_response());
-    }
-    let (s, jar) = match existing {
-        Some(s) if s.stage == Stage::Anonymous => (s, jar),
-        other => {
-            if let Some(old) = other {
-                session::end(&app.db, &old).await?;
-            }
-            session::create(&app.db, jar, None, Stage::Anonymous, &user_agent(&headers), app.secure_cookies).await?
-        }
-    };
-    let error = (q.reason.as_deref() == Some("codes")).then_some(TOO_MANY_CODES);
-    Ok((jar, page(LoginPage { csrf: &s.csrf_token, username: "", error })?).into_response())
-}
-
-async fn login_submit(
-    State(app): State<Shared>,
-    jar: CookieJar,
-    headers: HeaderMap,
-    Form(f): Form<LoginForm>,
-) -> Result<Response> {
-    let Some(s) = session::load(&app.db, &jar).await? else { return Ok(Redirect::to("/login").into_response()) };
-    if !session::token_matches(&s.csrf_token, &f.csrf) {
-        return Ok(forbidden());
-    }
-    let username = f.username.trim().to_lowercase();
-    let user = sqlx::query!(
-        r#"SELECT id AS "id!", password_hash, totp_enabled FROM users WHERE username = ? AND deleted_at IS NULL"#,
-        username
-    )
-    .fetch_optional(&app.db)
-    .await?;
-    let ok = match &user {
-        Some(u) => auth::password::verify(&f.password, &u.password_hash),
-        None => {
-            auth::password::burn_time(&f.password);
-            false
-        }
-    };
-    let (Some(user), true) = (user, ok) else {
-        session::record_failure(&app.db, &s).await?;
-        return page(LoginPage { csrf: &s.csrf_token, username: &username, error: Some(WRONG_PASSWORD) });
-    };
-    let ua = user_agent(&headers);
-    if user.totp_enabled != 0 {
-        let (_, jar) = session::advance(&app.db, jar, &s, user.id, Stage::SecondFactor, &ua, app.secure_cookies).await?;
-        Ok((jar, Redirect::to("/login/2fa")).into_response())
-    } else {
-        let (_, jar) = session::advance(&app.db, jar, &s, user.id, Stage::SignedIn, &ua, app.secure_cookies).await?;
-        Ok((jar, Redirect::to("/")).into_response())
-    }
-}
-
-async fn second_factor_session(app: &AppState, jar: &CookieJar) -> Result<Option<(Session, i64)>> {
-    Ok(session::load(&app.db, jar)
-        .await?
-        .filter(|s| s.stage == Stage::SecondFactor)
-        .and_then(|s| s.user_id.map(|u| (s, u))))
-}
-
-async fn second_factor_page(State(app): State<Shared>, jar: CookieJar) -> Result<Response> {
-    let Some((s, _)) = second_factor_session(&app, &jar).await? else {
-        return Ok(Redirect::to("/login").into_response());
-    };
-    page(SecondFactorPage { csrf: &s.csrf_token, error: None })
-}
-
-async fn second_factor_submit(
-    State(app): State<Shared>,
-    jar: CookieJar,
-    headers: HeaderMap,
-    Form(f): Form<CodeForm>,
-) -> Result<Response> {
-    let Some((s, user_id)) = second_factor_session(&app, &jar).await? else {
-        return Ok(Redirect::to("/login").into_response());
-    };
-    if !session::token_matches(&s.csrf_token, &f.csrf) {
-        return Ok(forbidden());
-    }
-    let user = sqlx::query!("SELECT totp_secret_enc, totp_last_step FROM users WHERE id = ?", user_id)
-        .fetch_one(&app.db)
-        .await?;
-    let secret = user.totp_secret_enc.ok_or("2FA is on but no secret is stored")?;
-    let secret = app.secrets.open(&format!("totp:{user_id}"), &secret)?;
-    let last = user.totp_last_step.map(|x| x as u64);
-    let accepted = match auth::totp::check(&secret, &f.code, now() as u64, last) {
-        // Claim the step atomically so two simultaneous requests can't both use one code.
-        Some(step) => {
-            let step = step as i64;
-            sqlx::query!(
-                "UPDATE users SET totp_last_step = ? WHERE id = ? AND (totp_last_step IS NULL OR totp_last_step < ?)",
-                step,
-                user_id,
-                step
-            )
-            .execute(&app.db)
-            .await?
-            .rows_affected()
-                == 1
-        }
-        None => false,
-    };
-    if accepted {
-        let (_, jar) =
-            session::advance(&app.db, jar, &s, user_id, Stage::SignedIn, &user_agent(&headers), app.secure_cookies).await?;
-        return Ok((jar, Redirect::to("/")).into_response());
-    }
-    if session::record_failure(&app.db, &s).await? >= 5 {
-        session::end(&app.db, &s).await?;
-        return Ok((session::clear_cookie(jar), Redirect::to("/login?reason=codes")).into_response());
-    }
-    page(SecondFactorPage { csrf: &s.csrf_token, error: Some(WRONG_CODE) })
-}
-
-async fn signed_in(app: &AppState, jar: &CookieJar) -> Result<Option<(Session, i64)>> {
-    Ok(session::load(&app.db, jar)
-        .await?
-        .filter(|s| s.stage == Stage::SignedIn)
-        .and_then(|s| s.user_id.map(|u| (s, u))))
-}
-
 async fn focus(State(app): State<Shared>, jar: CookieJar) -> Result<Response> {
-    let Some((s, user_id)) = signed_in(&app, &jar).await? else {
-        return Ok(Redirect::to("/login").into_response());
+    let ctx = match require_user(&app, &jar).await? {
+        Ok(c) => c,
+        Err(r) => return Ok(r),
     };
-    let u = sqlx::query!("SELECT username FROM users WHERE id = ?", user_id).fetch_one(&app.db).await?;
-    let initials = u.username.chars().take(2).collect::<String>().to_uppercase();
-    page(FocusPage { nav: "focus", csrf: &s.csrf_token, username: &u.username, initials })
+    page(FocusPage {
+        theme: &ctx.theme,
+        nav: "focus",
+        csrf: &ctx.session.csrf_token,
+        username: &ctx.username,
+        initials: initials(&ctx.username),
+    })
 }
 
-async fn logout(State(app): State<Shared>, jar: CookieJar, Form(f): Form<CsrfForm>) -> Result<Response> {
-    if let Some(s) = session::load(&app.db, &jar).await? {
-        if !session::token_matches(&s.csrf_token, &f.csrf) {
-            return Ok(forbidden());
+// ---------------------------------------------------------------- middleware and static files
+
+/// Until the first Administrator exists, every page leads to /setup.
+async fn setup_gate(State(app): State<Shared>, req: Request, next: Next) -> Response {
+    if !app.setup_done.load(Ordering::Relaxed) {
+        let done = sqlx::query_scalar!("SELECT setup_completed_at FROM instance WHERE id = 1")
+            .fetch_one(&app.db)
+            .await
+            .ok()
+            .flatten()
+            .is_some();
+        if done {
+            app.setup_done.store(true, Ordering::Relaxed);
+        } else {
+            let path = req.uri().path();
+            if path != "/setup" && !path.starts_with("/static/") {
+                return Redirect::to("/setup").into_response();
+            }
         }
-        session::end(&app.db, &s).await?;
     }
-    Ok((session::clear_cookie(jar), Redirect::to("/login")).into_response())
+    next.run(req).await
 }
-
-// ---------------------------------------------------------------- static files and headers
 
 async fn asset(Path(file): Path<String>) -> Response {
     let (body, kind): (&'static [u8], &str) = match file.as_str() {

@@ -235,6 +235,14 @@ Each phase ends with something usable and demonstrable. The riskiest unknowns co
 | **6. Administrator** | Administrator recovery codes (issue, use, revoke, expiry), the orphaned items queue, promote/demote with the last-Administrator guard, account deletion with editable handover. | Every Administrator flow in the mocks works (Settings → Administrator). The handover rules are covered by property tests. |
 | **7. Launch** | Deployment (D12), backups (D13), rate limiting on sign-in and code entry, security headers, error pages, an export of your own data **(D23)**, fluxo.dev live. | We plan fluxo's own next goals in fluxo. |
 
+**Phase 1 decisions (2026-11-16):**
+- Sign-up mode is an Administrator setting: open, closed or invite-only, **default invite-only**.
+- Only Administrators create sign-up invitations: single-use links (`/join/…`) valid for 7 days, listed and revocable in Settings.
+- Usernames: 3–32 characters of `a–z 0–9 . - _`, starting and ending with a letter or digit, no two separators in a row, misleading names reserved.
+- When sign-up isn't open, the sign-in page hides "Create an account".
+- Theme preference is stored in the account and rendered into each page.
+- Sign-in throttling stays in Phase 7.
+
 Dogfooding: from Phase 3 on, this plan's phases are entered into fluxo itself as the "Launch fluxo.dev
 beta" goal.
 
