@@ -57,6 +57,9 @@ pub struct Task {
 pub enum Kind {
     Task(Task),
     Goal { coverage: Coverage },
+    /// A goal that hasn't been broken down yet but has a rough size: anywhere from `min_days` to
+    /// `max_days` working days, all equally likely.
+    Rough { min_days: f64, max_days: f64 },
 }
 
 /// Something that may add time to a node. Retired risks have `likelihood == 0.0`.
@@ -86,6 +89,10 @@ impl Node {
             needs: Vec::new(),
             risks: Vec::new(),
         }
+    }
+
+    pub fn rough(min_days: f64, max_days: f64) -> Self {
+        Node { kind: Kind::Rough { min_days, max_days }, parents: Vec::new(), needs: Vec::new(), risks: Vec::new() }
     }
 
     pub fn goal(coverage: Coverage) -> Self {

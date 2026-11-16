@@ -29,6 +29,8 @@ pub struct Node {
     pub statement_changed_at: i64,
     pub created_at: i64,
     pub archived_at: Option<i64>,
+    /// Goals not yet broken down: a rough size in working days.
+    pub size: Option<(f64, f64)>,
 }
 
 impl Node {
@@ -64,6 +66,7 @@ macro_rules! node_from {
             statement_changed_at: $r.statement_changed_at,
             created_at: $r.created_at,
             archived_at: $r.archived_at,
+            size: $r.size_min_days.zip($r.size_max_days),
         }
     };
 }
@@ -73,7 +76,8 @@ macro_rules! node_from {
 pub async fn all_nodes(db: &SqlitePool) -> Result<HashMap<Id, Node>> {
     let rows = sqlx::query!(
         r#"SELECT id AS "id!", kind, title, what, why, owner_id, home_parent_id, coverage, clarity, estimate_days,
-                  remaining_days, status, started_at, achieved_at, private, statement_changed_at, created_at, archived_at
+                  remaining_days, status, started_at, achieved_at, private, statement_changed_at, created_at, archived_at,
+                  size_min_days, size_max_days
            FROM nodes"#
     )
     .fetch_all(db)

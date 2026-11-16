@@ -26,6 +26,7 @@ AUTH=$(step Accounts+%26+auth goal partial "" "$API")
 PATHUI=$(step Path+view+UI task 6 medium "$ENGINE")
 post "/nodes/$PATHUI/needs" "csrf=$T&action=add&other=$API" >/dev/null
 INVITES=$(step Beta+invite+flow task 3 high "$AUTH")
+post "/goals/$AUTH/size" "csrf=$T&min=6&max=12" >/dev/null
 HOSTING=$(step Hosting+%26+deploy task 4 high "")
 post "/nodes/$ENGINE/risks" "csrf=$T&title=Monte+Carlo+too+slow+above+500+nodes&likelihood=40&min=3&max=8" >/dev/null
 post "/nodes/$ENGINE/risks" "csrf=$T&title=Correlated+estimates+skew+P85&likelihood=25&min=2&max=5" >/dev/null

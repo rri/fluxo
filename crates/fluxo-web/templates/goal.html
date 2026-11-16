@@ -51,6 +51,10 @@
       <div><div class="k">Risk exposure</div><div class="v amber-text">{{ b.exposure }}</div><div class="d">expected added time</div></div>
     </div>
     <div class="dist">{{ b.chart|safe }}</div>
+    {% if !unsized_goals.is_empty() %}
+    <p class="callout mt-12 small">{{ unsized_goals.len() }} sub-goal{% if unsized_goals.len() != 1 %}s aren’t{% else %} isn’t{% endif %} sized or broken down yet, so these dates leave {% if unsized_goals.len() != 1 %}them{% else %}it{% endif %} out:
+      {% for u in unsized_goals %}{% if !loop.first %}, {% endif %}{% if u.href.is_empty() %}{{ u.title }}{% else %}<a href="{{ u.href }}">{{ u.title }}</a>{% endif %}{% endfor %}.</p>
+    {% endif %}
     <p class="xs faint dist-axis"><span>Next working day</span><span>Dates use {{ b.calendar_owner }} working calendar</span></p>
     {% endif %}
   </section>
@@ -59,7 +63,16 @@
   <section id="path" aria-labelledby="path-h">
     <div class="section-head"><h2 id="path-h">The path</h2><span class="hint">Read down for what each step needs. Work rises toward the goal.</span></div>
     {% if steps.is_empty() %}
-    <div class="card card-pad empty"><p><b>No steps yet.</b></p><p class="small muted">Break the goal down into sub-goals and tasks. Until then its path is unknown.</p></div>
+    <div class="card card-pad empty"><p><b>No steps yet.</b></p><p class="small muted">Break the goal down into sub-goals and tasks. Until then its path is unknown{% if !size_min.is_empty() %}, and forecasts use its rough size of about {{ size_min }}–{{ size_max }} working days{% else %}, and goals above it can’t include it in their dates{% endif %}.</p>
+      {% if can_edit %}
+      <form class="inline center-row mt-12" method="post" action="/goals/{{ id }}/size">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <span class="small">Rough size: about</span>
+        <input name="min" class="input num w-56" value="{{ size_min }}" inputmode="decimal" aria-label="At least, working days">–<input name="max" class="input num w-56" value="{{ size_max }}" inputmode="decimal" aria-label="At most, working days"><span class="small">working days</span>
+        <button class="btn sm">{% if size_min.is_empty() %}Set size{% else %}Update{% endif %}</button>
+      </form>
+      {% endif %}
+    </div>
     {% else %}
     <div class="path-legend">
       <span><i class="lg-line crit"></i>Most likely critical path (≥50% of runs)</span>
@@ -115,6 +128,8 @@
           </span></div>
       </fieldset>
       <fieldset class="kind-fields" data-kind="goal"><legend class="label">For a sub-goal</legend>
+        <div class="inline mb-12"><span class="small">Rough size (optional): about</span>
+          <input name="size_min" class="input num w-56" inputmode="decimal" aria-label="Rough size, at least, working days">–<input name="size_max" class="input num w-56" inputmode="decimal" aria-label="Rough size, at most, working days"><span class="small muted">working days, until it’s broken down</span></div>
         <span class="seg" role="radiogroup" aria-label="Coverage">
           <input type="radio" name="coverage" id="cv-l" value="low" checked><label for="cv-l">Low coverage</label>
           <input type="radio" name="coverage" id="cv-p" value="partial"><label for="cv-p">Partial</label>

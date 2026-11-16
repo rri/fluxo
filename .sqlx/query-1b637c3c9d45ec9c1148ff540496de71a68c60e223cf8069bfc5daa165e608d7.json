@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE nodes SET size_min_days = ?, size_max_days = ? WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "1b637c3c9d45ec9c1148ff540496de71a68c60e223cf8069bfc5daa165e608d7"
+}

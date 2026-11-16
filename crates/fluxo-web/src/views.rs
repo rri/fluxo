@@ -89,6 +89,7 @@ pub fn error_text(key: Option<&str>) -> Option<&'static str> {
         "title" => "Give it a title of up to 200 characters.",
         "estimate" => "Give the task an estimate in working days, like 3 or 0.5.",
         "archive-first" => "Archive it before deleting it.",
+        "size" => "Give a rough size as two numbers of working days, smallest first, like 5 and 15. Leave both blank for none.",
         _ => return None,
     })
 }
@@ -144,7 +145,12 @@ pub fn steps(world: &World, user: Id, goal: Id, crit: Option<&HashMap<Id, f32>>)
                 (true, false) => format!("{s} · {:.0}%", c * 100.0),
             };
             let (meta_l, meta_r) = if k.is_goal() {
-                (format!("coverage {}", k.coverage.as_deref().unwrap_or("low")), if k.achieved_at.is_some() { "achieved".into() } else { String::new() })
+                let left = match (world.children_of(k.id).is_empty(), k.size) {
+                    (true, Some(sz)) => size_label(sz),
+                    (true, None) => "not sized yet".into(),
+                    _ => format!("coverage {}", k.coverage.as_deref().unwrap_or("low")),
+                };
+                (left, if k.achieved_at.is_some() { "achieved".into() } else { String::new() })
             } else {
                 let d = if k.status == "doing" { k.remaining_days.or(k.estimate_days) } else { k.estimate_days };
                 let status = match k.status.as_str() {
@@ -178,6 +184,32 @@ pub fn steps(world: &World, user: Id, goal: Id, crit: Option<&HashMap<Id, f32>>)
             }
         })
         .collect()
+}
+
+/// Goals at or beneath `goal` with no steps and no rough size: forecasts above them leave them
+/// out, so pages say so.
+pub fn unsized_below(world: &World, user: Id, goal: Id) -> Vec<Crumb> {
+    let mut out = Vec::new();
+    let mut seen = HashSet::new();
+    let mut stack = vec![goal];
+    while let Some(i) = stack.pop() {
+        if !seen.insert(i) {
+            continue;
+        }
+        let Some(n) = world.nodes.get(&i) else { continue };
+        let kids = world.children_of(i);
+        if n.is_goal() && n.achieved_at.is_none() && kids.is_empty() && n.size.is_none() {
+            let visible = world.access(user, i).can_read();
+            out.push(Crumb { title: if visible { n.title.clone() } else { "A private goal".into() }, href: if visible { n.href() } else { String::new() } });
+        }
+        stack.extend(kids.iter().map(|k| k.id));
+    }
+    out
+}
+
+/// "about 5–15d"
+pub fn size_label(size: (f64, f64)) -> String {
+    format!("about {}–{}", days(size.0).trim_end_matches('d'), days(size.1))
 }
 
 /// Steps of `goal` the person can see, for "what does it need?" pickers.

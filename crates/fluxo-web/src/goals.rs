@@ -333,6 +333,11 @@ struct GoalPage<'a> {
     error: Option<&'static str>,
     band: Option<Band>,
     gap: String,
+    /// Goals beneath (or this one) with no steps and no rough size.
+    unsized_goals: Vec<Crumb>,
+    /// This goal's own rough size, for the form shown while it has no steps.
+    size_min: String,
+    size_max: String,
 }
 
 /// The forecast at the top of a goal page.
@@ -378,7 +383,9 @@ pub async fn show(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>,
     let risks = views::risk_views(store::risks(&app.db, id).await?);
     let (path_risks, exposure) = views::path_risks(&app.db, &world, ctx.user_id, id).await?;
     let nebulous = goal.coverage.as_deref() == Some("low");
-    let band = match fc {
+    let empty = world.children_of(id).is_empty();
+    let unsized_goals: Vec<Crumb> = views::unsized_below(&world, ctx.user_id, id).into_iter().filter(|c| c.href != goal.href()).collect();
+    let band = match fc.filter(|_| !empty || goal.size.is_some()) {
         Some(f) => {
             let cals = crate::forecast::calendars(&app.db).await?;
             let cal = goal.owner_id.and_then(|o| cals.get(&o).cloned()).unwrap_or_default();
@@ -445,6 +452,9 @@ pub async fn show(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>,
         path_risks,
         band,
         gap,
+        unsized_goals,
+        size_min: goal.size.map(|s| views::days(s.0).trim_end_matches('d').to_string()).unwrap_or_default(),
+        size_max: goal.size.map(|s| views::days(s.1).trim_end_matches('d').to_string()).unwrap_or_default(),
         archived_steps: if access.is_owner() {
             world.archived_children_of(id).iter().map(|n| (n.id, n.title.clone(), n.href())).collect()
         } else {
@@ -469,6 +479,21 @@ pub struct StepForm {
     coverage: String,
     #[serde(default)]
     needs: String,
+    #[serde(default)]
+    size_min: String,
+    #[serde(default)]
+    size_max: String,
+}
+
+/// An optional rough size: both ends blank means none; otherwise both must be valid, smallest first.
+fn parse_size(min: &str, max: &str) -> Result<Option<(f64, f64)>, ()> {
+    if min.trim().is_empty() && max.trim().is_empty() {
+        return Ok(None);
+    }
+    match (views::parse_days(min), views::parse_days(max)) {
+        (Some(a), Some(b)) if a <= b => Ok(Some((a, b))),
+        _ => Err(()),
+    }
 }
 
 pub async fn add_step(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>, Form(f): Form<StepForm>) -> Result<Response> {
@@ -483,7 +508,14 @@ pub async fn add_step(State(app): State<Shared>, jar: CookieJar, Path(id): Path<
     }
     let new_id = if f.kind == "goal" {
         let coverage = if matches!(f.coverage.as_str(), "low" | "partial" | "full") { f.coverage.as_str() } else { "low" };
-        insert_node(&app, ctx.user_id, "goal", title, "", Some(id), None, Some(coverage)).await?
+        let Ok(size) = parse_size(&f.size_min, &f.size_max) else {
+            return Ok(Redirect::to(&format!("/goals/{id}?error=size#add")).into_response());
+        };
+        let new = insert_node(&app, ctx.user_id, "goal", title, "", Some(id), None, Some(coverage)).await?;
+        if let Some((lo, hi)) = size {
+            sqlx::query!("UPDATE nodes SET size_min_days = ?, size_max_days = ? WHERE id = ?", lo, hi, new).execute(&app.db).await?;
+        }
+        new
     } else {
         let Some(estimate) = views::parse_days(&f.estimate) else {
             return Ok(Redirect::to(&format!("/goals/{id}?error=estimate#add")).into_response());
@@ -565,4 +597,28 @@ pub async fn achieved(State(app): State<Shared>, jar: CookieJar, Path(id): Path<
     sqlx::query!("UPDATE nodes SET achieved_at = ? WHERE id = ? AND kind = 'goal'", when, id).execute(&app.db).await?;
     store::record(&app.db, id, ctx.user_id, if when.is_some() { "achieved" } else { "reopened" }, json!({})).await?;
     Ok(Redirect::to(&format!("/goals/{id}#top")).into_response())
+}
+
+#[derive(Deserialize)]
+pub struct SizeForm {
+    csrf: String,
+    #[serde(default)]
+    min: String,
+    #[serde(default)]
+    max: String,
+}
+
+/// Set or clear a goal's rough size (a path estimate, so Contributors can change it).
+pub async fn size(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>, Form(f): Form<SizeForm>) -> Result<Response> {
+    let (ctx, world, _) = gate!(app, jar, f.csrf, id, Access::Contribute);
+    if !world.nodes[&id].is_goal() {
+        return Ok(not_found());
+    }
+    let Ok(size) = parse_size(&f.min, &f.max) else {
+        return Ok(Redirect::to(&format!("/goals/{id}?error=size#path")).into_response());
+    };
+    let (lo, hi) = (size.map(|s| s.0), size.map(|s| s.1));
+    sqlx::query!("UPDATE nodes SET size_min_days = ?, size_max_days = ? WHERE id = ?", lo, hi, id).execute(&app.db).await?;
+    store::record(&app.db, id, ctx.user_id, "size_changed", json!({ "min": lo, "max": hi })).await?;
+    Ok(Redirect::to(&format!("/goals/{id}#path")).into_response())
 }

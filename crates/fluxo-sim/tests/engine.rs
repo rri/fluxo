@@ -173,3 +173,19 @@ fn any_node_can_be_forecast_from_the_same_runs() {
     assert_eq!(fr.criticality[b], 1.0);
     assert_eq!(c.run(settings(2_000)).goals.len(), 1, "run() still covers top-level goals");
 }
+
+#[test]
+fn a_roughly_sized_goal_takes_its_range() {
+    let mut m = Model::default();
+    let root = m.add(Node::goal(Coverage::Full));
+    let sized = m.add(Node::rough(5.0, 15.0));
+    m.feed(sized, root);
+    let f = m.compile().unwrap().run(settings(4_000));
+    let g = f.goal(root).unwrap();
+    assert!(g.finishes.iter().all(|&x| (5.0..=15.0).contains(&x)));
+    assert!((g.percentile(0.5) - 10.0).abs() < 0.5);
+    assert_eq!(g.criticality[sized], 1.0);
+    let mut bad = Model::default();
+    bad.add(Node::rough(9.0, 3.0));
+    assert!(matches!(bad.compile(), Err(ModelError::BadEstimate { .. })));
+}

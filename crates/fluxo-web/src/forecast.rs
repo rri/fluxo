@@ -77,14 +77,15 @@ fn fingerprint(world: &World, ids: &[Id], risks: &[OpenRisk]) -> Vec<u8> {
     for id in ids {
         let n = &world.nodes[id];
         h.update(format!(
-            "n{id}|{}|{:?}|{:?}|{:?}|{:?}|{}|{}\n",
+            "n{id}|{}|{:?}|{:?}|{:?}|{:?}|{}|{}|{:?}\n",
             n.kind,
             n.coverage,
             n.clarity,
             n.estimate_days,
             n.remaining_days,
             n.status,
-            n.achieved_at.is_some()
+            n.achieved_at.is_some(),
+            n.size
         ));
         let mut ps = world.parents.get(id).cloned().unwrap_or_default();
         ps.sort_unstable();
@@ -104,7 +105,10 @@ fn build(world: &World, ids: &[Id], risks: &[OpenRisk]) -> (Model, HashMap<Id, u
     let mut m = Model::default();
     for id in ids {
         let n = &world.nodes[id];
-        let mut node = if n.is_goal() && !achieved(id) {
+        let empty = n.is_goal() && world.children_of(*id).is_empty();
+        let mut node = if let (true, false, Some((lo, hi))) = (empty, achieved(id), n.size) {
+            SimNode::rough(lo, hi)
+        } else if n.is_goal() && !achieved(id) {
             SimNode::goal(match n.coverage.as_deref() {
                 Some("full") => Coverage::Full,
                 Some("partial") => Coverage::Partial,

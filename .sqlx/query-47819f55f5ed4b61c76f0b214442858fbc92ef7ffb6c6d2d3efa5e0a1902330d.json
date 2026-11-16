@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id AS \"id!\", kind, title, what, why, owner_id, home_parent_id, coverage, clarity, estimate_days,\n                  remaining_days, status, started_at, achieved_at, private, statement_changed_at, created_at, archived_at\n           FROM nodes",
+  "query": "SELECT id AS \"id!\", kind, title, what, why, owner_id, home_parent_id, coverage, clarity, estimate_days,\n                  remaining_days, status, started_at, achieved_at, private, statement_changed_at, created_at, archived_at,\n                  size_min_days, size_max_days\n           FROM nodes",
   "describe": {
     "columns": [
       {
@@ -92,6 +92,16 @@
         "name": "archived_at",
         "ordinal": 17,
         "type_info": "Integer"
+      },
+      {
+        "name": "size_min_days",
+        "ordinal": 18,
+        "type_info": "Float"
+      },
+      {
+        "name": "size_max_days",
+        "ordinal": 19,
+        "type_info": "Float"
       }
     ],
     "parameters": {
@@ -115,8 +125,10 @@
       false,
       false,
       false,
+      true,
+      true,
       true
     ]
   },
-  "hash": "0b272c2c8bd9f04de8a0f5d243a327aa48152fce8ba3a7203b0b40c7c4d9d1bb"
+  "hash": "47819f55f5ed4b61c76f0b214442858fbc92ef7ffb6c6d2d3efa5e0a1902330d"
 }

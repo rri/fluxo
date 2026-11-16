@@ -82,6 +82,7 @@ pub fn router(state: Shared) -> Router {
         .route("/goals/{id}/statement", post(goals::statement))
         .route("/goals/{id}/shape", post(goals::shape))
         .route("/goals/{id}/achieved", post(goals::achieved))
+        .route("/goals/{id}/size", post(goals::size))
         .route("/tasks/{id}", get(tasks::show).post(tasks::update))
         .route("/nodes/{id}/parents", post(nodes::parents))
         .route("/nodes/{id}/needs", post(nodes::needs))

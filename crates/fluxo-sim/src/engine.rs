@@ -46,6 +46,8 @@ enum Work {
     Pert { low: f64, width: f64, beta: Beta<f64> },
     /// Goal; the value is the upper bound of the unknown-work share.
     Goal { unknown_share: f64 },
+    /// Roughly sized goal: `low + width * U(0, 1)`.
+    Uniform { low: f64, width: f64 },
 }
 
 impl Model {
@@ -84,6 +86,13 @@ impl Model {
             .enumerate()
             .map(|(i, node)| match &node.kind {
                 Kind::Goal { coverage } => Ok(Work::Goal { unknown_share: coverage.unknown_share() }),
+                Kind::Rough { min_days, max_days } => {
+                    let ok = min_days.is_finite() && max_days.is_finite() && 0.0 <= *min_days && min_days <= max_days;
+                    if !ok {
+                        return Err(ModelError::BadEstimate { node: i });
+                    }
+                    Ok(Work::Uniform { low: *min_days, width: max_days - min_days })
+                }
                 Kind::Task(t) => {
                     if !(t.likely_days.is_finite() && t.likely_days >= 0.0) {
                         return Err(ModelError::BadEstimate { node: i });
@@ -309,6 +318,10 @@ impl Compiled {
                     Work::Pert { low, width, beta } => {
                         s.finish_src[i] = NONE;
                         start + low + width * beta.sample(rng)
+                    }
+                    Work::Uniform { low, width } => {
+                        s.finish_src[i] = NONE;
+                        start + low + width * rng.random::<f64>()
                     }
                     Work::Goal { unknown_share } => {
                         let (mut known, mut src) = (start, NONE);

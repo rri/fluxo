@@ -255,6 +255,8 @@ Each phase ends with something usable and demonstrable. The riskiest unknowns co
 - Forecasts are recalculated when a page needs one and its inputs' fingerprint has changed; there is no background worker.
 - The highlighted "most likely critical path" is every step that is critical in at least 50% of runs.
 - Forecasts count from the owner's next working day; tasks in progress use their remaining days.
+- A sub-goal with no steps may carry an optional rough size (min–max working days, simulated uniformly) until it's broken down. Without one it counts as zero, and every forecast above it names it as left out.
+- Forecasts are cached in memory under a fingerprint of their inputs, with a fixed seed; a forecast history in the database can come later.
 
 Dogfooding: from Phase 3 on, this plan's phases are entered into fluxo itself as the "Launch fluxo.dev
 beta" goal.
