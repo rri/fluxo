@@ -35,6 +35,16 @@
         {% if status == "done" %}<span class="pill green">Done</span>{% else if status == "doing" %}<span class="pill accent">In progress</span>{% endif %}</div>
     </div></div>
 
+    {% if !critical_in.is_empty() || !done_p50.is_empty() %}
+    <section aria-labelledby="tfc-h">
+      <h2 id="tfc-h" class="sr-only">Forecast</h2>
+      <div class="forecast">
+        {% for c in critical_in %}<div><div class="k">Criticality</div><div class="v accent-text">{{ c.2 }}</div><div class="d">of runs on the path of <a href="{{ c.1 }}">{{ c.0 }}</a></div></div>{% endfor %}
+        {% if !done_p50.is_empty() %}<div><div class="k">P50 done</div><div class="v">{{ done_p50 }}</div><div class="d">P85 {{ done_p85 }}</div></div>{% endif %}
+      </div>
+    </section>
+    {% endif %}
+
     <section aria-labelledby="def-h">
       <div class="section-head"><h2 id="def-h">Definition</h2><span class="hint">A task has a known what and why</span></div>
       <div class="card card-pad">

@@ -51,10 +51,10 @@ async fn break_a_goal_down_into_a_path() {
     let auth: i64 = sqlx::query_scalar("SELECT id FROM nodes WHERE title = 'Accounts & auth'").fetch_one(&app.db).await.unwrap();
 
     let r = send(&app, "GET", &format!("/goals/{goal}"), Some(&c), None).await;
-    assert!(r.body.contains(&format!(r#"<li data-id="{api}" data-deps="{schema}">"#)), "graph knows API needs schema");
-    assert!(r.body.contains(&format!(r#"data-id="goal" data-deps="{auth}""#)), "goal is fed by the last step");
+    assert!(r.body.contains(&format!(r#"<li data-id="{api}" data-deps="{schema}""#)), "graph knows API needs schema");
+    assert!(r.body.contains(&format!(r#"data-id="goal" data-deps="{auth} gap""#)), "goal is fed by the last step, then unknown work");
     assert!(r.body.contains("Needs: SQLite schema v1"), "list for no-JS readers");
-    assert!(r.body.contains(r#"class="node subgoal""#));
+    assert!(r.body.contains(r#"class="node subgoal"#));
 
     let r = send(&app, "GET", "/goals", Some(&c), None).await;
     assert!(r.body.contains("Launch fluxo.dev beta"));
@@ -109,7 +109,7 @@ async fn access_follows_ownership_roles_and_privacy() {
     let r = send(&app, "GET", &format!("/goals/{goal}"), Some(&kofi), None).await;
     assert_eq!(r.status, StatusCode::OK);
     assert!(!r.body.contains("Add a step"));
-    assert!(!r.body.contains("Goal settings"));
+    assert!(!r.body.contains(r#"id="edit-h""#), "no Goal settings for non-owners");
     let kt = csrf(&r.body);
     let r = send(&app, "POST", &format!("/goals/{goal}/steps"), Some(&kofi), Some(&format!("csrf={kt}&title=Sneaky&kind=task&estimate=1"))).await;
     assert_eq!(r.status, StatusCode::FORBIDDEN);

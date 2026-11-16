@@ -36,6 +36,9 @@ pub struct StepView {
     pub waiting_on: String,
     pub done: bool,
     pub hidden: bool,
+    /// Criticality bucket class `c0`…`c10` for the left bar (no inline styles under the CSP).
+    pub crit: String,
+    pub on_path: bool,
 }
 
 pub struct Feed {
@@ -118,7 +121,7 @@ pub fn crumbs(world: &World, user: Id, id: Id) -> Vec<Crumb> {
     v
 }
 
-pub fn steps(world: &World, user: Id, goal: Id) -> Vec<StepView> {
+pub fn steps(world: &World, user: Id, goal: Id, crit: Option<&HashMap<Id, f32>>) -> Vec<StepView> {
     let kids = world.children_of(goal);
     let ids: HashSet<Id> = kids.iter().map(|k| k.id).collect();
     kids.iter()
@@ -134,6 +137,12 @@ pub fn steps(world: &World, user: Id, goal: Id) -> Vec<StepView> {
                 .map(|d| if world.access(user, d.id).can_read() { d.title.clone() } else { "a private step".into() })
                 .collect();
             let title_of = |i: &Id| world.nodes.get(i).map(|n| n.title.clone()).unwrap_or_default();
+            let c = crit.and_then(|m| m.get(&k.id)).copied().unwrap_or(0.0);
+            let pct = |s: String| match (crit.is_some(), s.is_empty()) {
+                (false, _) => s,
+                (true, true) => format!("{:.0}%", c * 100.0),
+                (true, false) => format!("{s} · {:.0}%", c * 100.0),
+            };
             let (meta_l, meta_r) = if k.is_goal() {
                 (format!("coverage {}", k.coverage.as_deref().unwrap_or("low")), if k.achieved_at.is_some() { "achieved".into() } else { String::new() })
             } else {
@@ -158,12 +167,14 @@ pub fn steps(world: &World, user: Id, goal: Id) -> Vec<StepView> {
                     _ => "Task".into(),
                 },
                 meta_l,
-                meta_r,
+                meta_r: if k.is_done() { meta_r } else { pct(meta_r) },
                 deps: inside.iter().map(|d| d.to_string()).collect::<Vec<_>>().join(" "),
                 needs_text: inside.iter().map(title_of).collect::<Vec<_>>().join(", "),
                 waiting_on: outside.join(", "),
                 done: k.is_done(),
                 hidden,
+                crit: format!("c{}", (c * 10.0).round() as i32),
+                on_path: crit.is_some() && c >= crate::forecast::PATH_THRESHOLD && !k.is_done(),
             }
         })
         .collect()
@@ -220,9 +231,10 @@ pub fn risk_views(rows: Vec<RiskRow>) -> Vec<RiskView> {
         .collect()
 }
 
-/// Open risks anywhere beneath `goal`, largest expected delay first.
-pub async fn path_risks(db: &SqlitePool, world: &World, user: Id, goal: Id) -> Result<Vec<PathRisk>> {
-    let mut below = HashSet::new();
+/// Open risks anywhere beneath `goal` (and on it), largest expected delay first, plus the total
+/// expected delay they add (likelihood × average impact, summed).
+pub async fn path_risks(db: &SqlitePool, world: &World, user: Id, goal: Id) -> Result<(Vec<PathRisk>, f64)> {
+    let mut below = HashSet::from([goal]);
     let mut stack = vec![goal];
     while let Some(i) = stack.pop() {
         for k in world.children_of(i) {
@@ -257,11 +269,41 @@ pub async fn path_risks(db: &SqlitePool, world: &World, user: Id, goal: Id) -> R
         })
         .collect();
     v.sort_by(|a, b| b.0.total_cmp(&a.0));
-    Ok(v.into_iter().take(5).map(|(_, r)| r).collect())
+    let exposure = v.iter().map(|(s, _)| s / 100.0).sum();
+    Ok((v.into_iter().take(5).map(|(_, r)| r).collect(), exposure))
+}
+
+/// The finish-date distribution as an inline SVG bar chart: bars up to P50 in the accent color,
+/// P50–P85 lighter, the tail grey, with dashed P50/P85 markers. Server-drawn, so it needs no
+/// JavaScript; colors come from CSS classes so both themes work.
+pub fn histogram_svg(bins: &[u32], max: f64, p50: f64, p85: f64) -> String {
+    let (w, h, top) = (600.0, 64.0, 14.0);
+    let peak = bins.iter().copied().max().unwrap_or(1).max(1) as f64;
+    let bw = w / bins.len() as f64;
+    let mut out = format!(r#"<svg class="dist-svg" viewBox="0 0 {w} {h}" preserveAspectRatio="none" role="img" aria-label="Finish distribution: half of runs by {p50:.0} working days, 85% by {p85:.0}">"#);
+    for (i, &c) in bins.iter().enumerate() {
+        let bh = c as f64 / peak * (h - top);
+        let mid = (i as f64 + 0.5) / bins.len() as f64 * max;
+        let class = if mid <= p50 { "b50" } else if mid <= p85 { "b85" } else { "btail" };
+        out += &format!(r#"<rect class="{class}" x="{:.1}" y="{:.1}" width="{:.1}" height="{bh:.1}" rx="1.5"/>"#, i as f64 * bw + 1.0, h - bh, (bw - 2.0).max(0.5));
+    }
+    for (d, label) in [(p50, "P50"), (p85, "P85")] {
+        let x = (d / max * w).min(w - 1.0);
+        out += &format!(r#"<line class="mark" x1="{x:.1}" x2="{x:.1}" y1="0" y2="{h}"/><text class="mark-label" x="{:.1}" y="10">{label}</text>"#, x + 4.0);
+    }
+    out + "</svg>"
 }
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn histogram_draws_one_bar_per_bin_and_two_markers() {
+        let svg = super::histogram_svg(&[0, 5, 10, 5, 1], 10.0, 4.0, 6.0);
+        assert_eq!(svg.matches("<rect").count(), 5);
+        assert!(svg.contains(r#"class="b50""#) && svg.contains(r#"class="b85""#) && svg.contains(r#"class="btail""#));
+        assert_eq!(svg.matches("<line").count(), 2);
+    }
+
     #[test]
     fn day_formats() {
         assert_eq!(super::days(3.0), "3d");

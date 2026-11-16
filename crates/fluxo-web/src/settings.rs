@@ -388,9 +388,7 @@ pub async fn calendar(State(app): State<Shared>, jar: CookieJar, Form(f): Form<C
         return Ok(back("error=calendar-none", "cal-h"));
     }
     let tz = f.time_zone.trim();
-    let tz_ok = !tz.is_empty()
-        && tz.len() <= 64
-        && tz.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '/' | '_' | '-' | '+'));
+    let tz_ok = tz.len() <= 64 && fluxo_core::calendar::valid_time_zone(tz);
     if !tz_ok {
         return Ok(back("error=calendar-tz", "cal-h"));
     }

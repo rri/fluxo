@@ -4,6 +4,7 @@
 //! page), so the app works without JavaScript; `static/app.js` only enhances.
 
 pub mod auth;
+pub mod forecast;
 pub mod session;
 pub mod util;
 
@@ -46,11 +47,13 @@ pub struct AppState {
     pub secure_cookies: bool,
     /// Set once the first Administrator exists; until then every page leads to /setup.
     pub setup_done: AtomicBool,
+    /// The latest forecasts and the fingerprint of what they were computed from.
+    pub forecasts: std::sync::Mutex<Option<Arc<forecast::Forecasts>>>,
 }
 
 impl AppState {
     pub fn new(db: SqlitePool, secrets: SecretBox, secure_cookies: bool) -> Self {
-        AppState { db, secrets, secure_cookies, setup_done: AtomicBool::new(false) }
+        AppState { db, secrets, secure_cookies, setup_done: AtomicBool::new(false), forecasts: Default::default() }
     }
 }
 

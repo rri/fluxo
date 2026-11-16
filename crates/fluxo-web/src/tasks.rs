@@ -54,6 +54,10 @@ struct TaskPage<'a> {
     parent_options: Vec<Option_>,
     risks: Vec<RiskView>,
     error: Option<&'static str>,
+    /// (goal title, href, criticality %) for each goal it feeds.
+    critical_in: Vec<(String, String, String)>,
+    done_p50: String,
+    done_p85: String,
 }
 
 fn link(world: &World, user: Id, id: Id) -> Option<Link> {
@@ -109,7 +113,30 @@ pub async fn show(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>,
         .collect();
     parent_options.sort_by(|a, b| views::path_label(&world, a).cmp(&views::path_label(&world, b)));
 
+    let forecasts = crate::forecast::current(&app, &world).await?;
+    let critical_in = world
+        .parents_of(id)
+        .iter()
+        .filter(|p| p.archived_at.is_none() && p.achieved_at.is_none() && world.access(user, p.id).can_read())
+        .map(|p| {
+            let c = forecasts.by_node.get(&p.id).and_then(|f| f.criticality.get(&id)).copied().unwrap_or(0.0);
+            (p.title.clone(), p.href(), format!("{:.0}%", c * 100.0))
+        })
+        .collect();
+    let (done_p50, done_p85) = match forecasts.by_node.get(&id).filter(|_| task.status != "done" && !current_parents.is_empty()) {
+        Some(f) => {
+            let cals = crate::forecast::calendars(&app.db).await?;
+            let home_owner = task.home_parent_id.and_then(|h| world.nodes.get(&h)).and_then(|h| h.owner_id);
+            let cal = home_owner.or(task.owner_id).and_then(|o| cals.get(&o).cloned()).unwrap_or_default();
+            let d = crate::forecast::dated(f, &cal);
+            (d.p50, d.p85)
+        }
+        None => (String::new(), String::new()),
+    };
     page(TaskPage {
+        critical_in,
+        done_p50,
+        done_p85,
         theme: &ctx.theme,
         nav: "goals",
         csrf: &ctx.session.csrf_token,

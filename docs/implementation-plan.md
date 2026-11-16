@@ -250,6 +250,12 @@ Each phase ends with something usable and demonstrable. The riskiest unknowns co
 - Steps are added with an inline form on the goal page; full details live on each step's own page.
 - A task may be attached to no goal (owners can remove its last goal). Its page shows a notice recommending it be attached to the goal it serves or removed, and the Goals page lists such tasks. Principle: model people's real work and avoid rules they'd work around (jobs to be done).
 
+**Phase 3 decisions (2026-11-16):**
+- Dates use the jiff library (time zones bundled).
+- Forecasts are recalculated when a page needs one and its inputs' fingerprint has changed; there is no background worker.
+- The highlighted "most likely critical path" is every step that is critical in at least 50% of runs.
+- Forecasts count from the owner's next working day; tasks in progress use their remaining days.
+
 Dogfooding: from Phase 3 on, this plan's phases are entered into fluxo itself as the "Launch fluxo.dev
 beta" goal.
 

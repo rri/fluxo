@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT r.node_id, r.impact_min_days, r.impact_max_days,\n                  (SELECT likelihood_pct FROM risk_likelihood l WHERE l.risk_id = r.id ORDER BY l.id DESC LIMIT 1) AS \"p!: i64\"\n           FROM risks r ORDER BY r.id",
+  "describe": {
+    "columns": [
+      {
+        "name": "node_id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "impact_min_days",
+        "ordinal": 1,
+        "type_info": "Float"
+      },
+      {
+        "name": "impact_max_days",
+        "ordinal": 2,
+        "type_info": "Float"
+      },
+      {
+        "name": "p!: i64",
+        "ordinal": 3,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "7aa31fd837ecf203ccce69b423ebaa6be93d9aa471aed87fcebb6dac44945570"
+}

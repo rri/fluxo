@@ -168,13 +168,14 @@ impl Default for Settings {
     }
 }
 
-/// Forecast for one top-level goal.
+/// Forecast for one node (a top-level goal by default; any node with [`Compiled::run_for`]).
 #[derive(Clone, Debug)]
 pub struct GoalForecast {
     pub goal: NodeId,
     /// Finish in working days from now, for every run, sorted ascending.
     pub finishes: Vec<f32>,
-    /// Share of runs (0.0–1.0) in which each node lay on this goal's critical path, by node index.
+    /// Share of runs (0.0–1.0) in which each node lay on this node's critical path, by node
+    /// index. Empty when criticality wasn't asked for.
     pub criticality: Vec<f32>,
 }
 
@@ -214,12 +215,21 @@ impl Compiled {
         &self.roots
     }
 
+    /// Forecast every top-level goal, with criticality.
     pub fn run(&self, settings: Settings) -> Forecast {
+        let targets: Vec<(NodeId, bool)> = self.roots.iter().map(|&r| (r, true)).collect();
+        self.run_for(settings, &targets)
+    }
+
+    /// Forecast the given nodes: `(node, trace)`, where `trace` also measures how often every other
+    /// node is on that node's critical path. All targets share the same runs, so shared work
+    /// slips consistently across them.
+    pub fn run_for(&self, settings: Settings, targets: &[(NodeId, bool)]) -> Forecast {
         let runs = settings.runs.max(1);
         let chunks = runs.div_ceil(CHUNK);
         let fresh = || Acc {
-            finishes: vec![Vec::new(); self.roots.len()],
-            crit: vec![vec![0; self.n]; self.roots.len()],
+            finishes: vec![Vec::new(); targets.len()],
+            crit: targets.iter().map(|&(_, t)| if t { vec![0; self.n] } else { Vec::new() }).collect(),
         };
         let do_chunk = |k: usize, acc: &mut Acc| {
             let len = CHUNK.min(runs - k * CHUNK);
@@ -227,9 +237,11 @@ impl Compiled {
             let mut s = Scratch::new(self.n);
             for _ in 0..len {
                 self.once(&mut rng, &mut s);
-                for (ri, &root) in self.roots.iter().enumerate() {
-                    acc.finishes[ri].push(s.finish[root] as f32);
-                    self.trace(root, &s, &mut acc.crit[ri]);
+                for (ti, &(node, traced)) in targets.iter().enumerate() {
+                    acc.finishes[ti].push(s.finish[node] as f32);
+                    if traced {
+                        self.trace(node, &s, &mut acc.crit[ti]);
+                    }
                 }
             }
         };
@@ -256,11 +268,10 @@ impl Compiled {
             acc
         };
 
-        let goals = self
-            .roots
+        let goals = targets
             .iter()
             .zip(acc.finishes.into_iter().zip(acc.crit))
-            .map(|(&goal, (mut finishes, crit))| {
+            .map(|(&(goal, _), (mut finishes, crit))| {
                 finishes.sort_by(f32::total_cmp);
                 GoalForecast { goal, finishes, criticality: crit.iter().map(|&c| c as f32 / runs as f32).collect() }
             })

@@ -251,3 +251,17 @@ test('break a goal down and track a task', async ({ page }, info) => {
   await page.reload();
   await expect(page.getByRole('img', { name: /30% → 10%/ })).toBeAttached();
 });
+
+test('a goal shows its forecast', async ({ page }, info) => {
+  await signInAsAda(page, info);
+  await page.goto('/goals');
+  await page.getByRole('link', { name: /Launch the beta/ }).click();
+  await expect(page.getByRole('heading', { name: 'Forecast' })).toBeVisible();
+  // New goals start with low coverage, so the finish can't be dated yet.
+  await expect(page.locator('.forecast .v').first()).toHaveText('nebulous');
+  await page.locator('label[for="gc-f"]').click(); // Goal settings: coverage full
+  await page.locator('#edit-h').locator('xpath=../..').locator('form[action$="/shape"]').getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('P50 finish')).toBeVisible();
+  await expect(page.locator('svg.dist-svg')).toBeVisible();
+  await expect(page.locator('.graph [data-path="1"]').first()).toBeAttached();
+});

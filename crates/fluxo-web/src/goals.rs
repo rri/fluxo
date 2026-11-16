@@ -1,6 +1,8 @@
 //! Goals: the Goals page, creating goals, a goal's own page, and the goal-only actions (statement,
 //! coverage and privacy, marking achieved, adding steps).
 
+use std::collections::HashMap;
+
 use askama::Template;
 use axum::extract::{Form, Path, Query, State};
 use axum::response::{IntoResponse, Redirect, Response};
@@ -29,6 +31,9 @@ pub struct GoalCard {
     pub done: usize,
     pub subgoals: Vec<(String, String, String)>, // href, title, meta
     pub tasks: usize,
+    /// "P50 Feb 12 · P85 Mar 3", "nebulous", or empty.
+    pub forecast: String,
+    pub critical_now: String,
 }
 
 #[derive(Template)]
@@ -53,7 +58,7 @@ fn role_label(a: Access) -> &'static str {
     }
 }
 
-fn card(world: &World, user: Id, g: &Node) -> GoalCard {
+fn card(world: &World, user: Id, g: &Node, f: &crate::forecast::Forecasts, cals: &HashMap<Id, fluxo_core::calendar::Calendar>) -> GoalCard {
     let kids: Vec<&Node> = world.children_of(g.id).into_iter().filter(|k| world.access(user, k.id).can_read()).collect();
     let subgoals = kids
         .iter()
@@ -75,6 +80,30 @@ fn card(world: &World, user: Id, g: &Node) -> GoalCard {
         done: kids.iter().filter(|k| k.is_done()).count(),
         subgoals,
         tasks: kids.iter().filter(|k| !k.is_goal()).count(),
+        forecast: match (g.achieved_at, g.coverage.as_deref(), f.by_node.get(&g.id)) {
+            (Some(_), _, _) => String::new(),
+            (_, Some("low"), _) => "nebulous".into(),
+            (_, _, Some(nf)) if !kids.is_empty() => {
+                let cal = g.owner_id.and_then(|o| cals.get(&o).cloned()).unwrap_or_default();
+                let d = crate::forecast::dated(nf, &cal);
+                format!("P50 {} · P85 {}", d.p50, d.p85)
+            }
+            _ => String::new(),
+        },
+        critical_now: f
+            .by_node
+            .get(&g.id)
+            .and_then(|nf| {
+                // Most critical first; among equals, one that can start now (everything it needs
+                // is done), then the earliest added.
+                let ready = |k: &Node| world.needs_of(k.id).iter().all(|d| world.nodes.get(d).is_none_or(|n| n.is_done()));
+                kids.iter()
+                    .filter(|k| !k.is_done())
+                    .filter_map(|k| nf.criticality.get(&k.id).map(|c| (*c, ready(k), std::cmp::Reverse(k.created_at), k)))
+                    .max_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)).then(a.2.cmp(&b.2)))
+                    .map(|(.., k)| k.title.clone())
+            })
+            .unwrap_or_default(),
     }
 }
 
@@ -92,7 +121,9 @@ pub async fn index(State(app): State<Shared>, jar: CookieJar) -> Result<Response
         .collect();
     // Yours first, then the ones you work on, then everything else you can see; oldest first within.
     tops.sort_by_key(|n| (std::cmp::Reverse(world.access(ctx.user_id, n.id)), n.achieved_at.is_some(), n.created_at, n.id));
-    let goals = tops.iter().filter(|n| n.archived_at.is_none()).map(|g| card(&world, ctx.user_id, g)).collect();
+    let forecasts = crate::forecast::current(&app, &world).await?;
+    let cals = crate::forecast::calendars(&app.db).await?;
+    let goals = tops.iter().filter(|n| n.archived_at.is_none()).map(|g| card(&world, ctx.user_id, g, &forecasts, &cals)).collect();
     // Tasks attached to no goal that this person can work on, so they're easy to find and place.
     let loose = |n: &&Node| !n.is_goal() && world.parents.get(&n.id).is_none_or(Vec::is_empty);
     let mut unattached: Vec<&Node> = world
@@ -300,6 +331,21 @@ struct GoalPage<'a> {
     path_risks: Vec<views::PathRisk>,
     archived_steps: Vec<(Id, String, String)>,
     error: Option<&'static str>,
+    band: Option<Band>,
+    gap: String,
+}
+
+/// The forecast at the top of a goal page.
+pub struct Band {
+    pub nebulous: bool,
+    pub p50: String,
+    pub p85: String,
+    pub spread: String,
+    pub exposure: String,
+    pub runs: String,
+    pub updated: String,
+    pub chart: String,
+    pub calendar_owner: String,
 }
 
 #[derive(Deserialize)]
@@ -317,7 +363,9 @@ pub async fn show(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>,
         return Ok(Redirect::to(&goal.href()).into_response());
     }
     let names = store::usernames(&app.db).await?;
-    let steps = views::steps(&world, ctx.user_id, id);
+    let forecasts = crate::forecast::current(&app, &world).await?;
+    let fc = forecasts.by_node.get(&id).filter(|_| goal.achieved_at.is_none() && goal.archived_at.is_none());
+    let steps = views::steps(&world, ctx.user_id, id, fc.map(|f| &f.criticality));
     let needed_inside: std::collections::HashSet<Id> =
         steps.iter().flat_map(|s| s.deps.split(' ').filter_map(|d| d.parse::<Id>().ok())).collect();
     let anchor_deps = steps.iter().filter(|s| !needed_inside.contains(&s.id)).map(|s| s.id.to_string()).collect::<Vec<_>>().join(" ");
@@ -328,7 +376,40 @@ pub async fn show(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>,
         format!("Set {} · statement unchanged since", date(goal.created_at))
     };
     let risks = views::risk_views(store::risks(&app.db, id).await?);
-    let path_risks = views::path_risks(&app.db, &world, ctx.user_id, id).await?;
+    let (path_risks, exposure) = views::path_risks(&app.db, &world, ctx.user_id, id).await?;
+    let nebulous = goal.coverage.as_deref() == Some("low");
+    let band = match fc {
+        Some(f) => {
+            let cals = crate::forecast::calendars(&app.db).await?;
+            let cal = goal.owner_id.and_then(|o| cals.get(&o).cloned()).unwrap_or_default();
+            let d = crate::forecast::dated(f, &cal);
+            Some(Band {
+                nebulous,
+                p50: d.p50,
+                p85: d.p85,
+                spread: d.spread_days,
+                exposure: views::days(exposure),
+                runs: format!("{} runs", crate::forecast::RUNS.to_string().as_bytes().rchunks(3).rev().map(|c| std::str::from_utf8(c).unwrap()).collect::<Vec<_>>().join(",")),
+                updated: crate::util::ago(forecasts.computed_at, crate::now()).to_lowercase().replace("active now", "just now"),
+                chart: views::histogram_svg(&f.bins, f.max, f.p50, f.p85),
+                calendar_owner: match views::owner_label(goal.owner_id, ctx.user_id, &names).as_str() {
+                    "you" => "your".to_string(),
+                    "no one yet" => "the default (Mon–Fri, UTC)".to_string(),
+                    name => format!("{name}’s"),
+                },
+            })
+        }
+        None => None,
+    };
+    // Coverage short of full adds unknown work after the known steps (D19).
+    let gap = match (fc, goal.coverage.as_deref()) {
+        (Some(f), Some(c @ ("partial" | "low"))) if !steps.is_empty() => {
+            let share = if c == "partial" { 0.25 } else { 0.75 };
+            let known = f.p50 / (1.0 + share / 2.0);
+            format!("up to {}", views::days((known * share).max(0.5)))
+        }
+        _ => String::new(),
+    };
     let error = views::error_text(q.error.as_deref());
     page(GoalPage {
         theme: &ctx.theme,
@@ -362,6 +443,8 @@ pub async fn show(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>,
             .collect(),
         risks,
         path_risks,
+        band,
+        gap,
         archived_steps: if access.is_owner() {
             world.archived_children_of(id).iter().map(|n| (n.id, n.title.clone(), n.href())).collect()
         } else {

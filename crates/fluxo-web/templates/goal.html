@@ -33,23 +33,48 @@
   </form>
   {% endif %}
 
+  {% if let Some(b) = band %}
+  <section aria-labelledby="fc-h">
+    <div class="section-head"><h2 id="fc-h">Forecast</h2><span class="hint">{{ b.runs }} · risks and coverage included · updated {{ b.updated }}</span></div>
+    {% if b.nebulous %}
+    <div class="forecast forecast-3">
+      <div><div class="k">Finish</div><div class="v">nebulous</div><div class="d">coverage is low</div></div>
+      <div><div class="k">Known work, P50</div><div class="v">{{ b.p50 }}</div><div class="d">before what isn’t broken down yet</div></div>
+      <div><div class="k">Risk exposure</div><div class="v amber-text">{{ b.exposure }}</div><div class="d">expected added time</div></div>
+    </div>
+    <p class="small muted mt-8">The steps beneath this goal don’t add up to it yet, so its finish can’t be dated. Break it down further; its owner can then raise its coverage.</p>
+    {% else %}
+    <div class="forecast">
+      <div><div class="k">P50 finish</div><div class="v">{{ b.p50 }}</div><div class="d">half of runs finish by</div></div>
+      <div><div class="k">P85 finish</div><div class="v">{{ b.p85 }}</div><div class="d">85% of runs finish by</div></div>
+      <div><div class="k">Spread</div><div class="v">{{ b.spread }}</div><div class="d">P50 → P85, working days</div></div>
+      <div><div class="k">Risk exposure</div><div class="v amber-text">{{ b.exposure }}</div><div class="d">expected added time</div></div>
+    </div>
+    <div class="dist">{{ b.chart|safe }}</div>
+    <p class="xs faint dist-axis"><span>Next working day</span><span>Dates use {{ b.calendar_owner }} working calendar</span></p>
+    {% endif %}
+  </section>
+  {% endif %}
+
   <section id="path" aria-labelledby="path-h">
     <div class="section-head"><h2 id="path-h">The path</h2><span class="hint">Read down for what each step needs. Work rises toward the goal.</span></div>
     {% if steps.is_empty() %}
     <div class="card card-pad empty"><p><b>No steps yet.</b></p><p class="small muted">Break the goal down into sub-goals and tasks. Until then its path is unknown.</p></div>
     {% else %}
     <div class="path-legend">
+      <span><i class="lg-line crit"></i>Most likely critical path (≥50% of runs)</span>
       <span><i class="lg-line"></i>Feeds the step above</span>
-      <span>Forecasts and the critical path arrive with the simulation</span>
+      {% if !gap.is_empty() %}<span><i class="lg-box"></i>Unknown work</span>{% endif %}
+      <span>Left bar = criticality %</span>
     </div>
     <div class="card pad-20"><div class="graph">
       <ol class="path-list">
-        <li data-id="goal" data-deps="{{ anchor_deps }}" data-path="1" data-wide="1">
+        <li data-id="goal" data-deps="{{ anchor_deps }}{% if !gap.is_empty() %} gap{% endif %}" data-path="1" data-wide="1">
           <a class="node anchor" href="#top"><span class="n-kind">{% if is_sub %}Sub-goal{% else %}Goal{% endif %}</span><span class="n-title">{{ title }}</span><span class="n-meta"><span>coverage {{ coverage }}</span></span></a>
         </li>
         {% for s in steps %}
-        <li data-id="{{ s.id }}"{% if !s.deps.is_empty() %} data-deps="{{ s.deps }}"{% endif %}>
-          {% if s.hidden %}<span class="node unknown">{% else %}<a class="node{% if s.is_goal %} subgoal{% endif %}{% if s.done %} done{% endif %}" href="{{ s.href }}">{% endif %}
+        <li data-id="{{ s.id }}"{% if !s.deps.is_empty() %} data-deps="{{ s.deps }}"{% endif %}{% if s.on_path %} data-path="1"{% endif %}>
+          {% if s.hidden %}<span class="node unknown">{% else %}<a class="node{% if s.is_goal %} subgoal{% endif %}{% if s.done %} done{% endif %}{% if s.on_path %} on-path{% endif %} {{ s.crit }}" href="{{ s.href }}">{% endif %}
             <span class="n-kind">{{ s.kind_label }}</span>
             <span class="n-title">{{ s.title }}</span>
             <span class="n-meta"><span>{{ s.meta_l }}</span><span>{{ s.meta_r }}</span></span>
@@ -58,6 +83,12 @@
           {% if !s.needs_text.is_empty() %}<p class="node-deps no-js">Needs: {{ s.needs_text }}</p>{% endif %}
         </li>
         {% endfor %}
+        {% if !gap.is_empty() %}
+        <li data-id="gap" data-path="1">
+          <span class="node unknown"><span class="n-kind">Unknown work</span><span class="n-title">Not broken down yet</span><span class="n-meta"><span>{{ gap }}</span><span></span></span></span>
+          <p class="node-deps no-js">Implied by {{ coverage }} coverage: comes after the known steps</p>
+        </li>
+        {% endif %}
       </ol>
     </div>
     <div class="axis-note"><span>↑ finishes last</span><span>Hover a step to trace it</span><span>↓ starts first</span></div></div>

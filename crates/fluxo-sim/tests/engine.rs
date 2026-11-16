@@ -151,3 +151,25 @@ fn loops_and_bad_links_are_rejected() {
     m.add(t);
     assert!(matches!(m.compile(), Err(ModelError::BadRisk { .. })));
 }
+
+#[test]
+fn any_node_can_be_forecast_from_the_same_runs() {
+    let mut m = Model::default();
+    let root = m.add(Node::goal(Coverage::Full));
+    let sub = m.add(Node::goal(Coverage::Full));
+    let a = m.add(Node::task(4.0, Clarity::Medium));
+    let b = m.add(Node::task(2.0, Clarity::Medium));
+    m.feed(sub, root);
+    m.feed(a, sub);
+    m.feed(b, root);
+    m.need(b, sub);
+    let c = m.compile().unwrap();
+    let f = c.run_for(settings(2_000), &[(root, true), (sub, true), (a, false)]);
+    let (fr, fs, fa) = (f.goal(root).unwrap(), f.goal(sub).unwrap(), f.goal(a).unwrap());
+    assert!(fa.criticality.is_empty());
+    assert_eq!(fs.finishes, fa.finishes, "the sub-goal finishes when its only task does");
+    assert!(fr.percentile(0.5) > fs.percentile(0.5));
+    assert_eq!(fs.criticality[a], 1.0);
+    assert_eq!(fr.criticality[b], 1.0);
+    assert_eq!(c.run(settings(2_000)).goals.len(), 1, "run() still covers top-level goals");
+}

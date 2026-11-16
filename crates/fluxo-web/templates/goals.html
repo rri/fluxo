@@ -24,7 +24,7 @@
         <span class="eyebrow">Goal · {{ g.role }}{% if g.private %} · private{% endif %}{% if g.achieved %} · achieved{% endif %}</span>
         <h2>{{ g.title }}</h2>
         {% if !g.why.is_empty() %}<p class="why">{{ g.why }}</p>{% endif %}
-        <div class="facts"><span>Coverage <b>{{ g.coverage }}</b></span><span>Steps <b>{{ g.steps }}</b></span><span>Done <b>{{ g.done }}</b></span></div>
+        <div class="facts">{% if !g.forecast.is_empty() %}<span><b>{{ g.forecast }}</b></span>{% endif %}<span>Coverage <b>{{ g.coverage }}</b></span><span>Steps <b>{{ g.done }}/{{ g.steps }} done</b></span>{% if !g.critical_now.is_empty() %}<span>Critical now <b>{{ g.critical_now }}</b></span>{% endif %}</div>
       </a>
       {% if !g.subgoals.is_empty() || g.tasks > 0 %}
       <ul class="descend">
