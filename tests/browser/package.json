@@ -1,0 +1,14 @@
+{
+  "name": "fluxo-browser-tests",
+  "version": "1.0.0",
+  "description": "Browser smoke tests for fluxo, with and without JavaScript (D14)",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "author": "",
+  "license": "AGPL-3.0-only",
+  "devDependencies": {
+    "@playwright/test": "^1.65.1"
+  },
+  "private": true
+}
