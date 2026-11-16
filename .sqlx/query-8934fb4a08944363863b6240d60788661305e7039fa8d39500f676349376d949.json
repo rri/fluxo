@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT u.id AS \"id!\", u.username, u.is_administrator, u.totp_enabled, u.created_at,\n                  (SELECT MAX(last_seen_at) FROM sessions s WHERE s.user_id = u.id) AS \"seen?: i64\"\n           FROM users u WHERE u.deleted_at IS NULL ORDER BY u.is_administrator DESC, u.username",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "username",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "is_administrator",
+        "ordinal": 2,
+        "type_info": "Integer"
+      },
+      {
+        "name": "totp_enabled",
+        "ordinal": 3,
+        "type_info": "Integer"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 4,
+        "type_info": "Integer"
+      },
+      {
+        "name": "seen?: i64",
+        "ordinal": 5,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "8934fb4a08944363863b6240d60788661305e7039fa8d39500f676349376d949"
+}

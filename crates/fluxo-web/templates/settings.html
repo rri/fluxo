@@ -153,6 +153,51 @@
     </div>
 
     <div class="admin-block">
+      <div class="section-head"><h3 id="roles-h">Administrators</h3><span class="hint">Administrators can make other people Administrators</span></div>
+      {% call note("roles") %}
+      <div class="card table-wrap">
+        <table class="data">
+          <thead><tr><th>Username</th><th>Role</th><th>2FA</th><th>Last active</th><th></th></tr></thead>
+          <tbody>
+          {% for p in admin.people %}
+            <tr><td>{{ p.username }}{% if p.me %} <span class="xs faint">(you)</span>{% endif %}</td>
+              <td>{% if p.is_admin %}<span class="pill accent">Administrator</span>{% else %}Member{% endif %}</td>
+              <td class="small">{% if p.tfa %}On{% else %}Off{% endif %}</td><td class="small">{{ p.active }}</td>
+              <td><form method="post" action="/settings/admin/role"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="user" value="{{ p.id }}">
+                {% if p.is_admin %}{% if admin.admins > 1 %}<input type="hidden" name="admin" value="0"><button class="btn sm ghost">Remove Administrator</button>{% endif %}
+                {% else %}<input type="hidden" name="admin" value="1"><button class="btn sm">Make Administrator</button>{% endif %}</form></td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="xs faint mt-8">There must always be at least one Administrator.</p>
+    </div>
+
+    <div class="admin-block">
+      <div class="section-head"><h3 id="unowned-h">Goals and tasks without an owner</h3><span class="hint">Left when an account was deleted with no one to take them, or when someone declined</span></div>
+      {% call note("unowned") %}
+      {% if admin.unowned.is_empty() %}
+      <div class="card row small muted">Everything has an owner.</div>
+      {% else %}
+      <div class="card table-wrap">
+        <table class="data">
+          <thead><tr><th>Item</th><th>Was owned by</th><th>Part of</th><th>New owner</th></tr></thead>
+          <tbody>
+          {% for u in admin.unowned %}
+            <tr><td><b>{{ u.title }}</b><br><span class="xs faint">{{ u.kind }}{% if !u.since.is_empty() %} · since {{ u.since }}{% endif %}</span></td>
+              <td class="small">{{ u.was }}</td><td class="small">{{ u.home }}</td>
+              <td>{% if !u.pending_to.is_empty() %}<span class="small">Offered to <b>{{ u.pending_to }}</b></span><br>{% endif %}
+                <form class="inline" method="post" action="/settings/admin/assign"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="node" value="{{ u.id }}">
+                  <input name="username" class="input input-sm w-160" placeholder="Username" aria-label="New owner for {{ u.title }}" autocapitalize="none" required><button class="btn sm">{% if u.pending_to.is_empty() %}Offer{% else %}Offer instead{% endif %}</button></form></td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+      <p class="xs faint mt-8">The new owner is asked to accept, as with any transfer. You see titles only; private items stay closed to you unless you have a role on them.</p>
+    </div>
+
+    <div class="admin-block">
       <div class="section-head"><h3 id="archived-h">Archived goals and tasks</h3><span class="hint">People archive their own work; only Administrators delete it for good</span></div>
       {% call note("archived") %}
       {% if admin.archived.is_empty() %}
@@ -215,5 +260,13 @@
     </div>
   </section>
   {% endif %}
+
+  <section aria-labelledby="del-h">
+    <div class="section-head"><h2 id="del-h">Delete account</h2></div>
+    <div class="card card-pad danger-zone inline">
+      <p class="small muted grow">Your goals and tasks aren’t deleted. You choose who takes over each one, starting from fluxo’s suggestions.</p>
+      <a class="btn danger" href="/settings/delete">Delete account…</a>
+    </div>
+  </section>
 </main>
 {% endblock %}

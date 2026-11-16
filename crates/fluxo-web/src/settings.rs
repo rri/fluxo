@@ -65,6 +65,9 @@ pub struct AdminView {
     pub issued: Option<crate::recovery::Issued>,
     pub lookup: String,
     pub archived: Vec<ArchivedRow>,
+    pub people: Vec<crate::admin::AdminPerson>,
+    pub admins: usize,
+    pub unowned: Vec<crate::admin::UnownedRow>,
 }
 
 /// Things shown once on the page that follows an action.
@@ -121,6 +124,9 @@ fn notice(q: &Notice) -> (&'static str, &'static str, bool) {
             "revoked" => ("admin", "Invitation revoked."),
             "code-revoked" => ("recovery", "Recovery code cancelled."),
             "deleted" => ("archived", "Deleted permanently."),
+            "admin-added" => ("roles", "They’re now an Administrator."),
+            "admin-removed" => ("roles", "They’re no longer an Administrator."),
+            "assigned" => ("unowned", "Offered to them. It stays here until they accept."),
             _ => return ("", "", false),
         };
         return (s, m, false);
@@ -134,6 +140,8 @@ fn notice(q: &Notice) -> (&'static str, &'static str, bool) {
             "codes-password" => ("tfa", "Your password isn’t right, so no new codes were made."),
             "2fa-off" => ("tfa", "Your password or code wasn’t right, so two-factor authentication is still on."),
             "calendar-none" => ("calendar", "Pick at least one working day."),
+            "last-admin" => ("roles", "There has to be at least one Administrator. Make someone else one first."),
+            "no-user" => ("unowned", "No one has that username."),
             "calendar-tz" => ("calendar", "Enter a time zone name like Europe/Lisbon or America/New_York."),
             "calendar-days" => ("calendar", "Write days off as dates like 2026-12-24, separated by commas."),
             _ => return ("", "", false),
@@ -243,7 +251,13 @@ async fn render(app: &AppState, ctx: &Ctx, n: (&str, &str, bool), shown: Shown) 
                 also: crate::nodes::doomed(&world, n.id).len() - 1,
             })
             .collect();
+        let people = crate::admin::people(&app.db, ctx.user_id).await?;
+        let admins = people.iter().filter(|p| p.is_admin).count();
+        let unowned = crate::admin::unowned(&app.db, &world).await?;
         Some(AdminView {
+            people,
+            admins,
+            unowned,
             archived,
             signup_mode,
             invites,

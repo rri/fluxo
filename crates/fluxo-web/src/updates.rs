@@ -182,7 +182,11 @@ pub fn describe(e: &Event, world: &World, names: &HashMap<Id, String>, me: Id, r
         }
         "owner_changed" => {
             let to = who(e.detail["to"].as_i64());
-            (format!("{to} now own{}", if to == "You" { "" } else { "s" }), String::new(), format!("Transferred from {}", who(e.detail["from"].as_i64())))
+            let from = match e.detail["from"].as_i64() {
+                Some(_) => format!("Transferred from {}", who(e.detail["from"].as_i64())),
+                None => "Assigned by an Administrator".into(),
+            };
+            (format!("{to} now own{}", if to == "You" { "" } else { "s" }), String::new(), from)
         }
         k => (format!("{actor}: {k} on"), String::new(), String::new()),
     };

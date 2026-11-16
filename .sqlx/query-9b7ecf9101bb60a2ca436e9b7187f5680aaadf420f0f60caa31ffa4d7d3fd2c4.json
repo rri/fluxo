@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT node_id, user_id, COALESCE(joined_at, invited_at) AS since FROM memberships WHERE role = 'contributor' AND status = 'active' ORDER BY since",
+  "describe": {
+    "columns": [
+      {
+        "name": "node_id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "user_id",
+        "ordinal": 1,
+        "type_info": "Integer"
+      },
+      {
+        "name": "since",
+        "ordinal": 2,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "9b7ecf9101bb60a2ca436e9b7187f5680aaadf420f0f60caa31ffa4d7d3fd2c4"
+}

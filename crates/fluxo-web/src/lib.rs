@@ -10,6 +10,7 @@ pub mod session;
 pub mod util;
 
 mod account;
+mod admin;
 mod focus;
 mod goals;
 mod nodes;
@@ -119,6 +120,9 @@ pub fn router(state: Shared) -> Router {
         .route("/settings/admin/invites", post(settings::create_invite))
         .route("/settings/admin/invites/revoke", post(settings::revoke_invite))
         .route("/settings/admin/recovery", post(settings::issue_recovery_code))
+        .route("/settings/admin/role", post(admin::set_role))
+        .route("/settings/admin/assign", post(admin::assign))
+        .route("/settings/delete", get(admin::delete_page).post(admin::delete_submit))
         .route("/settings/admin/recovery/revoke", post(settings::revoke_recovery_code))
         .route("/static/{file}", get(asset))
         .layer(middleware::from_fn_with_state(state.clone(), setup_gate))

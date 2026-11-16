@@ -408,7 +408,14 @@ pub async fn transfer_page(State(app): State<Shared>, jar: CookieJar, Path(tid):
         title: n.title.clone(),
         why: n.why.clone(),
         kind: if n.is_goal() { "goal" } else { "task" },
-        from: tr.from_user.and_then(|u| names.get(&u).cloned()).unwrap_or_else(|| "An Administrator".into()),
+        from: match tr.from_user {
+            None => "An Administrator".into(),
+            Some(u) => {
+                let gone = sqlx::query_scalar!("SELECT deleted_at FROM users WHERE id = ?", u).fetch_one(&app.db).await?.is_some();
+                let n = names.get(&u).cloned().unwrap_or_else(|| "Someone".into());
+                if gone { format!("{n} (account deleted)") } else { n }
+            }
+        },
         note: tr.note,
         parents: world.parents_of(n.id).iter().map(|p| p.title.clone()).collect::<Vec<_>>().join(", "),
     })
@@ -438,7 +445,12 @@ pub async fn transfer_answer(State(app): State<Shared>, jar: CookieJar, Path(tid
     sqlx::query!("UPDATE nodes SET owner_id = ? WHERE id = ?", ctx.user_id, tr.node_id).execute(&mut *tx).await?;
     // The new owner needs no separate role here; the previous owner stays on as a Contributor.
     sqlx::query!("DELETE FROM memberships WHERE node_id = ? AND user_id = ?", tr.node_id, ctx.user_id).execute(&mut *tx).await?;
-    if let Some(prev) = tr.from_user {
+    let prev_live = match tr.from_user {
+        Some(p) => sqlx::query_scalar!("SELECT COUNT(*) FROM users WHERE id = ? AND deleted_at IS NULL", p).fetch_one(&mut *tx).await? == 1,
+        None => false,
+    };
+    sqlx::query!("UPDATE nodes SET previous_owner_id = NULL, unowned_since = NULL WHERE id = ?", tr.node_id).execute(&mut *tx).await?;
+    if let (Some(prev), true) = (tr.from_user, prev_live) {
         sqlx::query!(
             "INSERT INTO memberships (node_id, user_id, role, status, invited_at, joined_at) VALUES (?, ?, 'contributor', 'active', ?, ?)
              ON CONFLICT (node_id, user_id) DO UPDATE SET role = 'contributor', status = 'active', joined_at = excluded.joined_at",
@@ -492,10 +504,11 @@ pub async fn waiting(db: &sqlx::SqlitePool, world: &World, user: Id) -> Result<V
         .await?
     {
         let Some(n) = world.nodes.get(&t.node_id) else { continue };
+        let who = if t.from_user.is_some() { name(t.from_user) } else { "An Administrator".into() };
         out.push(Waiting {
             href: format!("/transfers/{}", t.id),
-            initials: initials(&name(t.from_user)),
-            who: name(t.from_user),
+            initials: initials(&who),
+            who,
             text: "wants you to own".into(),
             subject: n.title.clone(),
         });

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO transfers (node_id, from_user, to_user, note, created_at) VALUES (?, NULL, ?, 'An Administrator is assigning this to you because it has no owner.', ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "6617507cae9130cfdccd212de1408bb901ce1a83d16aed6e9523bad4459f038a"
+}

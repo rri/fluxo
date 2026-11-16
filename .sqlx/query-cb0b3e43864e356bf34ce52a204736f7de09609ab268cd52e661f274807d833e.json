@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id AS \"id!\", previous_owner_id, unowned_since FROM nodes WHERE owner_id IS NULL",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "previous_owner_id",
+        "ordinal": 1,
+        "type_info": "Integer"
+      },
+      {
+        "name": "unowned_since",
+        "ordinal": 2,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "cb0b3e43864e356bf34ce52a204736f7de09609ab268cd52e661f274807d833e"
+}

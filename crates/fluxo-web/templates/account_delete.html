@@ -1,0 +1,52 @@
+{% extends "app.html" %}
+{% block title %}Delete account{% endblock %}
+{% block main %}
+<main class="narrow">
+  <nav class="crumbs"><a href="/settings">Settings</a> / Delete account</nav>
+  <div class="page-head"><div><h1>Delete your account</h1><p class="sub">Your goals and tasks stay. Choose who takes over each one.</p></div></div>
+  {% if let Some(e) = error %}<p class="form-error" role="alert">{{ e }}</p>{% endif %}
+
+  {% if last_admin %}
+  <div class="callout mb-12">You’re the only Administrator, so you can’t delete your account yet. <a href="/settings#roles-h">Make someone else an Administrator</a> first.</div>
+  {% else %}
+  <form method="post" action="/settings/delete">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <section aria-labelledby="ho-h">
+      <div class="section-head"><h2 id="ho-h">Who takes over</h2><span class="hint">Each has a suggested new owner. Change any of them.</span></div>
+      {% if rows.is_empty() %}
+      <div class="card row small muted">You don’t own any goals or tasks.</div>
+      {% else %}
+      <ul class="handover card">
+        {% for r in rows %}
+        <li><span><b>{{ r.title }}</b> <span class="xs faint">· {{ r.kind }}</span></span>
+          <span class="arrow-to"><label class="sr-only" for="to-{{ r.id }}">New owner for {{ r.title }}</label>→
+            <select id="to-{{ r.id }}" name="to_{{ r.id }}" class="input input-sm w-auto">
+              {% for p in people %}<option value="{{ p.0 }}"{% if r.suggested == Some(*p.0) %} selected{% endif %}>{{ p.1 }}{% if r.suggested == Some(*p.0) %} (suggested){% endif %}</option>{% endfor %}
+              <option value="admins"{% if r.suggested.is_none() %} selected{% endif %}>Administrators{% if r.suggested.is_none() %} (suggested){% endif %}</option>
+            </select></span>
+          <span class="rule">{{ r.reason }}</span></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      <p class="xs faint mt-8">Suggestions follow the nearest goal owner above the item, then its longest-standing Contributor, then the Administrators. Each new owner is asked to accept; if they decline, it goes to the Administrators. Your name stays on the history of what you created and changed, and your username stays reserved.</p>
+    </section>
+
+    {% if is_admin %}
+    <section aria-labelledby="ad-h">
+      <div class="section-head"><h2 id="ad-h">Administrator role</h2></div>
+      <div class="callout info">You’re an Administrator. Another Administrator remains, so you can delete your account.</div>
+    </section>
+    {% endif %}
+
+    <section aria-labelledby="cf-h">
+      <div class="section-head"><h2 id="cf-h">Confirm</h2></div>
+      <div class="card card-pad danger-zone">
+        <div class="field"><label for="cf-u">Type your username, <span class="mono">{{ username }}</span>, to confirm</label><input id="cf-u" name="confirm" class="input w-280" autocomplete="off" autocapitalize="none" required></div>
+        <div class="field"><label for="cf-p">Password</label><input id="cf-p" name="password" type="password" class="input w-280" autocomplete="current-password" required></div>
+        <div class="form-actions"><a class="btn ghost" href="/settings">Cancel</a><button class="btn danger">Delete account and hand over {{ rows.len() }} item{% if rows.len() != 1 %}s{% endif %}</button></div>
+      </div>
+    </section>
+  </form>
+  {% endif %}
+</main>
+{% endblock %}

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE nodes SET owner_id = NULL, previous_owner_id = ?, unowned_since = ? WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "4d945e63eabd31853c0c74655340840dfadd5404f58e8bb5af4625d45178b6cf"
+}

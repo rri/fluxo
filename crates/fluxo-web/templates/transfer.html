@@ -12,7 +12,7 @@
     <ul class="small muted list-plain">
       <li>You become its owner: you can reword it, archive it, invite people and transfer it</li>
       <li>You own everything beneath it too; steps keep their own owners</li>
-      <li>{{ from }} stays on as a Contributor</li>
+      {% if from != "An Administrator" && !from.ends_with("(account deleted)") %}<li>{{ from }} stays on as a Contributor</li>{% endif %}
     </ul>
     {% if !note.is_empty() %}<p class="quote mt-16">“{{ note }}”</p>{% endif %}
     <form class="form-actions" method="post" action="/transfers/{{ transfer_id }}">
