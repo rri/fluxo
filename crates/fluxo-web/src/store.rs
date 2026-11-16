@@ -163,6 +163,16 @@ impl World {
         self.graph.access(user, id)
     }
 
+    /// The title `user` may see for `id`: the real one if they can read it, else a placeholder.
+    pub fn title_for(&self, user: Id, id: Id) -> String {
+        match self.nodes.get(&id) {
+            Some(n) if self.access(user, id).can_read() => n.title.clone(),
+            Some(n) if n.is_goal() => "a private goal".into(),
+            Some(_) => "a private step".into(),
+            None => "something".into(),
+        }
+    }
+
     pub fn children_of(&self, id: Id) -> Vec<&Node> {
         self.children
             .get(&id)

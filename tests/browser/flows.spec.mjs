@@ -312,3 +312,25 @@ test('Focus ranks next steps and can start one', async ({ page }, info) => {
     await expect(page.getByRole('heading', { name: 'Next up' })).toBeVisible();
   }
 });
+
+test('keyboard shortcuts go to real pages (G11)', async ({ page }, info) => {
+  test.skip(!js(info), 'shortcuts need JavaScript');
+  await signInAsAda(page, info);
+  await page.goto('/');
+  await page.keyboard.press('g');
+  await page.keyboard.press('g');
+  await expect(page).toHaveURL(/\/goals$/);
+  await expect(page.getByRole('heading', { name: 'Goals', level: 1 })).toBeVisible();
+  await page.keyboard.press('g');
+  await page.keyboard.press('s');
+  await expect(page).toHaveURL(/\/settings$/);
+  await page.keyboard.press('g');
+  await page.keyboard.press('f');
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('heading', { name: 'Focus', level: 1 })).toBeVisible();
+  // Typing in a field doesn't navigate.
+  await page.goto('/settings');
+  await page.locator('#dn').focus();
+  await page.keyboard.type('gg');
+  await expect(page).toHaveURL(/\/settings$/);
+});

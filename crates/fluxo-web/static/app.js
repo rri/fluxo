@@ -1,4 +1,4 @@
-// fluxo mocks — progressive enhancement layer.
+// fluxo — progressive enhancement layer.
 // Every page is complete, usable HTML without this file; this adds layout, interactivity and polish.
 (function () {
   'use strict';
@@ -67,31 +67,6 @@
   $$('details.menu').forEach(function (m) {
     m.addEventListener('toggle', function () { if (m.open) { var s = $('.menu-search', m); if (s) s.focus(); } });
   });
-
-  /* ---------- Focus inbox: tab filters ---------- */
-  var tabs = $$('[data-focus-tab]');
-  if (tabs.length) {
-    var items = $$('.focus-item');
-    tabs.forEach(function (t) {
-      var kind = t.getAttribute('data-focus-tab');
-      var n = kind === 'all' ? items.length : items.filter(function (i) { return i.dataset.kind === kind; }).length;
-      var badge = $('.n', t); if (badge) badge.textContent = n;
-      t.addEventListener('click', function () {
-        tabs.forEach(function (x) { x.setAttribute('aria-selected', x === t ? 'true' : 'false'); });
-        items.forEach(function (i) { i.hidden = !(kind === 'all' || i.dataset.kind === kind); });
-      });
-    });
-  }
-  // "Done"/"Snooze" on focus items: optimistic removal in the mock
-  $$('[data-dismiss]').forEach(function (b) {
-    b.addEventListener('click', function (e) {
-      e.preventDefault();
-      var li = b.closest('li');
-      li.style.transition = 'opacity .2s'; li.style.opacity = '0';
-      setTimeout(function () { li.remove(); renumber(); }, 200);
-    });
-  });
-  function renumber() { $$('.focus-item .rank').forEach(function (r, i) { r.textContent = i + 1; }); }
 
   /* ---------- Goal path graph ----------
      The goal sits at the top (row 0). Each step sits one row below the lowest step it feeds,
@@ -230,33 +205,6 @@
     });
   });
 
-  /* ---------- Forecast distribution (illustrative Monte Carlo histogram) ---------- */
-  $$('[data-dist]').forEach(function (el) {
-    var p50 = +el.dataset.p50, p85 = +el.dataset.p85, max = +el.dataset.max;
-    // Lognormal-ish sample fitted to p50/p85; deterministic seed so the mock is stable.
-    var seed = 7; function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
-    function norm() { return Math.sqrt(-2 * Math.log(rnd())) * Math.cos(2 * Math.PI * rnd()); }
-    var mu = Math.log(p50), sigma = (Math.log(p85) - mu) / 1.036;
-    var bins = 48, counts = new Array(bins).fill(0);
-    for (var i = 0; i < 5000; i++) {
-      var v = Math.exp(mu + sigma * norm()); var b = Math.floor(v / max * bins);
-      if (b >= 0 && b < bins) counts[b]++;
-    }
-    var peak = Math.max.apply(null, counts), W = 600, H = 64, bw = W / bins;
-    var bars = counts.map(function (c, i) {
-      var h = c / peak * (H - 14), x = i * bw, day = (i + .5) / bins * max;
-      var cls = day <= p50 ? 'var(--accent)' : day <= p85 ? 'color-mix(in srgb, var(--accent) 45%, transparent)' : 'var(--border-strong)';
-      return '<rect x="' + (x + 1) + '" y="' + (H - h) + '" width="' + (bw - 2) + '" height="' + h + '" rx="1.5" fill="' + cls + '"/>';
-    }).join('');
-    var mark = function (d, label) {
-      var x = d / max * W;
-      return '<line x1="' + x + '" x2="' + x + '" y1="0" y2="' + H + '" stroke="var(--text-2)" stroke-dasharray="2 3"/>' +
-        '<text x="' + (x + 4) + '" y="10" font-size="10" font-family="var(--mono)" fill="var(--text-2)">' + label + '</text>';
-    };
-    el.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" role="img" aria-label="Finish-date distribution">' +
-      bars + mark(p50, 'P50') + mark(p85, 'P85') + '</svg>';
-  });
-
   /* ---------- Risks: live likelihood slider ---------- */
   $$('.risk').forEach(function (r) {
     var range = $('input[type=range]', r), out = $('.lk', r);
@@ -341,25 +289,15 @@
     });
   });
 
-  /* ---------- Focus updates: mark all read ---------- */
-  $$('[data-mark-read]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      var sec = b.closest('section');
-      $$('.update', sec).forEach(function (u) { u.classList.add('read'); });
-      var hint = $('.hint', sec); if (hint) hint.textContent = 'All read';
-      $$('.navlink .count').forEach(function (c) { c.textContent = '2'; c.title = '2 waiting on you'; });
-      b.hidden = true;
-    });
-  });
-
   /* ---------- Keyboard: g f → Focus, g g → Goals, g s → Settings ---------- */
   var g = false;
   document.addEventListener('keydown', function (e) {
-    if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || e.metaKey || e.ctrlKey) return;
-    if (g && e.key === 'g') { g = false; location.href = 'goals.html'; return; }
+    if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || e.target.isContentEditable || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (!$('.topbar')) return; // signed-in pages only
+    if (g && e.key === 'g') { g = false; location.href = '/goals'; return; }
     if (e.key === 'g') { g = true; setTimeout(function () { g = false; }, 800); return; }
-    if (g && e.key === 'f') location.href = 'focus.html';
-    if (g && e.key === 's') location.href = 'settings.html';
+    if (g && e.key === 'f') location.href = '/';
+    if (g && e.key === 's') location.href = '/settings';
     g = false;
   });
 })();

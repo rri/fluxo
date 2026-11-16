@@ -82,6 +82,7 @@ pub(crate) async fn issue(app: &crate::AppState, admin_id: i64, username: &str) 
     .execute(&mut *tx)
     .await?;
     tx.commit().await?;
+    tracing::info!(by = admin_id, user = user_id, "Administrator recovery code issued");
     let secs = expires.rem_euclid(86_400);
     let expires = format!("{} at {:02}:{:02} UTC", crate::util::date(expires), secs / 3_600, (secs / 60) % 60);
     Ok(IssueOutcome::Issued(Issued { username: name, code, expires }))
@@ -201,6 +202,7 @@ pub async fn locked_submit(
     // Whoever might have been using the account is signed out everywhere.
     sqlx::query!("DELETE FROM sessions WHERE user_id = ?", user_id).execute(&mut *tx).await?;
     tx.commit().await?;
+    tracing::info!(user = user_id, "Administrator recovery code used; 2FA off until set up again");
     let (_, jar) =
         session::advance(&app.db, jar, &s, user_id, Stage::SignedIn, &user_agent(&headers), app.secure_cookies).await?;
     Ok((jar, Redirect::to("/reset-password")).into_response())

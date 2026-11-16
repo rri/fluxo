@@ -199,7 +199,7 @@ pub fn describe(e: &Event, world: &World, names: &HashMap<Id, String>, me: Id, r
         }
         k => (format!("{actor}: {k} on"), String::new(), String::new()),
     };
-    let home = node.and_then(|n| n.home_parent_id).and_then(|h| world.nodes.get(&h)).map(|h| h.title.clone());
+    let home = node.and_then(|n| n.home_parent_id).map(|h| world.title_for(me, h));
     let context = match (context.is_empty(), home) {
         (true, Some(h)) => format!("In {h}"),
         (false, Some(h)) => format!("{context} · in {h}"),

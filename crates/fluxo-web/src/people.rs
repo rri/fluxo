@@ -357,6 +357,10 @@ pub async fn invitation_answer(
         return Ok(forbidden());
     }
     let cutoff = now() - INVITE_DAYS * 86_400;
+    // An archived item can't be joined; the invitation waits in case it's restored.
+    if World::load(&app.db).await?.nodes.get(&id).is_none_or(|n| n.archived_at.is_some()) {
+        return Ok(Redirect::to("/").into_response());
+    }
     if f.answer == "accept" {
         let t = now();
         let role = sqlx::query_scalar!(
@@ -511,7 +515,12 @@ pub async fn transfer_page(State(app): State<Shared>, jar: CookieJar, Path(tid):
             }
         },
         note: tr.note,
-        parents: world.parents_of(n.id).iter().map(|p| p.title.clone()).collect::<Vec<_>>().join(", "),
+        parents: world
+            .parents_of(n.id)
+            .iter()
+            .map(|p| world.title_for(ctx.user_id, p.id))
+            .collect::<Vec<_>>()
+            .join(", "),
     })
 }
 

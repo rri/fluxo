@@ -140,6 +140,8 @@ fn notice(q: &Notice) -> (&'static str, &'static str, bool) {
             "codes-password" => ("tfa", "Your password isn’t right, so no new codes were made."),
             "2fa-off" => ("tfa", "Your password or code wasn’t right, so two-factor authentication is still on."),
             "calendar-none" => ("calendar", "Pick at least one working day."),
+            "throttled-pw" => ("password", crate::throttle::MESSAGE),
+            "throttled-tfa" => ("tfa", crate::throttle::MESSAGE),
             "last-admin" => ("roles", "There has to be at least one Administrator. Make someone else one first."),
             "no-user" => ("unowned", "No one has that username."),
             "calendar-tz" => ("calendar", "Enter a time zone name like Europe/Lisbon or America/New_York."),
@@ -341,13 +343,20 @@ pub struct PasswordForm {
     confirm: String,
 }
 
-pub async fn password(State(app): State<Shared>, jar: CookieJar, Form(f): Form<PasswordForm>) -> Result<Response> {
+pub async fn password(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    axum::Extension(crate::throttle::ClientIp(ip)): axum::Extension<crate::throttle::ClientIp>,
+    Form(f): Form<PasswordForm>,
+) -> Result<Response> {
     let ctx = signed_in!(app, jar);
     check_csrf!(ctx, f.csrf);
     let hash =
         sqlx::query_scalar!("SELECT password_hash FROM users WHERE id = ?", ctx.user_id).fetch_one(&app.db).await?;
-    if !auth::password::verify(&f.current, &hash) {
-        return Ok(back("error=password-current", "pw-h"));
+    match crate::throttle::confirm_password(&app.db, &ctx.username, &ip, &hash, &f.current).await? {
+        crate::throttle::Check::Ok => {}
+        crate::throttle::Check::Wrong => return Ok(back("error=password-current", "pw-h")),
+        crate::throttle::Check::Blocked => return Ok(back("error=throttled-pw", "pw-h")),
     }
     if f.new.chars().count() < auth::password::MIN_LENGTH || f.new.len() > 1024 {
         return Ok(back("error=password-short", "pw-h"));

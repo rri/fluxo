@@ -155,7 +155,7 @@ pub fn router(state: Shared) -> Router {
         .fallback(not_found_page)
         .layer(middleware::from_fn_with_state(state.clone(), setup_gate))
         .layer(middleware::from_fn_with_state(state.clone(), throttle::remember_ip))
-        .layer(middleware::from_fn(security_headers))
+        .layer(middleware::from_fn_with_state(state.clone(), security_headers))
         .with_state(state)
 }
 
@@ -313,7 +313,8 @@ async fn asset(Path(file): Path<String>) -> Response {
 }
 
 /// Strict Content-Security-Policy (D22) and related headers on every response.
-async fn security_headers(req: Request, next: Next) -> Response {
+async fn security_headers(State(app): State<Shared>, req: Request, next: Next) -> Response {
+    let secure = app.secure_cookies;
     let is_static = req.uri().path().starts_with("/static/");
     let mut res = next.run(req).await;
     let h = res.headers_mut();
@@ -326,6 +327,17 @@ async fn security_headers(req: Request, next: Next) -> Response {
     );
     h.insert(header::X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff"));
     h.insert(header::REFERRER_POLICY, HeaderValue::from_static("same-origin"));
+    h.insert(header::X_FRAME_OPTIONS, HeaderValue::from_static("DENY"));
+    h.insert("cross-origin-opener-policy", HeaderValue::from_static("same-origin"));
+    h.insert("cross-origin-resource-policy", HeaderValue::from_static("same-origin"));
+    h.insert(
+        "permissions-policy",
+        HeaderValue::from_static("camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"),
+    );
+    if secure {
+        // HTTPS only, for a year; fluxo.dev is on the preload list's TLD anyway (.dev is HSTS-preloaded).
+        h.insert(header::STRICT_TRANSPORT_SECURITY, HeaderValue::from_static("max-age=31536000"));
+    }
     if !is_static {
         h.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
     }

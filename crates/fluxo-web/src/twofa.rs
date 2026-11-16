@@ -225,6 +225,7 @@ pub async fn setup_submit(State(app): State<Shared>, jar: CookieJar, Form(f): Fo
 pub async fn regenerate_codes(
     State(app): State<Shared>,
     jar: CookieJar,
+    axum::Extension(crate::throttle::ClientIp(ip)): axum::Extension<crate::throttle::ClientIp>,
     Form(f): Form<PasswordForm>,
 ) -> Result<Response> {
     let ctx = match require_user(&app, &jar).await? {
@@ -237,14 +238,28 @@ pub async fn regenerate_codes(
     let u = sqlx::query!("SELECT password_hash, totp_enabled FROM users WHERE id = ?", ctx.user_id)
         .fetch_one(&app.db)
         .await?;
-    if u.totp_enabled == 0 || !auth::password::verify(&f.password, &u.password_hash) {
-        return Ok(Redirect::to("/settings?error=codes-password#tfa-h").into_response());
+    if u.totp_enabled == 0 {
+        return Ok(Redirect::to("/settings#tfa-h").into_response());
+    }
+    match crate::throttle::confirm_password(&app.db, &ctx.username, &ip, &u.password_hash, &f.password).await? {
+        crate::throttle::Check::Ok => {}
+        crate::throttle::Check::Wrong => {
+            return Ok(Redirect::to("/settings?error=codes-password#tfa-h").into_response());
+        }
+        crate::throttle::Check::Blocked => {
+            return Ok(Redirect::to("/settings?error=throttled-tfa#tfa-h").into_response());
+        }
     }
     let codes = new_codes(&app, ctx.user_id).await?;
     codes_page(&ctx.theme, codes, false)
 }
 
-pub async fn turn_off(State(app): State<Shared>, jar: CookieJar, Form(f): Form<OffForm>) -> Result<Response> {
+pub async fn turn_off(
+    State(app): State<Shared>,
+    jar: CookieJar,
+    axum::Extension(crate::throttle::ClientIp(ip)): axum::Extension<crate::throttle::ClientIp>,
+    Form(f): Form<OffForm>,
+) -> Result<Response> {
     let ctx = match require_user(&app, &jar).await? {
         Ok(c) => c,
         Err(r) => return Ok(r),
@@ -254,8 +269,17 @@ pub async fn turn_off(State(app): State<Shared>, jar: CookieJar, Form(f): Form<O
     }
     let hash =
         sqlx::query_scalar!("SELECT password_hash FROM users WHERE id = ?", ctx.user_id).fetch_one(&app.db).await?;
-    if !auth::password::verify(&f.password, &hash) || !accept_code(&app, ctx.user_id, &f.code).await? {
-        return Ok(Redirect::to("/settings?error=2fa-off#tfa-h").into_response());
+    let wrong = || Redirect::to("/settings?error=2fa-off#tfa-h").into_response();
+    match crate::throttle::confirm_password(&app.db, &ctx.username, &ip, &hash, &f.password).await? {
+        crate::throttle::Check::Ok => {}
+        crate::throttle::Check::Wrong => return Ok(wrong()),
+        crate::throttle::Check::Blocked => {
+            return Ok(Redirect::to("/settings?error=throttled-tfa#tfa-h").into_response());
+        }
+    }
+    if !accept_code(&app, ctx.user_id, &f.code).await? {
+        crate::throttle::failed(&app.db, &ctx.username, &ip).await?;
+        return Ok(wrong());
     }
     let mut tx = app.db.begin().await?;
     sqlx::query!(

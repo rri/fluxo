@@ -62,7 +62,7 @@
           <div class="meta">
             {% if i.kind.key() == "do" %}<span class="pill accent"><span class="dot"></span>Do</span>{% else if i.kind.key() == "derisk" %}<span class="pill amber"><span class="dot"></span>De-risk</span>{% else %}<span class="pill outline">Clarify</span>{% endif %}
             {% for p in i.pills %}<span class="pill num">{{ p }}</span>{% endfor %}
-            {% if let Some(b) = i.blocked_by %}<span class="pill">blocked by <a href="{{ b.1 }}">{{ b.0 }}</a></span>{% endif %}
+            {% if let Some(b) = i.blocked_by %}<span class="pill">blocked by {% if b.1.is_empty() %}{{ b.0 }}{% else %}<a href="{{ b.1 }}">{{ b.0 }}</a>{% endif %}</span>{% endif %}
             {% for g in i.goals %}<span class="pill">{{ g }}</span>{% endfor %}
           </div>
           <div class="focus-actions">

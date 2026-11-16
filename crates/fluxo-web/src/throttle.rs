@@ -41,10 +41,48 @@ pub fn client_ip(conn: Option<&ConnectInfo<SocketAddr>>, headers: &HeaderMap, tr
         .and_then(|v| v.split(',').next_back())
         .and_then(|v| v.trim().parse::<IpAddr>().ok());
     match (peer, forwarded) {
-        (Some(p), Some(f)) if trusted.contains(&p) => f.to_string(),
-        (Some(p), _) => p.to_string(),
+        (Some(p), Some(f)) if trusted.contains(&p) => bucket(f),
+        (Some(p), _) => bucket(p),
         (None, _) => "unknown".into(),
     }
+}
+
+/// IPv6 visitors usually control a whole /64, so they're counted by it, not one address.
+fn bucket(ip: IpAddr) -> String {
+    match ip {
+        IpAddr::V4(v4) => v4.to_string(),
+        IpAddr::V6(v6) => match v6.to_ipv4_mapped() {
+            Some(v4) => v4.to_string(),
+            None => {
+                let s = v6.segments();
+                format!("{:x}:{:x}:{:x}:{:x}::/64", s[0], s[1], s[2], s[3])
+            }
+        },
+    }
+}
+
+/// The outcome of checking a password someone typed to confirm an action.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Check {
+    Ok,
+    Wrong,
+    /// Too many recent failures for this account or address; nothing was checked.
+    Blocked,
+}
+
+/// Check a password typed to confirm a sensitive action (or to sign in), counting failures
+/// towards the same limits as sign-in. The hashing runs off the async threads.
+pub async fn confirm_password(db: &SqlitePool, username: &str, ip: &str, stored: &str, given: &str) -> Result<Check> {
+    if blocked(db, username, ip).await? {
+        return Ok(Check::Blocked);
+    }
+    let (stored, given) = (stored.to_string(), given.to_string());
+    let ok = tokio::task::spawn_blocking(move || crate::auth::password::verify(&given, &stored)).await?;
+    if ok {
+        return Ok(Check::Ok);
+    }
+    failed(db, username, ip).await?;
+    Ok(Check::Wrong)
 }
 
 /// Is sign-in currently blocked for this username or address?
@@ -72,3 +110,16 @@ pub async fn failed(db: &SqlitePool, username: &str, ip: &str) -> Result<()> {
 
 pub const MESSAGE: &str =
     "Too many unsuccessful attempts. Wait 15 minutes and try again, or ask an Administrator for help.";
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn addresses_are_bucketed() {
+        assert_eq!(bucket("203.0.113.9".parse().unwrap()), "203.0.113.9");
+        assert_eq!(bucket("2001:db8:1:2:aaaa::1".parse().unwrap()), "2001:db8:1:2::/64");
+        assert_eq!(bucket("2001:db8:1:2:bbbb::7".parse().unwrap()), "2001:db8:1:2::/64");
+        assert_eq!(bucket("::ffff:203.0.113.9".parse().unwrap()), "203.0.113.9");
+    }
+}

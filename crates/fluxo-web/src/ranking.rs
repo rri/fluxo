@@ -108,8 +108,9 @@ pub async fn rank(app: &AppState, db: &SqlitePool, world: &World, f: &Forecasts,
     let risks = forecast::open_risks(db).await?;
     let mut items = Vec::new();
     let can_act = |id: Id| world.access(user, id).can_contribute() && world.nodes[&id].archived_at.is_none();
-    let goal_names =
-        |ts: &[Id]| ts.iter().filter_map(|g| world.nodes.get(g)).map(|g| g.title.clone()).collect::<Vec<_>>();
+    let goal_names = |ts: &[Id]| {
+        ts.iter().filter(|g| world.nodes.contains_key(g)).map(|g| world.title_for(user, *g)).collect::<Vec<_>>()
+    };
 
     for n in world.nodes.values() {
         if n.archived_at.is_some() || !can_act(n.id) {
@@ -132,7 +133,7 @@ pub async fn rank(app: &AppState, db: &SqlitePool, world: &World, f: &Forecasts,
             let why = match main {
                 Some((cg, g)) if cg > 0.0 => format!(
                     "On the critical path of {} in {} of runs; it could take {}–{} days.",
-                    world.nodes[&g].title,
+                    world.title_for(user, g),
                     pct(cg),
                     days(likely * lo).trim_end_matches('d'),
                     days(likely * hi).trim_end_matches('d')
@@ -153,7 +154,10 @@ pub async fn rank(app: &AppState, db: &SqlitePool, world: &World, f: &Forecasts,
                 goals: goal_names(&ts),
                 gain: Some(c * overrun),
                 exact: false,
-                blocked_by: blocker.map(|b| (b.title.clone(), b.href())),
+                blocked_by: blocker.map(|b| {
+                    let visible = world.access(user, b.id).can_read();
+                    (world.title_for(user, b.id), if visible { b.href() } else { String::new() })
+                }),
                 startable: (n.status == "todo" && blocker.is_none()).then_some(n.id),
                 tweak: Tweak::SettleTask(n.id),
                 tops: ts.clone(),

@@ -14,7 +14,7 @@ use sqlx::SqlitePool;
 
 use crate::store::{self, Id, World};
 use crate::util::{ago, date};
-use crate::{Ctx, Result, Shared, auth, forbidden, initials, now, page, require_user};
+use crate::{Ctx, Result, Shared, forbidden, initials, now, page, require_user};
 
 pub struct AdminPerson {
     pub id: Id,
@@ -132,13 +132,24 @@ pub async fn set_role(State(app): State<Shared>, jar: CookieJar, Form(f): Form<R
         Err(r) => return Ok(r),
     };
     let make = f.admin == "1";
-    if !make && admin_count(&app.db).await? <= 1 {
-        return Ok(back("error=last-admin", "roles-h"));
-    }
-    let v = make as i64;
-    sqlx::query!("UPDATE users SET is_administrator = ? WHERE id = ? AND deleted_at IS NULL", v, f.user)
+    if make {
+        sqlx::query!("UPDATE users SET is_administrator = 1 WHERE id = ? AND deleted_at IS NULL", f.user)
+            .execute(&app.db)
+            .await?;
+    } else {
+        // One statement, so two Administrators removing each other at once can't leave none.
+        let n = sqlx::query!(
+            "UPDATE users SET is_administrator = 0 WHERE id = ? AND is_administrator = 1
+               AND (SELECT COUNT(*) FROM users WHERE is_administrator = 1 AND deleted_at IS NULL) > 1",
+            f.user
+        )
         .execute(&app.db)
-        .await?;
+        .await?
+        .rows_affected();
+        if n == 0 && admin_count(&app.db).await? <= 1 {
+            return Ok(back("error=last-admin", "roles-h"));
+        }
+    }
     tracing::info!(by = ctx.user_id, user = f.user, administrator = make, "Administrator role changed");
     Ok(back(if make { "done=admin-added" } else { "done=admin-removed" }, "roles-h"))
 }
@@ -152,9 +163,10 @@ pub struct AssignForm {
 
 /// Offer an unowned goal or task to someone; they must accept, like any transfer.
 pub async fn assign(State(app): State<Shared>, jar: CookieJar, Form(f): Form<AssignForm>) -> Result<Response> {
-    if let Err(r) = admin(&app, &jar, &f.csrf).await? {
-        return Ok(r);
-    }
+    let ctx = match admin(&app, &jar, &f.csrf).await? {
+        Ok(c) => c,
+        Err(r) => return Ok(r),
+    };
     let name = f.username.trim().to_lowercase();
     let Some(to) =
         sqlx::query_scalar!(r#"SELECT id AS "id!" FROM users WHERE username = ? AND deleted_at IS NULL"#, name)
@@ -188,6 +200,7 @@ pub async fn assign(State(app): State<Shared>, jar: CookieJar, Form(f): Form<Ass
     .execute(&mut *tx)
     .await?;
     tx.commit().await?;
+    tracing::info!(by = ctx.user_id, node = f.node, to, "unowned item offered");
     Ok(back("done=assigned", "unowned-h"))
 }
 
@@ -321,6 +334,7 @@ pub async fn delete_page(State(app): State<Shared>, jar: CookieJar) -> Result<Re
 pub async fn delete_submit(
     State(app): State<Shared>,
     jar: CookieJar,
+    axum::Extension(crate::throttle::ClientIp(ip)): axum::Extension<crate::throttle::ClientIp>,
     Form(f): Form<HashMap<String, String>>,
 ) -> Result<Response> {
     let ctx = match require_user(&app, &jar).await? {
@@ -343,8 +357,13 @@ pub async fn delete_submit(
     }
     let hash =
         sqlx::query_scalar!("SELECT password_hash FROM users WHERE id = ?", ctx.user_id).fetch_one(&app.db).await?;
-    if !auth::password::verify(f.get("password").map(String::as_str).unwrap_or(""), &hash) {
-        return delete_page_for(&app, &ctx, Some("That password isn’t right.")).await;
+    let given = f.get("password").map(String::as_str).unwrap_or("");
+    match crate::throttle::confirm_password(&app.db, &ctx.username, &ip, &hash, given).await? {
+        crate::throttle::Check::Ok => {}
+        crate::throttle::Check::Wrong => {
+            return delete_page_for(&app, &ctx, Some("That password isn’t right.")).await;
+        }
+        crate::throttle::Check::Blocked => return delete_page_for(&app, &ctx, Some(crate::throttle::MESSAGE)).await,
     }
     let world = World::load(&app.db).await?;
     let live: std::collections::HashSet<Id> =
@@ -356,6 +375,41 @@ pub async fn delete_submit(
     let rows = handover(&app.db, &world, ctx.user_id).await?;
     let (me, t) = (ctx.user_id, now());
     let mut tx = app.db.begin().await?;
+    if ctx.is_admin {
+        let others = sqlx::query_scalar!(
+            "SELECT COUNT(*) FROM users WHERE is_administrator = 1 AND deleted_at IS NULL AND id != ?",
+            me
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+        if others == 0 {
+            drop(tx);
+            return delete_page_for(
+                &app,
+                &ctx,
+                Some("You’re the only Administrator. Make someone else an Administrator first."),
+            )
+            .await;
+        }
+    }
+    // Offers this person made, or that were waiting on items they're handing over, are replaced
+    // by the handover below.
+    sqlx::query!(
+        "UPDATE transfers SET status = 'cancelled', resolved_at = ? WHERE from_user = ? AND status = 'pending'",
+        t,
+        me
+    )
+    .execute(&mut *tx)
+    .await?;
+    for row in &rows {
+        sqlx::query!(
+            "UPDATE transfers SET status = 'cancelled', resolved_at = ? WHERE node_id = ? AND status = 'pending'",
+            t,
+            row.id
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
     for row in &rows {
         // The person leaving may have changed the suggestion; anything unreadable falls back to it.
         let choice = match f.get(&format!("to_{}", row.id)).map(String::as_str) {

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM sessions WHERE (stage = 'anonymous' AND last_seen_at < ?)\n            OR (stage = 'second_factor' AND last_seen_at < ?) OR (stage = 'signed_in' AND last_seen_at < ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "a07b605bdcb7ad2412b1cad17a8e500b20ea5c1da3e0f385a9d8b20eb182174e"
+}

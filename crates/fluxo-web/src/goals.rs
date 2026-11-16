@@ -208,9 +208,9 @@ fn parent_options(world: &World, user: Id, selected: Option<Id>, exclude: Option
         .filter(|n| world.access(user, n.id).can_contribute())
         .filter(|n| exclude.is_none_or(|x| !world.graph.would_contain_itself(x, n.id)))
         .collect();
-    v.sort_by_cached_key(|n| views::path_label(world, n));
+    v.sort_by_cached_key(|n| views::path_label(world, user, n));
     v.into_iter()
-        .map(|n| Option_ { value: n.id, label: views::path_label(world, n), selected: Some(n.id) == selected })
+        .map(|n| Option_ { value: n.id, label: views::path_label(world, user, n), selected: Some(n.id) == selected })
         .collect()
 }
 

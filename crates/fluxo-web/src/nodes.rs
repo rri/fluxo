@@ -77,9 +77,26 @@ pub async fn parents(
     Path(id): Path<Id>,
     Form(f): Form<ParentForm>,
 ) -> Result<Response> {
-    let (ctx, world, _) = gate!(app, jar, f.csrf, id, Access::Contribute);
+    let (ctx, world, access) = gate!(app, jar, f.csrf, id, Access::Contribute);
     let node = &world.nodes[&id];
     let current = world.parents.get(&id).cloned().unwrap_or_default();
+    // What the links would be afterwards; Contributors can't make changes that alter who owns the
+    // item or who can see it.
+    let after = match f.action.as_str() {
+        "add" => Some((current.iter().copied().chain([f.goal]).collect(), node.home_parent_id.or(Some(f.goal)))),
+        "home" if current.contains(&f.goal) => Some((current.clone(), Some(f.goal))),
+        "remove" if current.contains(&f.goal) => {
+            let rest: Vec<Id> = current.iter().copied().filter(|&p| p != f.goal).collect();
+            let home = if node.home_parent_id == Some(f.goal) { rest.first().copied() } else { node.home_parent_id };
+            Some((rest, home))
+        }
+        _ => None,
+    };
+    if let Some((parents, home)) = after {
+        if !access.is_owner() && world.graph.relink_changes_control(id, parents, home) {
+            return Ok(back_to(&world, id, "error=link-owner", "links-h"));
+        }
+    }
     match f.action.as_str() {
         "add" => {
             let target_ok = world.nodes.get(&f.goal).is_some_and(|g| g.is_goal() && g.archived_at.is_none())
@@ -253,6 +270,10 @@ pub async fn risk(
     Path(rid): Path<Id>,
     Form(f): Form<RiskForm>,
 ) -> Result<Response> {
+    // Signed-out visitors learn nothing, not even whether the risk exists.
+    if let Err(r) = require_user(&app, &jar).await? {
+        return Ok(r);
+    }
     let Some(r) = sqlx::query!("SELECT node_id, title FROM risks WHERE id = ?", rid).fetch_optional(&app.db).await?
     else {
         return Ok(not_found());

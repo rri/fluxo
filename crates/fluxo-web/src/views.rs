@@ -92,6 +92,9 @@ pub fn error_text(key: Option<&str>) -> Option<&'static str> {
         "no-user" => "No one has that username.",
         "already" => "They already have a role here.",
         "already-owner" => "They already own it.",
+        "link-owner" => {
+            "Only an owner can make that change: it would change who owns this or who can see it. Ask an owner to make it."
+        }
         "size" => {
             "Give a rough size as two numbers of working days, smallest first, like 5 and 15. Leave both blank for none."
         }
@@ -128,9 +131,9 @@ pub fn owner_label(owner: Option<Id>, me: Id, names: &HashMap<Id, String>) -> St
 }
 
 /// "Launch beta › Accounts & auth": where a goal lives, for pickers.
-pub fn path_label(world: &World, n: &Node) -> String {
-    let mut parts: Vec<&str> = world.home_chain(n.id).iter().map(|p| p.title.as_str()).collect();
-    parts.push(&n.title);
+pub fn path_label(world: &World, user: Id, n: &Node) -> String {
+    let mut parts: Vec<String> = world.home_chain(n.id).iter().map(|p| world.title_for(user, p.id)).collect();
+    parts.push(n.title.clone());
     parts.join(" › ")
 }
 
@@ -162,7 +165,7 @@ pub fn steps(world: &World, user: Id, goal: Id, crit: Option<&HashMap<Id, f32>>)
                 .filter(|d| d.archived_at.is_none())
                 .map(|d| if world.access(user, d.id).can_read() { d.title.clone() } else { "a private step".into() })
                 .collect();
-            let title_of = |i: &Id| world.nodes.get(i).map(|n| n.title.clone()).unwrap_or_default();
+            let title_of = |i: &Id| world.title_for(user, *i);
             let c = crit.and_then(|m| m.get(&k.id)).copied().unwrap_or(0.0);
             let pct = |s: String| match (crit.is_some(), s.is_empty()) {
                 (false, _) => s,

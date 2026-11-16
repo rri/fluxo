@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE users SET is_administrator = 0 WHERE id = ? AND is_administrator = 1\n               AND (SELECT COUNT(*) FROM users WHERE is_administrator = 1 AND deleted_at IS NULL) > 1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "3222bd2407ce57cb9a29d21e2354e4c53b5d9b56f0d1dfaaf4bd85e7fe354822"
+}

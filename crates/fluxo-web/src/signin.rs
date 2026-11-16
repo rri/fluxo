@@ -89,7 +89,11 @@ pub async fn login_page(
             session::create(&app.db, jar, None, Stage::Anonymous, &user_agent(&headers), app.secure_cookies).await?
         }
     };
-    let error = (q.reason.as_deref() == Some("codes")).then_some(TOO_MANY_CODES);
+    let error = match q.reason.as_deref() {
+        Some("codes") => Some(TOO_MANY_CODES),
+        Some("throttled") => Some(crate::throttle::MESSAGE),
+        _ => None,
+    };
     let signup_open = signup_open(&app).await?;
     Ok((jar, page(LoginPage { theme: "system", csrf: &s.csrf_token, username: "", error, signup_open })?)
         .into_response())
@@ -124,13 +128,16 @@ pub async fn login_submit(
     )
     .fetch_optional(&app.db)
     .await?;
-    let ok = match &user {
-        Some(u) => auth::password::verify(&f.password, &u.password_hash),
+    let stored = user.as_ref().map(|u| u.password_hash.clone());
+    let given = f.password.clone();
+    let ok = tokio::task::spawn_blocking(move || match stored {
+        Some(h) => auth::password::verify(&given, &h),
         None => {
-            auth::password::burn_time(&f.password);
+            auth::password::burn_time(&given);
             false
         }
-    };
+    })
+    .await?;
     let (Some(user), true) = (user, ok) else {
         session::record_failure(&app.db, &s).await?;
         crate::throttle::failed(&app.db, &username, &ip).await?;
@@ -156,13 +163,41 @@ async fn second_factor_session(app: &AppState, jar: &CookieJar) -> Result<Option
         .and_then(|s| s.user_id.map(|u| (s, u))))
 }
 
-/// After a wrong code: count it, and end the attempt after too many.
-async fn wrong_code(app: &AppState, jar: CookieJar, s: &Session, retry: Response) -> Result<Response> {
+/// The username for throttling code attempts.
+async fn username_of(app: &AppState, user_id: i64) -> Result<String> {
+    Ok(sqlx::query_scalar!("SELECT username FROM users WHERE id = ?", user_id).fetch_one(&app.db).await?)
+}
+
+/// After a wrong code: count it (for this sign-in, and towards the account's and address's
+/// limits, so starting sign-in again doesn't give unlimited guesses), and end the attempt after
+/// too many.
+async fn wrong_code(
+    app: &AppState,
+    jar: CookieJar,
+    s: &Session,
+    user_id: i64,
+    ip: &str,
+    retry: Response,
+) -> Result<Response> {
+    crate::throttle::failed(&app.db, &username_of(app, user_id).await?, ip).await?;
     if session::record_failure(&app.db, s).await? >= MAX_CODE_TRIES {
         session::end(&app.db, s).await?;
         return Ok((session::clear_cookie(jar), Redirect::to("/login?reason=codes")).into_response());
     }
     Ok(retry)
+}
+
+/// Too many failures for this account or address: end the attempt.
+async fn codes_blocked(app: &AppState, s: &Session, user_id: i64, ip: &str) -> Result<bool> {
+    if crate::throttle::blocked(&app.db, &username_of(app, user_id).await?, ip).await? {
+        session::end(&app.db, s).await?;
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn throttled(jar: CookieJar) -> Response {
+    (session::clear_cookie(jar), Redirect::to("/login?reason=throttled")).into_response()
 }
 
 pub async fn code_page(State(app): State<Shared>, jar: CookieJar) -> Result<Response> {
@@ -176,6 +211,7 @@ pub async fn code_submit(
     State(app): State<Shared>,
     jar: CookieJar,
     headers: HeaderMap,
+    axum::Extension(crate::throttle::ClientIp(ip)): axum::Extension<crate::throttle::ClientIp>,
     Form(f): Form<CodeForm>,
 ) -> Result<Response> {
     let Some((s, user_id)) = second_factor_session(&app, &jar).await? else {
@@ -184,6 +220,9 @@ pub async fn code_submit(
     if !session::token_matches(&s.csrf_token, &f.csrf) {
         return Ok(forbidden());
     }
+    if codes_blocked(&app, &s, user_id, &ip).await? {
+        return Ok(throttled(jar));
+    }
     if crate::twofa::accept_code(&app, user_id, &f.code).await? {
         let (_, jar) =
             session::advance(&app.db, jar, &s, user_id, Stage::SignedIn, &user_agent(&headers), app.secure_cookies)
@@ -191,7 +230,7 @@ pub async fn code_submit(
         return Ok((jar, Redirect::to("/")).into_response());
     }
     let retry = page(CodePage { theme: "system", csrf: &s.csrf_token, error: Some(WRONG_CODE) })?;
-    wrong_code(&app, jar, &s, retry).await
+    wrong_code(&app, jar, &s, user_id, &ip, retry).await
 }
 
 pub async fn recovery_page(State(app): State<Shared>, jar: CookieJar) -> Result<Response> {
@@ -205,6 +244,7 @@ pub async fn recovery_submit(
     State(app): State<Shared>,
     jar: CookieJar,
     headers: HeaderMap,
+    axum::Extension(crate::throttle::ClientIp(ip)): axum::Extension<crate::throttle::ClientIp>,
     Form(f): Form<CodeForm>,
 ) -> Result<Response> {
     let Some((s, user_id)) = second_factor_session(&app, &jar).await? else {
@@ -213,6 +253,9 @@ pub async fn recovery_submit(
     if !session::token_matches(&s.csrf_token, &f.csrf) {
         return Ok(forbidden());
     }
+    if codes_blocked(&app, &s, user_id, &ip).await? {
+        return Ok(throttled(jar));
+    }
     if crate::twofa::use_recovery_code(&app, user_id, &f.code).await? {
         let (_, jar) =
             session::advance(&app.db, jar, &s, user_id, Stage::SignedIn, &user_agent(&headers), app.secure_cookies)
@@ -220,7 +263,7 @@ pub async fn recovery_submit(
         return Ok((jar, Redirect::to("/settings?done=recovery-used#tfa-h")).into_response());
     }
     let retry = page(RecoveryPage { theme: "system", csrf: &s.csrf_token, error: Some(WRONG_RECOVERY) })?;
-    wrong_code(&app, jar, &s, retry).await
+    wrong_code(&app, jar, &s, user_id, &ip, retry).await
 }
 
 pub async fn logout(State(app): State<Shared>, jar: CookieJar, Form(f): Form<CsrfForm>) -> Result<Response> {

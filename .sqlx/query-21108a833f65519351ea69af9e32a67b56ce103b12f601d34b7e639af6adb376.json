@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE transfers SET status = 'cancelled', resolved_at = ? WHERE from_user = ? AND status = 'pending'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "21108a833f65519351ea69af9e32a67b56ce103b12f601d34b7e639af6adb376"
+}

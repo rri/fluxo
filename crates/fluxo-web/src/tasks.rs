@@ -111,7 +111,7 @@ pub async fn show(
     let mut elsewhere: Vec<&Node> =
         world.nodes.values().filter(candidate).filter(|n| !siblings.contains(&n.id) && !n.is_goal()).collect();
     nearby.sort_by_key(|n| (n.created_at, n.id));
-    elsewhere.sort_by_cached_key(|n| views::path_label(&world, n));
+    elsewhere.sort_by_cached_key(|n| views::path_label(&world, user, n));
     let opt = |n: &Node, label: String| Option_ { value: n.id, label, selected: false };
 
     let current_parents = world.parents.get(&id).cloned().unwrap_or_default();
@@ -121,7 +121,7 @@ pub async fn show(
         .filter(|n| n.is_goal() && n.archived_at.is_none() && !current_parents.contains(&n.id))
         .filter(|n| world.access(user, n.id).can_contribute())
         .collect();
-    parent_options.sort_by_cached_key(|n| views::path_label(&world, n));
+    parent_options.sort_by_cached_key(|n| views::path_label(&world, user, n));
 
     let forecasts = crate::forecast::current(&app, &world).await?;
     let critical_in = world
@@ -178,9 +178,9 @@ pub async fn show(
         needs: world.needs_of(id).iter().filter_map(|d| link(&world, user, *d)).collect(),
         unblocks: world.needed_by(id).iter().filter_map(|d| link(&world, user, *d)).collect(),
         need_nearby: nearby.into_iter().map(|n| opt(n, n.title.clone())).collect(),
-        need_elsewhere: elsewhere.into_iter().map(|n| opt(n, views::path_label(&world, n))).collect(),
+        need_elsewhere: elsewhere.into_iter().map(|n| opt(n, views::path_label(&world, user, n))).collect(),
         feeds: views::feeds(&world, user, id),
-        parent_options: parent_options.into_iter().map(|n| opt(n, views::path_label(&world, n))).collect(),
+        parent_options: parent_options.into_iter().map(|n| opt(n, views::path_label(&world, user, n))).collect(),
         risks: views::risk_views(store::risks(&app.db, id).await?),
         error: views::error_text(q.error.as_deref()),
     })

@@ -123,6 +123,24 @@ impl Graph {
         if self.is_private(id) { Access::None } else { Access::Read }
     }
 
+    /// Everyone who owns `id`: its owner and the owner of every goal above it.
+    pub fn owners(&self, id: Id) -> std::collections::BTreeSet<Id> {
+        self.upward(id).filter_map(|i| self.nodes.get(&i).and_then(|n| n.owner)).collect()
+    }
+
+    /// Would changing `id`'s parents to `parents` (and its home to `home`) change who owns it or
+    /// whether it's private? Contributors may rearrange links freely, but not in ways that hand
+    /// the item to new owners, take it from existing ones, or change who can see it; those are
+    /// an owner's decisions (decided 2026-11-16).
+    pub fn relink_changes_control(&self, id: Id, parents: Vec<Id>, home: Option<Id>) -> bool {
+        let mut after = self.clone();
+        if let Some(n) = after.nodes.get_mut(&id) {
+            n.parents = parents;
+            n.home = home;
+        }
+        after.owners(id) != self.owners(id) || after.is_private(id) != self.is_private(id)
+    }
+
     /// Would making `child` feed `goal` create a loop of goals containing themselves?
     pub fn would_contain_itself(&self, child: Id, goal: Id) -> bool {
         child == goal || self.upward(goal).any(|i| i == child)
@@ -191,6 +209,20 @@ mod tests {
         g.roles.insert((6, 10), Role::Contributor);
         assert_eq!(g.access(12, 7), Access::Own);
         assert_eq!(g.access(10, 7), Access::None);
+    }
+
+    #[test]
+    fn relinking_must_not_change_control() {
+        let g = graph();
+        // Linking 7 (lin's) under 2 (kofi's) would make kofi and ada owners of it.
+        assert!(g.relink_changes_control(7, vec![6, 2], Some(6)));
+        // Linking 4 (under 2, owned by kofi and ada) also under 1 adds no owners.
+        assert!(!g.relink_changes_control(4, vec![2, 1], Some(2)));
+        // Moving 5's home from private 3 to public 2 would make it public.
+        assert!(g.relink_changes_control(5, vec![3, 2], Some(2)));
+        // Removing 5's link to 2 takes kofi's ownership away.
+        assert!(g.relink_changes_control(5, vec![3], Some(3)));
+        assert_eq!(g.owners(5), [10, 11].into());
     }
 
     #[test]

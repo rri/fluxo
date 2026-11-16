@@ -320,3 +320,13 @@ beta" goal.
 - Configuration moves to **TOML** at `/etc/fluxo/fluxo.toml` (environment variables still override); fluxo listens on `127.0.0.1:8371` behind Caddy.
 - First-time setup needs a **one-time setup link printed to the server log**, so only someone with server access can create the first Administrator.
 - **Backups:** nightly snapshots (7 kept) and pre-deploy copies (5 kept) on the data volume. No off-site replication (decided 2026-11-16).
+
+## 11. Hardening review (2026-11-16, pending confirmation)
+
+Made as recommended, to be confirmed or changed (details in `docs/threat-model.md` §6):
+
+- **Relinking**: a Contributor can't make a link change that changes who owns an item or
+  whether it's private; an owner can.
+- **One failure counter**: wrong 2FA codes, recovery codes and confirmation passwords count
+  toward sign-in's limits (10 per username, 30 per address or IPv6 /64, per 15 minutes).
+- **Item volume**: no creation cap for now.

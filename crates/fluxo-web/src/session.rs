@@ -160,6 +160,41 @@ pub async fn end(db: &SqlitePool, s: &Session) -> sqlx::Result<()> {
     Ok(())
 }
 
+/// Delete sessions that have idled out. Loading one deletes it too, but visitors who never come
+/// back would otherwise leave their sessions behind (every visit to the sign-in page makes one).
+pub async fn purge_expired(db: &SqlitePool) -> sqlx::Result<u64> {
+    let t = now();
+    let (anon, second, signed) = (t - ANONYMOUS_IDLE, t - SECOND_FACTOR_IDLE, t - SIGNED_IN_IDLE);
+    let n = sqlx::query!(
+        "DELETE FROM sessions WHERE (stage = 'anonymous' AND last_seen_at < ?)
+            OR (stage = 'second_factor' AND last_seen_at < ?) OR (stage = 'signed_in' AND last_seen_at < ?)",
+        anon,
+        second,
+        signed
+    )
+    .execute(db)
+    .await?
+    .rows_affected();
+    let day_ago = t - 86_400;
+    sqlx::query!("DELETE FROM sign_in_failures WHERE at < ?", day_ago).execute(db).await?;
+    Ok(n)
+}
+
+/// Purge idle sessions every 15 minutes.
+pub fn spawn_purge(db: SqlitePool) {
+    tokio::spawn(async move {
+        let mut tick = tokio::time::interval(std::time::Duration::from_secs(15 * 60));
+        loop {
+            tick.tick().await;
+            match purge_expired(&db).await {
+                Ok(n) if n > 0 => tracing::debug!(sessions = n, "purged idle sessions"),
+                Ok(_) => {}
+                Err(e) => tracing::warn!(error = %e, "couldn't purge idle sessions"),
+            }
+        }
+    });
+}
+
 /// Record a failed code entry and return the new count.
 pub async fn record_failure(db: &SqlitePool, s: &Session) -> sqlx::Result<i64> {
     let row = sqlx::query!(
