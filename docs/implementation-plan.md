@@ -262,7 +262,8 @@ Each phase ends with something usable and demonstrable. The riskiest unknowns co
 - Updates cover changes to the outlook, from anything you own, contribute to or watch (including what's beneath it), never your own actions: P50/P85 moving by a working day or more; a goal reworded, achieved or reopened; a risk added or its likelihood raised; a step finished or archived; people joining or leaving; ownership changes.
 - Anyone signed in can Watch (and stop watching) a public goal; contributing needs an invitation.
 - Transferring ownership moves just that goal; the previous owner stays on as a Contributor.
-- Focus keeps Updates for 90 days; a goal's history keeps every event.
+- Focus keeps Updates for 90 days; a goal's history keeps every event. Someone who starts following a goal sees its last 90 days as a catch-up.
+- Forecast moves are measured in working days remaining and noticed when a forecast recalculates; catching dates that slip only because time passes is left for Phase 5.
 
 Dogfooding: from Phase 3 on, this plan's phases are entered into fluxo itself as the "Launch fluxo.dev
 beta" goal.
