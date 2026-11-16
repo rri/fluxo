@@ -189,3 +189,16 @@ fn a_roughly_sized_goal_takes_its_range() {
     bad.add(Node::rough(9.0, 3.0));
     assert!(matches!(bad.compile(), Err(ModelError::BadEstimate { .. })));
 }
+
+#[test]
+fn common_random_numbers_isolate_a_single_change() {
+    let m = synth::goal_tree(synth::Shape { nodes: 150, ..Default::default() }, 3);
+    let base = m.compile().unwrap().run(Settings { runs: 500, seed: 5, parallel: true });
+    // Resolve one risk: every run can only get faster or stay the same, never slower.
+    let mut changed = m.clone();
+    let (i, _) = changed.nodes.iter().enumerate().find(|(_, n)| !n.risks.is_empty()).unwrap();
+    changed.nodes[i].risks.clear();
+    let after = changed.compile().unwrap().run(Settings { runs: 500, seed: 5, parallel: true });
+    assert!(after.goals[0].mean() <= base.goals[0].mean());
+    assert!(after.goals[0].finishes.iter().zip(&base.goals[0].finishes).all(|(a, b)| a <= b));
+}

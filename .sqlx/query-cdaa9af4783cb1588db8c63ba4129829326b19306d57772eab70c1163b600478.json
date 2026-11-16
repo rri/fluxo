@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO slip_marks (goal_id, p85_date, at) VALUES (?, ?, ?)\n         ON CONFLICT (goal_id) DO UPDATE SET p85_date = excluded.p85_date, at = excluded.at",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "cdaa9af4783cb1588db8c63ba4129829326b19306d57772eab70c1163b600478"
+}

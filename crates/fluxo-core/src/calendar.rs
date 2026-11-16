@@ -88,6 +88,25 @@ impl Calendar {
     }
 }
 
+impl Calendar {
+    /// Working days strictly after `a` up to and including `b` (negative if `b` is earlier).
+    pub fn working_days_between(&self, a: Date, b: Date) -> i64 {
+        let (lo, hi, sign) = if a <= b { (a, b, 1) } else { (b, a, -1) };
+        let mut d = lo;
+        let mut n = 0;
+        for _ in 0..MAX_DAYS * 2 {
+            if d >= hi {
+                break;
+            }
+            d = d.tomorrow().unwrap_or(hi);
+            if self.is_working(d) {
+                n += 1;
+            }
+        }
+        sign * n
+    }
+}
+
 /// "Feb 12", or "Feb 12, 2027" when the year differs from `reference_year`.
 pub fn label(d: Date, reference_year: i16) -> String {
     let m = MONTHS[(d.month() - 1) as usize];
@@ -123,6 +142,16 @@ mod tests {
         assert!(valid_time_zone("Europe/Lisbon"));
         assert!(!valid_time_zone("Mars/Olympus_Mons"));
         assert_eq!(Calendar::new(0, "Nowhere", &[]).first_day(MON_NOON).to_string(), "2026-11-17", "safe fallbacks");
+    }
+
+    #[test]
+    fn working_days_between_dates() {
+        let c = Calendar::default();
+        let fri: Date = "2026-11-20".parse().unwrap();
+        let tue: Date = "2026-11-24".parse().unwrap();
+        assert_eq!(c.working_days_between(fri, tue), 2, "Mon and Tue");
+        assert_eq!(c.working_days_between(tue, fri), -2);
+        assert_eq!(c.working_days_between(fri, fri), 0);
     }
 
     #[test]

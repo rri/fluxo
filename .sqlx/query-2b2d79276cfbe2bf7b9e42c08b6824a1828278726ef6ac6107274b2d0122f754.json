@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT item FROM focus_snoozes WHERE user_id = ? AND until > ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "item",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "2b2d79276cfbe2bf7b9e42c08b6824a1828278726ef6ac6107274b2d0122f754"
+}

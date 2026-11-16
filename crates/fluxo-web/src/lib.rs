@@ -5,6 +5,7 @@
 
 pub mod auth;
 pub mod forecast;
+pub mod slips;
 pub mod session;
 pub mod util;
 
@@ -13,6 +14,7 @@ mod focus;
 mod goals;
 mod nodes;
 mod people;
+mod ranking;
 mod recovery;
 mod settings;
 mod signin;
@@ -52,11 +54,13 @@ pub struct AppState {
     pub setup_done: AtomicBool,
     /// The latest forecasts and the fingerprint of what they were computed from.
     pub forecasts: std::sync::Mutex<Option<Arc<forecast::Forecasts>>>,
+    /// Focus rechecks ("what if this were resolved"), keyed by forecast fingerprint.
+    pub rechecks: std::sync::Mutex<ranking::RecheckCache>,
 }
 
 impl AppState {
     pub fn new(db: SqlitePool, secrets: SecretBox, secure_cookies: bool) -> Self {
-        AppState { db, secrets, secure_cookies, setup_done: AtomicBool::new(false), forecasts: Default::default() }
+        AppState { db, secrets, secure_cookies, setup_done: AtomicBool::new(false), forecasts: Default::default(), rechecks: Default::default() }
     }
 }
 
@@ -70,6 +74,8 @@ pub fn router(state: Shared) -> Router {
     Router::new()
         .route("/", get(focus::show))
         .route("/updates/read", post(focus::mark_read))
+        .route("/focus/snooze", post(focus::snooze))
+        .route("/tasks/{id}/start", post(focus::start))
         .route("/setup", get(account::setup_page).post(account::setup_submit))
         .route("/signup", get(account::signup_page).post(account::signup_submit))
         .route("/join/{token}", get(account::join_page).post(account::join_submit))
@@ -122,7 +128,7 @@ pub fn router(state: Shared) -> Router {
 
 // ---------------------------------------------------------------- errors and helpers
 
-pub struct AppError(String);
+pub struct AppError(pub String);
 
 impl<E: std::fmt::Display> From<E> for AppError {
     fn from(e: E) -> Self {

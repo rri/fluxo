@@ -653,6 +653,7 @@ dependencies = [
  "fluxo-core",
  "fluxo-sim",
  "http-body-util",
+ "jiff",
  "rand 0.10.4",
  "serde",
  "serde_json",

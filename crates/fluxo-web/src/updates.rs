@@ -17,6 +17,7 @@ pub const KEEP_DAYS: i64 = 90;
 /// Event kinds that become Updates. Some also depend on the details (see [`is_update`]).
 const UPDATE_KINDS: &[&str] = &[
     "forecast_moved",
+    "forecast_slipped",
     "statement_changed",
     "achieved",
     "reopened",
@@ -153,6 +154,11 @@ pub fn describe(e: &Event, world: &World, names: &HashMap<Id, String>, me: Id, r
             format!(" moved: P85 {} → {}", s(&e.detail["p85_from_label"]), s(&e.detail["p85_to_label"])),
             format!("P50 {} → {}", s(&e.detail["p50_from_label"]), s(&e.detail["p50_to_label"])),
         ),
+        "forecast_slipped" => (
+            "Dates for".into(),
+            format!(" are slipping: P85 {} → {}", s(&e.detail["from_label"]), s(&e.detail["to_label"])),
+            "No progress recorded as time passed".into(),
+        ),
         "statement_changed" => (format!("{actor} reworded"), String::new(), format!("Was: {}", s(&e.detail["from"]["title"]))),
         "achieved" => (format!("{actor} marked"), " achieved".into(), String::new()),
         "reopened" => (format!("{actor} reopened"), String::new(), String::new()),
@@ -239,6 +245,7 @@ pub async fn note_forecast_moves(db: &SqlitePool, world: &World, f: &crate::fore
                 .await?;
         }
         if moved || !marks.contains_key(id) {
+            crate::slips::reset_mark(db, world, *id, nf.p85, &cals).await?;
             sqlx::query!(
                 "INSERT INTO forecast_marks (goal_id, p50_days, p85_days, at) VALUES (?, ?, ?, ?)
                  ON CONFLICT (goal_id) DO UPDATE SET p50_days = excluded.p50_days, p85_days = excluded.p85_days, at = excluded.at",

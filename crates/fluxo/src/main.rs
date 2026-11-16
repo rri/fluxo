@@ -77,7 +77,9 @@ async fn main() -> Result<(), BoxError> {
     let db = SqlitePoolOptions::new().max_connections(8).connect_with(options).await?;
     MIGRATOR.run(&db).await?;
 
-    let app = router(Arc::new(AppState::new(db, secrets, secure_cookies)));
+    let state = Arc::new(AppState::new(db, secrets, secure_cookies));
+    fluxo_web::slips::spawn(state.clone()); // daily "dates slipping" check
+    let app = router(state);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!(%addr, db = %db_path.display(), "fluxo is listening");
     axum::serve(listener, app)

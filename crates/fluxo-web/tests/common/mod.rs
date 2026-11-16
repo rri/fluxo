@@ -18,6 +18,7 @@ use tower::ServiceExt;
 pub const PASSWORD: &str = "a long enough password";
 
 pub struct App {
+    pub state: Arc<AppState>,
     pub router: Router,
     pub db: SqlitePool,
     pub secrets: SecretBox,
@@ -37,7 +38,7 @@ pub async fn empty() -> App {
     MIGRATOR.run(&db).await.unwrap();
     let secrets = SecretBox::new(&SecretBox::generate_key()).unwrap();
     let state = Arc::new(AppState::new(db.clone(), secrets.clone(), true));
-    App { router: router(state), db, secrets }
+    App { router: router(state.clone()), state, db, secrets }
 }
 
 /// An instance that's been set up, with account `ada` (an Administrator). Returns ada's TOTP

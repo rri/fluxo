@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO focus_snoozes (user_id, item, until) VALUES (?, ?, ?)\n             ON CONFLICT (user_id, item) DO UPDATE SET until = excluded.until",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "53f292f2546d233ac31b59ce9e7348799dd0908acf8a4ae1579bb1bf9e2441d6"
+}

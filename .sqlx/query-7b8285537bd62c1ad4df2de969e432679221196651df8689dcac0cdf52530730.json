@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT goal_id, p85_date FROM slip_marks",
+  "describe": {
+    "columns": [
+      {
+        "name": "goal_id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "p85_date",
+        "ordinal": 1,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "7b8285537bd62c1ad4df2de969e432679221196651df8689dcac0cdf52530730"
+}

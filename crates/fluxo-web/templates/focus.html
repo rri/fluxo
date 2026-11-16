@@ -41,9 +41,40 @@
     {% endif %}
   </section>
 
-  <section aria-labelledby="next-h">
-    <div class="section-head"><h2 id="next-h">Next up</h2></div>
-    <div class="card card-pad small muted">Your next steps, ranked by how much expected delay they remove, arrive in the next update. Until then, <a href="/goals">Goals</a> shows what’s critical now.</div>
+  <section id="next" aria-labelledby="next-h">
+    <div class="section-head"><h2 id="next-h">Next up</h2><span class="hint">Ranked by expected delay removed, across every goal it feeds</span></div>
+    <nav class="tabs" aria-label="Show">
+      <a class="tab" href="/?show=all#next-h"{% if show == "all" %} aria-selected="true"{% endif %}>All<span class="n">{{ counts[0] }}</span></a>
+      <a class="tab" href="/?show=do#next-h"{% if show == "do" %} aria-selected="true"{% endif %}>Do<span class="n">{{ counts[1] }}</span></a>
+      <a class="tab" href="/?show=derisk#next-h"{% if show == "derisk" %} aria-selected="true"{% endif %}>De-risk<span class="n">{{ counts[2] }}</span></a>
+      <a class="tab" href="/?show=clarify#next-h"{% if show == "clarify" %} aria-selected="true"{% endif %}>Clarify<span class="n">{{ counts[3] }}</span></a>
+    </nav>
+    {% if items.is_empty() %}
+    <div class="card card-pad small muted">{% if show == "all" %}Nothing to rank yet. Focus lists tasks, risks and goals you own or contribute to once they feed a goal.{% else %}Nothing here right now.{% endif %}</div>
+    {% else %}
+    <ol class="list card">
+      {% for i in items %}
+      <li class="focus-item">
+        <span class="rank">{{ loop.index }}</span>
+        <div>
+          <a class="title" href="{{ i.href }}">{{ i.title }}</a>
+          <p class="why">{{ i.why }}</p>
+          <div class="meta">
+            {% if i.kind.key() == "do" %}<span class="pill accent"><span class="dot"></span>Do</span>{% else if i.kind.key() == "derisk" %}<span class="pill amber"><span class="dot"></span>De-risk</span>{% else %}<span class="pill outline">Clarify</span>{% endif %}
+            {% for p in i.pills %}<span class="pill num">{{ p }}</span>{% endfor %}
+            {% if let Some(b) = i.blocked_by %}<span class="pill">blocked by <a href="{{ b.1 }}">{{ b.0 }}</a></span>{% endif %}
+            {% for g in i.goals %}<span class="pill">{{ g }}</span>{% endfor %}
+          </div>
+          <div class="focus-actions">
+            {% if let Some(t) = i.startable %}<form method="post" action="/tasks/{{ t }}/start"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn sm">Mark started</button></form>{% endif %}
+            <form method="post" action="/focus/snooze"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="item" value="{{ i.key }}"><button class="btn sm ghost">Snooze until tomorrow</button></form>
+          </div>
+        </div>
+        <div class="gain">{% if let Some(g) = i.gain %}<div class="v">{% if !i.exact %}~{% endif %}−{{ "{:.1}"|format(g) }}d</div><div class="l">expected</div>{% else %}<div class="v faint">?</div><div class="l">not sized</div>{% endif %}</div>
+      </li>
+      {% endfor %}
+    </ol>
+    {% endif %}
   </section>
 </main>
 {% endblock %}

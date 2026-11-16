@@ -265,6 +265,13 @@ Each phase ends with something usable and demonstrable. The riskiest unknowns co
 - Focus keeps Updates for 90 days; a goal's history keeps every event. Someone who starts following a goal sees its last 90 days as a catch-up.
 - Forecast moves are measured in working days remaining and noticed when a forecast recalculates; catching dates that slip only because time passes is left for Phase 5.
 
+**Phase 5 decisions (2026-11-16):**
+- Blocked tasks stay in the ranking, marked "blocked by …" with a link to the blocker.
+- Snooze hides an item from your own Focus until your next working day.
+- A daily background check recalculates every goal; if its P85 date has slipped by 3 or more working days since last reported, followers get an Update.
+- A Focus item's score is the expected delay it removes, summed across every top-level goal it feeds.
+- Rechecks use common random numbers: every node draws from its own random stream per run, so a "what if this were resolved" re-run differs only by that change.
+
 Dogfooding: from Phase 3 on, this plan's phases are entered into fluxo itself as the "Launch fluxo.dev
 beta" goal.
 

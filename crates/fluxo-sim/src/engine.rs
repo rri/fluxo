@@ -13,8 +13,9 @@
 //! Shared nodes are sampled once per run, so a slip in shared work reaches every goal it feeds.
 //! Events are evaluated in a topological order computed once at compile time.
 //!
-//! Runs are split into fixed-size chunks. Chunk `k` draws from `Pcg64::new(seed, k)`, so results
-//! depend only on the seed and the number of runs, never on the number of threads (D11).
+//! Runs are split into fixed-size chunks for parallelism. Each node draws from its own stream per run,
+//! keyed by (seed, run, node), so results depend only on the seed and the number of runs, never on
+//! the number of threads (D11), and a one-node change leaves every other draw alone.
 
 use rand::RngExt;
 use rand_distr::{Beta, Distribution};
@@ -242,10 +243,9 @@ impl Compiled {
         };
         let do_chunk = |k: usize, acc: &mut Acc| {
             let len = CHUNK.min(runs - k * CHUNK);
-            let mut rng = Pcg64::new(settings.seed as u128, k as u128);
             let mut s = Scratch::new(self.n);
-            for _ in 0..len {
-                self.once(&mut rng, &mut s);
+            for j in 0..len {
+                self.once(settings.seed, (k * CHUNK + j) as u64, &mut s);
                 for (ti, &(node, traced)) in targets.iter().enumerate() {
                     acc.finishes[ti].push(s.finish[node] as f32);
                     if traced {
@@ -289,7 +289,10 @@ impl Compiled {
     }
 
     /// One run: fill `s.release` / `s.finish` and remember which input decided each value.
-    fn once(&self, rng: &mut Pcg64, s: &mut Scratch) {
+    /// Every node draws from its own stream for each run ("common random numbers"): changing one
+    /// node (resolving a risk, fixing a duration) leaves every other node's draws unchanged, so
+    /// comparing two runs isolates the effect of that change.
+    fn once(&self, seed: u64, run: u64, s: &mut Scratch) {
         for &e in &self.order {
             let i = (e / 2) as usize;
             if e % 2 == 0 {
@@ -309,6 +312,7 @@ impl Compiled {
                 s.release[i] = t;
                 s.release_src[i] = src;
             } else {
+                let rng = &mut Pcg64::new(((seed as u128) << 64) | run as u128, i as u128);
                 let start = s.release[i];
                 let mut t = match &self.work[i] {
                     Work::Nothing => {

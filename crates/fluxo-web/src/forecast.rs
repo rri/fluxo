@@ -43,16 +43,18 @@ pub struct Forecasts {
     pub by_node: HashMap<Id, NodeForecast>,
 }
 
-struct OpenRisk {
-    node: Id,
-    likelihood: f64,
-    min: f64,
-    max: f64,
+pub struct OpenRisk {
+    pub id: Id,
+    pub node: Id,
+    pub title: String,
+    pub likelihood: f64,
+    pub min: f64,
+    pub max: f64,
 }
 
-async fn open_risks(db: &SqlitePool) -> Result<Vec<OpenRisk>> {
+pub async fn open_risks(db: &SqlitePool) -> Result<Vec<OpenRisk>> {
     Ok(sqlx::query!(
-        r#"SELECT r.node_id, r.impact_min_days, r.impact_max_days,
+        r#"SELECT r.id AS "id!", r.node_id, r.title, r.impact_min_days, r.impact_max_days,
                   (SELECT likelihood_pct FROM risk_likelihood l WHERE l.risk_id = r.id ORDER BY l.id DESC LIMIT 1) AS "p!: i64"
            FROM risks r ORDER BY r.id"#
     )
@@ -60,12 +62,12 @@ async fn open_risks(db: &SqlitePool) -> Result<Vec<OpenRisk>> {
     .await?
     .into_iter()
     .filter(|r| r.p > 0)
-    .map(|r| OpenRisk { node: r.node_id, likelihood: r.p as f64 / 100.0, min: r.impact_min_days, max: r.impact_max_days })
+    .map(|r| OpenRisk { id: r.id, node: r.node_id, title: r.title, likelihood: r.p as f64 / 100.0, min: r.impact_min_days, max: r.impact_max_days })
     .collect())
 }
 
 /// Nodes that take part: not archived.
-fn included(world: &World) -> Vec<Id> {
+pub fn included(world: &World) -> Vec<Id> {
     let mut ids: Vec<Id> = world.nodes.values().filter(|n| n.archived_at.is_none()).map(|n| n.id).collect();
     ids.sort_unstable();
     ids
@@ -99,17 +101,35 @@ fn fingerprint(world: &World, ids: &[Id], risks: &[OpenRisk]) -> Vec<u8> {
     h.finalize().to_vec()
 }
 
-fn build(world: &World, ids: &[Id], risks: &[OpenRisk]) -> (Model, HashMap<Id, usize>) {
+/// A "what if" applied to the model, for Focus rechecks.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Tweak {
+    None,
+    /// The task takes exactly its likely duration: no uncertainty left.
+    SettleTask(Id),
+    /// The risk is retired.
+    DropRisk(Id),
+    /// The goal's steps add up to it: no unknown work.
+    FullCoverage(Id),
+}
+
+pub fn build(world: &World, ids: &[Id], risks: &[OpenRisk], tweak: Tweak) -> (Model, HashMap<Id, usize>) {
     let index: HashMap<Id, usize> = ids.iter().enumerate().map(|(i, id)| (*id, i)).collect();
     let achieved = |id: &Id| world.nodes[id].is_goal() && world.nodes[id].achieved_at.is_some();
     let mut m = Model::default();
     for id in ids {
         let n = &world.nodes[id];
         let empty = n.is_goal() && world.children_of(*id).is_empty();
-        let mut node = if let (true, false, Some((lo, hi))) = (empty, achieved(id), n.size) {
+        let settle = tweak == Tweak::SettleTask(*id) && !n.is_goal() && !n.is_done();
+        let mut node = if settle {
+            let likely = if n.status == "doing" { n.remaining_days.or(n.estimate_days) } else { n.estimate_days };
+            let l = likely.unwrap_or(0.0).max(0.0);
+            SimNode::rough(l, l)
+        } else if let (true, false, Some((lo, hi))) = (empty, achieved(id), n.size) {
             SimNode::rough(lo, hi)
         } else if n.is_goal() && !achieved(id) {
             SimNode::goal(match n.coverage.as_deref() {
+                _ if tweak == Tweak::FullCoverage(*id) => Coverage::Full,
                 Some("full") => Coverage::Full,
                 Some("partial") => Coverage::Partial,
                 _ => Coverage::Low,
@@ -133,7 +153,7 @@ fn build(world: &World, ids: &[Id], risks: &[OpenRisk]) -> (Model, HashMap<Id, u
         if !n.is_done() {
             node.risks = risks
                 .iter()
-                .filter(|r| r.node == *id)
+                .filter(|r| r.node == *id && tweak != Tweak::DropRisk(r.id))
                 .map(|r| Risk { likelihood: r.likelihood, min_days: r.min, max_days: r.max })
                 .collect();
         }
@@ -180,7 +200,7 @@ pub async fn current(app: &AppState, world: &World) -> Result<Arc<Forecasts>> {
             return Ok(f.clone());
         }
     }
-    let (model, index) = build(world, &ids, &risks);
+    let (model, index) = build(world, &ids, &risks, Tweak::None);
     let targets: Vec<(usize, bool)> = ids.iter().map(|id| (index[id], world.nodes[id].is_goal())).collect();
     let computed = tokio::task::spawn_blocking(move || -> std::result::Result<_, String> {
         let compiled = model.compile().map_err(|e| e.to_string())?;
@@ -238,4 +258,21 @@ pub fn dated(f: &NodeForecast, cal: &Calendar) -> Dated {
         p85: calendar::label(cal.finish_date(t, f.p85), year),
         spread_days: crate::views::days((f.p85 - f.p50).max(0.0)),
     }
+}
+
+/// Runs used for Focus rechecks (common random numbers keep them precise).
+pub const RECHECK_RUNS: usize = 2_000;
+
+/// Mean finish (working days) of each of `goals` under `tweak`, from [`RECHECK_RUNS`] runs.
+pub async fn means(world: &World, risks: &[OpenRisk], tweak: Tweak, goals: &[Id]) -> Result<HashMap<Id, f64>> {
+    let ids = included(world);
+    let (model, index) = build(world, &ids, risks, tweak);
+    let targets: Vec<(usize, bool)> = goals.iter().filter_map(|g| index.get(g).map(|&i| (i, false))).collect();
+    let by_index: HashMap<usize, Id> = index.iter().map(|(id, i)| (*i, *id)).collect();
+    let f = tokio::task::spawn_blocking(move || -> std::result::Result<_, String> {
+        let compiled = model.compile().map_err(|e| e.to_string())?;
+        Ok(compiled.run_for(Settings { runs: RECHECK_RUNS, seed: SEED, parallel: true }, &targets))
+    })
+    .await??;
+    Ok(f.goals.into_iter().map(|g| (by_index[&g.goal], g.mean())).collect())
 }

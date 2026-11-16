@@ -539,3 +539,5 @@ main > form + section, main > section + form { margin-top: 36px; }
 .invite-strip .grow { flex: 1; }
 .list-plain { margin: 6px 0 0; padding-left: 18px; line-height: 1.8; }
 .quote { background: var(--surface-2); padding: 10px 12px; border-radius: var(--radius-sm); font-size: 14px; }
+.focus-actions form { margin: 0; }
+.tabs a.tab { text-decoration: none; }

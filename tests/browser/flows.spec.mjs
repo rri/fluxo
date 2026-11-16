@@ -292,3 +292,20 @@ test('invite someone to a goal; they accept and it shows up for both', async ({ 
   await page.goto('/');
   await expect(page.getByText(`${state.invitee} joined`)).toBeVisible();
 });
+
+test('Focus ranks next steps and can start one', async ({ page }, info) => {
+  await signInAsAda(page, info);
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Next up' })).toBeVisible();
+  const items = page.locator('.focus-item');
+  await expect(items.first()).toBeVisible();
+  await expect(items.first().locator('.gain .v')).toHaveText(/^−\d+\.\dd$/);
+  await page.getByRole('link', { name: /^De-risk/ }).click();
+  await expect(page.locator('.focus-item .pill.amber').first()).toBeVisible();
+  await page.getByRole('link', { name: /^Do/ }).click();
+  const start = page.getByRole('button', { name: 'Mark started' }).first();
+  if (await start.count()) {
+    await start.click();
+    await expect(page.getByRole('heading', { name: 'Next up' })).toBeVisible();
+  }
+});
