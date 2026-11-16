@@ -1,0 +1,13 @@
+[package]
+name = "fluxo-sim"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+rand = "0.10.4"
+rand_distr = "0.6.0"
+rand_pcg = "0.10.2"
+rayon = "1.12.0"
