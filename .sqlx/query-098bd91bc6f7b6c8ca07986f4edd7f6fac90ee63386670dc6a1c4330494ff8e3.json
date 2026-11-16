@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO dependencies (node_id, needs_id, added_at) VALUES (?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "098bd91bc6f7b6c8ca07986f4edd7f6fac90ee63386670dc6a1c4330494ff8e3"
+}

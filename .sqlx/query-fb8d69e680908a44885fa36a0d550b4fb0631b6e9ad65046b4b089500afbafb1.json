@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM dependencies WHERE node_id = ? AND needs_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "fb8d69e680908a44885fa36a0d550b4fb0631b6e9ad65046b4b089500afbafb1"
+}

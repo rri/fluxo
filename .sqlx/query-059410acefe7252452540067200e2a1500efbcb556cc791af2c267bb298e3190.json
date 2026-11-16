@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO node_parents (child_id, parent_id, added_at) VALUES (?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "059410acefe7252452540067200e2a1500efbcb556cc791af2c267bb298e3190"
+}

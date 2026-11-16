@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT child_id, parent_id FROM node_parents",
+  "describe": {
+    "columns": [
+      {
+        "name": "child_id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "parent_id",
+        "ordinal": 1,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "d160358e87f639defe11a4e1ea91ee5b759a701145158b6a900cef5d131a0619"
+}

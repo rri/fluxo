@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT node_id FROM risks WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "node_id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "3c4bfc6df2a0ded59cc5eb47c13fde2c2da82f9168fb37b5e0faa93596b5d79d"
+}

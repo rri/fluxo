@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO nodes (kind, title, why, owner_id, home_parent_id, coverage, clarity, estimate_days,\n                              statement_changed_at, created_by, created_at)\n           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id AS \"id!\"",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 11
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "1d6c19290f5be03d2f630435b8d0cad1ff3ffa409182be2aa801657f6f0c0657"
+}

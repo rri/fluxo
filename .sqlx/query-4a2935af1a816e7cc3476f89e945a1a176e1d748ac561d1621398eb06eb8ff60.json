@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM node_parents WHERE child_id = ? AND parent_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "4a2935af1a816e7cc3476f89e945a1a176e1d748ac561d1621398eb06eb8ff60"
+}

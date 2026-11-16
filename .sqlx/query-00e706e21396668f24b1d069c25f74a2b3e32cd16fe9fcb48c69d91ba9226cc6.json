@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO risks (node_id, title, impact_min_days, impact_max_days, created_by, created_at)\n           VALUES (?, ?, ?, ?, ?, ?) RETURNING id AS \"id!\"",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "00e706e21396668f24b1d069c25f74a2b3e32cd16fe9fcb48c69d91ba9226cc6"
+}

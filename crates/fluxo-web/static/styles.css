@@ -486,3 +486,27 @@ button.menu-item { width: 100%; border: 0; background: none; font: inherit; text
 img.qr { image-rendering: pixelated; }
 .code-field { font: 600 22px var(--mono); letter-spacing: .08em; color: var(--text); background: none; border: 0; padding: 0; width: 100%; }
 .empty { text-align: center; padding: 40px 20px; }
+.narrow { max-width: 680px; }
+.plaque-form { text-align: left; }
+.input-lg { height: 48px; font-size: 18px; font-weight: 600; }
+.pad-20 { padding: 20px; }
+.pointer { cursor: pointer; }
+.min-200 { min-width: 200px; }
+.w-60 { width: 60px; }
+.w-56 { width: 56px; }
+.wrap { flex-wrap: wrap; }
+.mt-8 { margin-top: 8px; }
+.sep-16 { margin: 16px 0; }
+.title-input { font-size: 24px; font-weight: 600; height: auto; padding: 2px 6px; margin-left: -7px; border-color: transparent; background: none; }
+.title-input:hover, .title-input:focus { border-color: var(--border-strong); }
+.kind-fields { border: 0; padding: 0; margin: 16px 0 0; }
+.kind-fields legend { margin-bottom: 6px; }
+html.js .kind-fields[hidden] { display: none; }
+.risk-form { display: flex; gap: 8px; align-items: center; }
+.conn { align-items: baseline; }
+.conn-label { width: 120px; flex: none; }
+.inline-form { display: inline; margin: 0; }
+button.x { border: 0; background: none; color: var(--text-3); cursor: pointer; padding: 0 2px; font: inherit; }
+button.x:hover { color: var(--red); }
+.field .seg { justify-self: start; }
+main > form + section, main > section + form { margin-top: 36px; }

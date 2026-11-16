@@ -323,6 +323,24 @@
     });
   });
 
+  /* ---------- Forms: save on change, kind-specific fields, confirmations ---------- */
+  $$('form[data-autosave]').forEach(function (f) {
+    f.addEventListener('change', function () { f.requestSubmit(); });
+  });
+  var kindRadios = $$('[data-kind-toggle]');
+  function showKind() {
+    var picked = kindRadios.filter(function (r) { return r.checked; })[0];
+    if (!picked) return;
+    $$('.kind-fields').forEach(function (fs) { fs.hidden = fs.getAttribute('data-kind') !== picked.value; });
+  }
+  kindRadios.forEach(function (r) { r.addEventListener('change', showKind); });
+  showKind();
+  $$('form[data-confirm]').forEach(function (f) {
+    f.addEventListener('submit', function (e) {
+      if (!window.confirm(f.getAttribute('data-confirm'))) e.preventDefault();
+    });
+  });
+
   /* ---------- Focus updates: mark all read ---------- */
   $$('[data-mark-read]').forEach(function (b) {
     b.addEventListener('click', function () {

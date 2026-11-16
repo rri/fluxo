@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO risk_likelihood (risk_id, likelihood_pct, set_by, set_at) VALUES (?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "b008a5f3dd2f915adf7e18d6b8d1337c875189d292313542670f6785109d1b4f"
+}

@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT likelihood_pct FROM risk_likelihood WHERE risk_id = ? ORDER BY id DESC LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "name": "likelihood_pct",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "bd3cc5a0a3d8a5959da71a43932eca6d90a29c66e33b83e4e80f855b048c150e"
+}

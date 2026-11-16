@@ -8,6 +8,7 @@ publish.workspace = true
 
 [dependencies]
 fluxo-core = { path = "../fluxo-core" }
+fluxo-sim = { path = "../fluxo-sim" }
 argon2 = "0.6.0"
 askama = "0.14.0"
 axum = "0.8.9"

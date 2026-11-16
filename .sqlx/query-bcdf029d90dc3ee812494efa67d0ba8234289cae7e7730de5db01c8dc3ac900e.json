@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE nodes SET archived_at = NULL, archived_by = NULL WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "bcdf029d90dc3ee812494efa67d0ba8234289cae7e7730de5db01c8dc3ac900e"
+}

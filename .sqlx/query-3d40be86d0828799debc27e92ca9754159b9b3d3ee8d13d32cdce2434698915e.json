@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT node_id, user_id, role FROM memberships WHERE status = 'active'",
+  "describe": {
+    "columns": [
+      {
+        "name": "node_id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "user_id",
+        "ordinal": 1,
+        "type_info": "Integer"
+      },
+      {
+        "name": "role",
+        "ordinal": 2,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "3d40be86d0828799debc27e92ca9754159b9b3d3ee8d13d32cdce2434698915e"
+}

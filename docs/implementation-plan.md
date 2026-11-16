@@ -243,6 +243,12 @@ Each phase ends with something usable and demonstrable. The riskiest unknowns co
 - Theme preference is stored in the account and rendered into each page.
 - Sign-in throttling stays in Phase 7.
 
+**Phase 2 decisions (2026-11-16):**
+- Only the owner (of the goal or a goal above it) changes a goal's statement, why, coverage and privacy; statement changes are recorded. Contributors change the path beneath it.
+- A goal is finished when its owner marks it achieved; fluxo suggests it once every step is done. Achieved goals leave forecasts but stay visible.
+- Removal archives first (owner only, restorable); an archived item can then be deleted permanently.
+- Steps are added with an inline form on the goal page; full details live on each step's own page.
+
 Dogfooding: from Phase 3 on, this plan's phases are entered into fluxo itself as the "Launch fluxo.dev
 beta" goal.
 

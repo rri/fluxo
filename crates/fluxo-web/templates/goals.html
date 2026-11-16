@@ -2,13 +2,46 @@
 {% block title %}Goals{% endblock %}
 {% block main %}
 <main>
-  <div class="page-head"><div class="grow">
-    <h1>Goals</h1>
-    <p class="sub">What you’re working toward. Goals hold steady; the paths beneath them keep changing.</p>
-  </div></div>
+  <div class="page-head">
+    <div class="grow">
+      <h1>Goals</h1>
+      <p class="sub">What you’re working toward. Goals hold steady; the paths beneath them keep changing.</p>
+    </div>
+    <a class="btn primary" href="/goals/new">+ New goal</a>
+  </div>
+
+  {% if goals.is_empty() %}
   <div class="card card-pad empty">
     <p><b>No goals yet.</b></p>
-    <p class="small muted">Goals you own, work on or watch will appear here.</p>
+    <p class="small muted">Start with an outcome you want. You can break it down once it exists.</p>
+    <p class="mt-16"><a class="btn primary" href="/goals/new">+ New goal</a></p>
   </div>
+  {% else %}
+  <div class="goal-stack">
+    {% for g in goals %}
+    <div class="card">
+      <a class="goal-card" href="{{ g.href }}">
+        <span class="eyebrow">Goal · {{ g.role }}{% if g.private %} · private{% endif %}{% if g.achieved %} · achieved{% endif %}</span>
+        <h2>{{ g.title }}</h2>
+        {% if !g.why.is_empty() %}<p class="why">{{ g.why }}</p>{% endif %}
+        <div class="facts"><span>Coverage <b>{{ g.coverage }}</b></span><span>Steps <b>{{ g.steps }}</b></span><span>Done <b>{{ g.done }}</b></span></div>
+      </a>
+      {% if !g.subgoals.is_empty() || g.tasks > 0 %}
+      <ul class="descend">
+        {% for s in g.subgoals %}<li><a href="{{ s.0 }}">{{ s.1 }}</a><span class="pill xs">sub-goal</span><span class="meta">{{ s.2 }}</span></li>{% endfor %}
+        {% if g.tasks > 0 %}<li><span class="muted">{{ g.tasks }} task{% if g.tasks != 1 %}s{% endif %}</span></li>{% endif %}
+      </ul>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if !archived.is_empty() %}
+  <details class="card mt-16" id="archived">
+    <summary class="row pointer"><b class="small grow">Archived goals</b><span class="faint small">{{ archived.len() }}</span></summary>
+    <ul class="list">{% for a in archived %}<li class="row"><a href="{{ a.0 }}">{{ a.1 }}</a></li>{% endfor %}</ul>
+  </details>
+  {% endif %}
 </main>
 {% endblock %}

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE nodes SET achieved_at = ? WHERE id = ? AND kind = 'goal'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "b8ebff57d6d7610c7b11fed3094b4341071652602ce8bfa08bb841d141868e5e"
+}

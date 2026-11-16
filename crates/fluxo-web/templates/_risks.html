@@ -1,0 +1,37 @@
+<section id="risks" aria-labelledby="risks-h">
+  <div class="section-head"><h2 id="risks-h">Risks</h2><span class="hint">Lower the likelihood as you de-risk; 0% retires a risk</span></div>
+  <ul class="list card">
+    {% for r in risks %}
+    <li class="risk{% if r.retired %} retired{% endif %}">
+      <div>
+        <div class="r-title">{{ r.title }}</div>
+        <svg class="spark" viewBox="0 0 100 18" preserveAspectRatio="none" role="img" aria-label="Likelihood history: {{ r.history }}"><polyline points="{{ r.spark }}"/></svg>
+      </div>
+      {% if can_edit %}
+      <form class="risk-form" method="post" action="/risks/{{ r.id }}" data-autosave>
+        <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="likelihood">
+        <label class="sr-only" for="lk-{{ r.id }}">Likelihood of {{ r.title }}</label>
+        <input id="lk-{{ r.id }}" name="likelihood" type="range" min="0" max="100" step="5" value="{{ r.likelihood }}">
+        <button class="btn sm no-js">Save</button>
+      </form>
+      {% else %}<div></div>{% endif %}
+      <div><span class="lk">{{ r.likelihood }}%</span> <span class="imp">{{ r.impact }}</span></div>
+      {% if can_edit %}
+      <form method="post" action="/risks/{{ r.id }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="remove"><button class="iconbtn" aria-label="Remove risk {{ r.title }}">×</button></form>
+      {% else %}<div></div>{% endif %}
+    </li>
+    {% endfor %}
+    {% if risks.is_empty() %}<li class="row small muted">No risks recorded.</li>{% endif %}
+    {% if can_edit %}
+    <li>
+      <form class="row wrap" method="post" action="/nodes/{{ node_id }}/risks">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input name="title" class="input grow min-200" placeholder="New risk…" aria-label="Risk title" maxlength="200" required>
+        <span class="inline small muted"><input name="likelihood" class="input num w-60" placeholder="%" aria-label="Likelihood %" inputmode="numeric" required>likely, adds
+          <input name="min" class="input num w-56" placeholder="min" aria-label="Impact at least, days" inputmode="decimal" required>–<input name="max" class="input num w-56" placeholder="max" aria-label="Impact at most, days" inputmode="decimal" required>days</span>
+        <button class="btn sm">Add risk</button>
+      </form>
+    </li>
+    {% endif %}
+  </ul>
+</section>

@@ -9,10 +9,14 @@ pub mod util;
 
 mod account;
 mod goals;
+mod nodes;
 mod recovery;
 mod settings;
 mod signin;
+mod store;
+mod tasks;
 mod twofa;
+mod views;
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -68,7 +72,21 @@ pub fn router(state: Shared) -> Router {
         .route("/logout", post(signin::logout))
         .route("/locked", get(recovery::locked_page).post(recovery::locked_submit))
         .route("/reset-password", get(recovery::reset_page).post(recovery::reset_submit))
-        .route("/goals", get(goals::index))
+        .route("/goals", get(goals::index).post(goals::create))
+        .route("/goals/new", get(goals::new_page))
+        .route("/goals/{id}", get(goals::show))
+        .route("/goals/{id}/steps", post(goals::add_step))
+        .route("/goals/{id}/statement", post(goals::statement))
+        .route("/goals/{id}/shape", post(goals::shape))
+        .route("/goals/{id}/achieved", post(goals::achieved))
+        .route("/tasks/{id}", get(tasks::show).post(tasks::update))
+        .route("/nodes/{id}/parents", post(nodes::parents))
+        .route("/nodes/{id}/needs", post(nodes::needs))
+        .route("/nodes/{id}/risks", post(nodes::add_risk))
+        .route("/nodes/{id}/archive", post(nodes::archive))
+        .route("/nodes/{id}/restore", post(nodes::restore))
+        .route("/nodes/{id}/delete", post(nodes::delete))
+        .route("/risks/{id}", post(nodes::risk))
         .route("/settings", get(settings::show))
         .route("/settings/profile", post(settings::profile))
         .route("/settings/password", post(settings::password))

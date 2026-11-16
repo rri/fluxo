@@ -192,3 +192,59 @@ async function signInAsAda(page, info) {
   await enterCode(page, await freshCode(state.secret), js(info), 'Verify');
   await expect(page.getByRole('heading', { name: 'Focus' })).toBeVisible();
 }
+
+test('break a goal down and track a task', async ({ page }, info) => {
+  await signInAsAda(page, info);
+  await page.goto('/goals');
+  await page.getByRole('link', { name: '+ New goal' }).first().click();
+  await page.getByLabel('The goal').fill('Launch the beta');
+  await page.getByLabel('Why it matters').fill('Real teams, real goals.');
+  await page.getByRole('button', { name: 'Create goal' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Launch the beta' })).toBeVisible();
+
+  const addStep = async (title, days, needs) => {
+    await page.getByLabel('Title', { exact: true }).fill(title);
+    await page.getByLabel('Likely duration').fill(days);
+    if (needs) await page.getByLabel('It needs (optional)').selectOption({ label: needs });
+    await page.getByRole('button', { name: 'Add step' }).click();
+  };
+  await addStep('Schema', '3');
+  await addStep('API', '5', 'Schema');
+  // A sub-goal: with JavaScript the task-only fields hide themselves.
+  await page.getByLabel('Title', { exact: true }).fill('Accounts');
+  await page.locator('label[for="k-goal"]').click();
+  if (js(info)) await expect(page.getByLabel('Likely duration')).toBeHidden();
+  await page.getByRole('button', { name: 'Add step' }).click();
+
+  const graph = page.locator('.graph');
+  await expect(graph.getByText('API')).toBeVisible();
+  if (js(info)) {
+    await expect(graph).toHaveClass(/enhanced/); // laid out as a graph
+  } else {
+    await expect(page.getByText('Needs: Schema')).toBeVisible(); // plain list
+  }
+
+  await graph.getByRole('link', { name: /API/ }).click();
+  await page.locator('label[for="s-p"]').click(); // In progress
+  await page.getByLabel('Remaining').fill('2');
+  await page.getByRole('button', { name: 'Save task' }).click();
+  await expect(page.getByText('In progress', { exact: true }).first()).toBeVisible();
+
+  await page.getByPlaceholder('New risk…').fill('Vendor API changes');
+  await page.getByLabel('Likelihood %').fill('30');
+  await page.getByLabel('Impact at least, days').fill('2');
+  await page.getByLabel('Impact at most, days').fill('4');
+  await page.getByRole('button', { name: 'Add risk' }).click();
+  await expect(page.locator('.risk .lk')).toHaveText('30%');
+  const slider = page.getByLabel('Likelihood of Vendor API changes');
+  if (js(info)) {
+    await slider.fill('10'); // saves on change
+    await expect(page.locator('.risk .lk')).toHaveText('10%');
+  } else {
+    await slider.fill('10');
+    await page.locator('.risk-form').getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('.risk .lk')).toHaveText('10%');
+  }
+  await page.reload();
+  await expect(page.getByRole('img', { name: /30% → 10%/ })).toBeAttached();
+});

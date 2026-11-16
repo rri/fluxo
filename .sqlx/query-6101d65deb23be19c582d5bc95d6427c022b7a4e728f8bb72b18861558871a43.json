@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT node_id, needs_id FROM dependencies",
+  "describe": {
+    "columns": [
+      {
+        "name": "node_id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "needs_id",
+        "ordinal": 1,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "6101d65deb23be19c582d5bc95d6427c022b7a4e728f8bb72b18861558871a43"
+}

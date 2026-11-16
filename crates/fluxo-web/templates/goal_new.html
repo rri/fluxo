@@ -1,0 +1,25 @@
+{% extends "app.html" %}
+{% block title %}New goal{% endblock %}
+{% block main %}
+<main class="narrow">
+  <nav class="crumbs"><a href="/goals">Goals</a> / New goal</nav>
+  <form class="plaque plaque-form" method="post" action="/goals">
+    <div class="center"><span class="eyebrow">{% include "mark.html" %}New goal</span>
+      <p class="why">A goal is an outcome. You know why you want it; how to get there can stay open.</p></div>
+    {% if let Some(error) = error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="field mt-20"><label for="ng-t">The goal</label>
+      <input id="ng-t" name="title" class="input input-lg" value="{{ title }}" maxlength="200" placeholder="e.g. Self-serve signups" required></div>
+    <div class="field"><label for="ng-w">Why it matters</label>
+      <textarea id="ng-w" name="why" class="input" maxlength="2000" placeholder="The outcome this unlocks, in a sentence or two.">{{ why }}</textarea></div>
+    <div class="field"><label for="ng-p">Part of</label>
+      <select id="ng-p" name="parent" class="input">
+        <option value="">Nothing: it’s a top-level goal</option>
+        {% for o in parents %}<option value="{{ o.value }}"{% if o.selected %} selected{% endif %}>{{ o.label }}</option>{% endfor %}
+      </select>
+      <span class="help">A goal can feed more than one goal later. Pick its home here.</span></div>
+    <div class="callout info mt-16">New goals start with <b>low coverage</b>, so their forecast is wide. Adding steps beneath it narrows it.</div>
+    <div class="form-actions"><a class="btn ghost" href="/goals">Cancel</a><button class="btn primary">Create goal</button></div>
+  </form>
+</main>
+{% endblock %}

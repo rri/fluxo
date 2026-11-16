@@ -1,0 +1,175 @@
+{% extends "app.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block main %}
+<main>
+  <nav class="crumbs">{% for c in crumbs %}{% if !loop.first %} / {% endif %}{% if c.href.is_empty() %}{{ c.title }}{% else %}<a href="{{ c.href }}">{{ c.title }}</a>{% endif %}{% endfor %}</nav>
+
+  {% if let Some(e) = error %}<p class="form-error" role="alert">{{ e }}</p>{% endif %}
+  {% if archived %}
+  <div class="callout mb-12 inline"><span class="grow">This goal is archived. Only you can see it.</span>
+    <form method="post" action="/nodes/{{ id }}/restore"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn sm">Restore</button></form>
+    <form method="post" action="/nodes/{{ id }}/delete" data-confirm="Delete this goal and everything only it holds? This can’t be undone."><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn sm danger">Delete permanently</button></form>
+  </div>
+  {% endif %}
+
+  <div class="plaque" id="top">
+    <span class="eyebrow">{% include "mark.html" %}{% if is_sub %}Sub-goal{% else %}Goal{% endif %}</span>
+    <h1>{{ title }}</h1>
+    {% if !why.is_empty() %}<p class="why">{{ why }}</p>{% endif %}
+    <div class="meta">
+      <span class="pill">Owner: {{ owner }}</span>
+      <span class="pill{% if coverage == "full" %} green{% else %} amber{% endif %}">Coverage {{ coverage }}</span>
+      {% if private %}<span class="pill">Private</span>{% endif %}
+      {% if let Some(a) = achieved %}<span class="pill accent">Achieved {{ a }}</span>{% endif %}
+      <span class="pill">{{ steps.len() }} step{% if steps.len() != 1 %}s{% endif %}</span>
+    </div>
+    {% if !archived %}<div class="actions">{% if is_owner %}<a class="btn" href="#edit">Edit goal</a>{% endif %}{% if can_edit %}<a class="btn primary" href="#add">+ Add a step</a>{% endif %}</div>{% endif %}
+    <p class="stamp">{{ stamp }}</p>
+  </div>
+
+  {% if suggest_achieved %}
+  <form class="callout info mb-12 inline" method="post" action="/goals/{{ id }}/achieved">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="achieved" value="1">
+    <span class="grow">Every step is done. Is the goal itself achieved?</span><button class="btn sm primary">Mark achieved</button>
+  </form>
+  {% endif %}
+
+  <section id="path" aria-labelledby="path-h">
+    <div class="section-head"><h2 id="path-h">The path</h2><span class="hint">Read down for what each step needs. Work rises toward the goal.</span></div>
+    {% if steps.is_empty() %}
+    <div class="card card-pad empty"><p><b>No steps yet.</b></p><p class="small muted">Break the goal down into sub-goals and tasks. Until then its path is unknown.</p></div>
+    {% else %}
+    <div class="path-legend">
+      <span><i class="lg-line"></i>Feeds the step above</span>
+      <span>Forecasts and the critical path arrive with the simulation</span>
+    </div>
+    <div class="card pad-20"><div class="graph">
+      <ol class="path-list">
+        <li data-id="goal" data-deps="{{ anchor_deps }}" data-path="1" data-wide="1">
+          <a class="node anchor" href="#top"><span class="n-kind">{% if is_sub %}Sub-goal{% else %}Goal{% endif %}</span><span class="n-title">{{ title }}</span><span class="n-meta"><span>coverage {{ coverage }}</span></span></a>
+        </li>
+        {% for s in steps %}
+        <li data-id="{{ s.id }}"{% if !s.deps.is_empty() %} data-deps="{{ s.deps }}"{% endif %}>
+          {% if s.hidden %}<span class="node unknown">{% else %}<a class="node{% if s.is_goal %} subgoal{% endif %}{% if s.done %} done{% endif %}" href="{{ s.href }}">{% endif %}
+            <span class="n-kind">{{ s.kind_label }}</span>
+            <span class="n-title">{{ s.title }}</span>
+            <span class="n-meta"><span>{{ s.meta_l }}</span><span>{{ s.meta_r }}</span></span>
+            {% if !s.waiting_on.is_empty() %}<span class="descend-hint">Waiting on {{ s.waiting_on }}</span>{% endif %}
+          {% if s.hidden %}</span>{% else %}</a>{% endif %}
+          {% if !s.needs_text.is_empty() %}<p class="node-deps no-js">Needs: {{ s.needs_text }}</p>{% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+    </div>
+    <div class="axis-note"><span>↑ finishes last</span><span>Hover a step to trace it</span><span>↓ starts first</span></div></div>
+    {% endif %}
+  </section>
+
+  {% if can_edit %}
+  <section id="add" aria-labelledby="add-h">
+    <div class="section-head"><h2 id="add-h">Add a step</h2><span class="hint">A task has a known what and why; a sub-goal’s what is still open</span></div>
+    <form class="card card-pad" method="post" action="/goals/{{ id }}/steps">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="field"><label for="st-t">Title</label><input id="st-t" name="title" class="input" maxlength="200" required></div>
+      <div class="field"><span class="label">It’s a</span>
+        <span class="seg" role="radiogroup" aria-label="Kind of step">
+          <input type="radio" name="kind" id="k-task" value="task" checked data-kind-toggle><label for="k-task">Task</label>
+          <input type="radio" name="kind" id="k-goal" value="goal" data-kind-toggle><label for="k-goal">Sub-goal</label>
+        </span></div>
+      <fieldset class="kind-fields" data-kind="task"><legend class="label">For a task</legend>
+        <div class="inline"><label for="st-e" class="small">Likely duration</label><input id="st-e" name="estimate" class="input num" inputmode="decimal" placeholder="3"><span class="small muted">working days</span>
+          <span class="seg" role="radiogroup" aria-label="Clarity">
+            <input type="radio" name="clarity" id="c-l" value="low"><label for="c-l">Low clarity</label>
+            <input type="radio" name="clarity" id="c-m" value="medium" checked><label for="c-m">Medium</label>
+            <input type="radio" name="clarity" id="c-h" value="high"><label for="c-h">High</label>
+          </span></div>
+      </fieldset>
+      <fieldset class="kind-fields" data-kind="goal"><legend class="label">For a sub-goal</legend>
+        <span class="seg" role="radiogroup" aria-label="Coverage">
+          <input type="radio" name="coverage" id="cv-l" value="low" checked><label for="cv-l">Low coverage</label>
+          <input type="radio" name="coverage" id="cv-p" value="partial"><label for="cv-p">Partial</label>
+          <input type="radio" name="coverage" id="cv-f" value="full"><label for="cv-f">Full</label>
+        </span>
+      </fieldset>
+      {% if !sibling_options.is_empty() %}
+      <div class="field"><label for="st-n">It needs (optional)</label>
+        <select id="st-n" name="needs" class="input"><option value="">Nothing yet</option>{% for o in sibling_options %}<option value="{{ o.value }}">{{ o.label }}</option>{% endfor %}</select></div>
+      {% endif %}
+      <div class="form-actions"><button class="btn primary">Add step</button></div>
+    </form>
+  </section>
+  {% endif %}
+
+  {% if !path_risks.is_empty() %}
+  <section aria-labelledby="pr-h">
+    <div class="section-head"><h2 id="pr-h">Top risks on the path</h2><span class="hint">by expected delay</span></div>
+    <ul class="list card">{% for r in path_risks %}<li class="row"><span class="grow">{{ r.title }} <span class="faint small">· <a href="{{ r.node_href }}#risks">{{ r.node_title }}</a></span></span><span class="pill amber num">{{ r.likelihood }}% · {{ r.impact }}</span></li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+
+  {% include "_risks.html" %}
+
+  <section id="links-h" aria-labelledby="feeds-h">
+    <div class="section-head"><h2 id="feeds-h">Feeds</h2><span class="hint">{% if feeds.is_empty() %}A top-level goal{% else %}The goals this one is part of{% endif %}</span></div>
+    {% if !feeds.is_empty() || (is_owner && !parent_options.is_empty()) %}
+    <ul class="list card">
+      {% for p in feeds %}<li class="row"><span class="grow">{% if p.href.is_empty() %}{{ p.title }}{% else %}<a href="{{ p.href }}">{{ p.title }}</a>{% endif %}{% if p.home %} <span class="pill accent">home</span>{% endif %}</span>
+        {% if can_edit %}{% if !p.home %}<form method="post" action="/nodes/{{ node_id }}/parents"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="home"><input type="hidden" name="goal" value="{{ p.id }}"><button class="btn sm ghost">Make home</button></form>{% endif %}
+        <form method="post" action="/nodes/{{ node_id }}/parents"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="remove"><input type="hidden" name="goal" value="{{ p.id }}"><button class="btn sm ghost">Remove</button></form>{% endif %}</li>{% endfor %}
+      {% if can_edit && !parent_options.is_empty() %}
+      <li><form class="row" method="post" action="/nodes/{{ node_id }}/parents"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="add">
+        <select name="goal" class="input grow" aria-label="Goal this one also feeds">{% for o in parent_options %}<option value="{{ o.value }}">{{ o.label }}</option>{% endfor %}</select>
+        <button class="btn sm">Also feeds this goal</button></form></li>
+      {% endif %}
+    </ul>
+    {% endif %}
+  </section>
+
+  {% if is_owner %}
+  <section id="edit" aria-labelledby="edit-h">
+    <div class="section-head"><h2 id="edit-h">Goal settings</h2><span class="hint">Change the goal deliberately. Adjust the path freely.</span></div>
+    <form class="card card-pad" method="post" action="/goals/{{ id }}/statement">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="field"><label for="g-title">Goal</label><input id="g-title" name="title" class="input" value="{{ title }}" maxlength="200" required></div>
+      <div class="field"><label for="g-why">Why it matters</label><textarea id="g-why" name="why" class="input" maxlength="2000">{{ why }}</textarea></div>
+      <div class="form-actions"><span class="xs faint">Changes to the statement are recorded.</span><button class="btn">Save statement</button></div>
+    </form>
+    <form class="card card-pad mt-12" method="post" action="/goals/{{ id }}/shape">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="field"><span class="label">Coverage: do the steps beneath add up to this goal?</span>
+        <span class="seg" role="radiogroup" aria-label="Coverage">
+          <input type="radio" name="coverage" id="gc-l" value="low"{% if coverage == "low" %} checked{% endif %}><label for="gc-l">Low</label>
+          <input type="radio" name="coverage" id="gc-p" value="partial"{% if coverage == "partial" %} checked{% endif %}><label for="gc-p">Partial</label>
+          <input type="radio" name="coverage" id="gc-f" value="full"{% if coverage == "full" %} checked{% endif %}><label for="gc-f">Full</label>
+        </span>
+        <span class="help">Anything short of full adds unknown work to the forecast. Break the goal down further to raise coverage.</span></div>
+      <label class="inline small mt-12"><input type="checkbox" name="private" value="1"{% if private_here %} checked{% endif %}> Private: only people with a role on this goal, or a goal above it, can see it and everything beneath it</label>
+      <div class="form-actions"><button class="btn">Save</button></div>
+    </form>
+    <div class="card card-pad mt-12 danger-zone">
+      {% if let Some(a) = achieved %}
+      <form class="inline" method="post" action="/goals/{{ id }}/achieved"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="achieved" value="0">
+        <span class="grow small">Achieved {{ a }}.</span><button class="btn sm">Reopen</button></form>
+      {% else %}
+      <form class="inline" method="post" action="/goals/{{ id }}/achieved"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="achieved" value="1">
+        <span class="grow small">Reached the outcome?</span><button class="btn sm">Mark achieved</button></form>
+      {% endif %}
+      {% if !archived %}
+      <div class="menu-sep sep-16"></div>
+      <form class="inline" method="post" action="/nodes/{{ id }}/archive"><input type="hidden" name="csrf" value="{{ csrf }}">
+        <span class="grow"><b class="small">Archive</b><br><span class="xs muted">Hides it and everything only it holds. You can restore it, or delete it permanently.</span></span><button class="btn sm danger">Archive goal</button></form>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if !archived_steps.is_empty() %}
+  <section id="archived" aria-labelledby="arch-h">
+    <div class="section-head"><h2 id="arch-h">Archived steps</h2><span class="hint">Only you see these</span></div>
+    <ul class="list card">{% for a in archived_steps %}<li class="row"><a class="grow" href="{{ a.2 }}">{{ a.1 }}</a>
+      <form method="post" action="/nodes/{{ a.0 }}/restore"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn sm">Restore</button></form>
+      <form method="post" action="/nodes/{{ a.0 }}/delete" data-confirm="Delete this permanently? This can’t be undone."><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn sm danger">Delete</button></form></li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+</main>
+{% endblock %}
