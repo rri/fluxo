@@ -1,0 +1,8 @@
+# Added to /etc/caddy/Caddyfile on fluxo.dev.
+fluxo.dev {
+	reverse_proxy 127.0.0.1:8371
+}
+
+www.fluxo.dev {
+	redir https://fluxo.dev{uri} permanent
+}

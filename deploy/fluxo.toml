@@ -1,0 +1,6 @@
+# /etc/fluxo/fluxo.toml on fluxo.dev.
+listen = "127.0.0.1:8371"
+public_url = "https://fluxo.dev"
+data_dir = "/mnt/data/fluxo"
+trusted_proxies = ["127.0.0.1", "::1"]
+backup_keep = 7

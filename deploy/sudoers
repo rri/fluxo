@@ -1,0 +1,3 @@
+# /etc/sudoers.d/fluxo-deploy on fluxo.dev (root, 440).
+Defaults:deploy !use_pty
+deploy ALL=(root) NOPASSWD: /usr/local/sbin/fluxo-deploy

@@ -1,0 +1,20 @@
+# /etc/systemd/system/fluxo.service on fluxo.dev.
+[Unit]
+Description=fluxo critical-path planning
+After=network.target
+RequiresMountsFor=/mnt/data/fluxo
+
+[Service]
+User=fluxo
+Group=fluxo
+ExecStart=/usr/local/bin/fluxo serve
+Restart=on-failure
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/mnt/data/fluxo
+
+[Install]
+WantedBy=multi-user.target

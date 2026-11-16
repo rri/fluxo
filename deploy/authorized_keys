@@ -1,0 +1,3 @@
+# Append this line to /var/lib/deploy/.ssh/authorized_keys (keep any existing lines).
+# Replace the key with the public half of the key pair you make for fluxo (see README.md).
+restrict,command="sudo -n /usr/local/sbin/fluxo-deploy $SSH_ORIGINAL_COMMAND" ssh-ed25519 REPLACE_WITH_PUBLIC_KEY fluxo-deploy
