@@ -1,0 +1,14 @@
+{% extends "auth.html" %}
+{% block title %}Two-factor{% endblock %}
+{% block card %}
+<h1>Enter your code</h1>
+<p class="lede">Open your authenticator app and enter the 6-digit code for fluxo.</p>
+<form class="card card-pad" method="post" action="/login/2fa" data-autosubmit>
+  {% if let Some(error) = error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="field"><label class="sr-only" for="code">6-digit code</label>
+    <input id="code" name="code" class="input otp-single" data-otp inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required></div>
+  <button class="btn primary block mt-20">Verify</button>
+</form>
+<p class="auth-foot"><a href="/login/recovery">Use a recovery code instead</a> · <a href="/login">Back</a></p>
+{% endblock %}

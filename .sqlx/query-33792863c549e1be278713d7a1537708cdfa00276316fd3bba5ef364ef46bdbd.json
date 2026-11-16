@@ -1,0 +1,44 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT user_id, stage, csrf_token, failed_attempts, last_seen_at FROM sessions WHERE id_hash = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "user_id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "stage",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "csrf_token",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "failed_attempts",
+        "ordinal": 3,
+        "type_info": "Integer"
+      },
+      {
+        "name": "last_seen_at",
+        "ordinal": 4,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "33792863c549e1be278713d7a1537708cdfa00276316fd3bba5ef364ef46bdbd"
+}

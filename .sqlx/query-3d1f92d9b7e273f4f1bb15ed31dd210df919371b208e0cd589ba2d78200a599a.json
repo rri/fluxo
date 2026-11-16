@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT totp_secret_enc, totp_last_step FROM users WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "totp_secret_enc",
+        "ordinal": 0,
+        "type_info": "Blob"
+      },
+      {
+        "name": "totp_last_step",
+        "ordinal": 1,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "3d1f92d9b7e273f4f1bb15ed31dd210df919371b208e0cd589ba2d78200a599a"
+}

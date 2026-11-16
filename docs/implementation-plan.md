@@ -1,6 +1,6 @@
 # fluxo — implementation plan
 
-Status: **approved** · decisions D1–D24 settled 2026-11-16 · Phase 0 in progress
+Status: **approved** · decisions D1–D24 settled 2026-11-16 · Phase 0 done (engine: 500 nodes × 10k runs in 502 ms on 1 thread, 45 ms on 16) · Phase 1 next
 
 This plan turns the round 2 mocks (`mocks/`) into a working application at https://fluxo.dev.
 Every decision is recorded with its number (D1–D24) in sections 3 and 8.

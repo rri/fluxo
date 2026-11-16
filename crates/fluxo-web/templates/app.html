@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block body %}
+<header class="topbar"><div class="topbar-inner">
+  <a class="wordmark" href="/">{% include "mark.html" %}fluxo</a>
+  <a class="navlink" href="/"{% if nav == "focus" %} aria-current="page"{% endif %}>Focus</a>
+  <a class="navlink" href="/goals"{% if nav == "goals" %} aria-current="page"{% endif %}>Goals</a>
+  <span class="spacer"></span>
+  <button class="iconbtn" data-theme-toggle hidden aria-label="Toggle theme"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/></svg></button>
+  <details class="menu">
+    <summary aria-label="Account"><span class="avatar">{{ initials }}</span></summary>
+    <div class="menu-pop right">
+      <div class="menu-item"><b>{{ username }}</b></div>
+      <div class="menu-sep"></div>
+      <a class="menu-item" href="/settings">Settings</a>
+      <form class="menu-form" method="post" action="/logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="menu-item">Sign out</button></form>
+    </div>
+  </details>
+</div></header>
+{% block main %}{% endblock %}
+{% endblock %}
