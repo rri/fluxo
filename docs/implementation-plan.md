@@ -272,6 +272,9 @@ Each phase ends with something usable and demonstrable. The riskiest unknowns co
 - A Focus item's score is the expected delay it removes, summed across every top-level goal it feeds.
 - Rechecks use common random numbers: every node draws from its own random stream per run, so a "what if this were resolved" re-run differs only by that change.
 
+**Phase 6 decisions (2026-11-16):**
+- For goals and tasks without an owner, Administrators see the title, previous owner and where it lived (in Settings) so they can assign it; they can't open a private item unless they also hold a role on it. An assignment is an ownership transfer the recipient must accept.
+
 Dogfooding: from Phase 3 on, this plan's phases are entered into fluxo itself as the "Launch fluxo.dev
 beta" goal.
 
