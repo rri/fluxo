@@ -452,3 +452,7 @@ table.data .num { text-align: right; }
 .handover li:first-child { border-top: 0; }
 .handover .rule { font-size: 12px; color: var(--text-3); grid-column: 1 / -1; }
 .arrow-to { font-size: 13px; color: var(--text-2); white-space: nowrap; }
+
+/* Administrator section inside Settings */
+#administrator .admin-block { margin-top: 28px; }
+#administrator .admin-block h3 { font-size: 14px; }
