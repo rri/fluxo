@@ -311,3 +311,12 @@ beta" goal.
 | Ranking feels arbitrary to users | 40% | +3–8d | Show "why" on every Focus item (as in the mocks), and tune on dogfood data. |
 | Doing everything without JS doubles the work | 25% | +4–8d | Inline edits are always also a form, so each action has one handler and two ways in. |
 | Account recovery with no email causes support load | 20% | +1–3d | Administrator recovery codes (already designed). Document the flow. |
+
+---
+
+## 10. Launch decisions (2026-11-16)
+
+- Deployment: public repository **rri/fluxo**; GitHub Actions tests, audits and builds a static musl binary, then deploys over Tailscale as a restricted `deploy` user whose key can only run `fluxo-deploy` (checksum, pre-deploy database copy, health check, automatic rollback).
+- Configuration moves to **TOML** at `/etc/fluxo/fluxo.toml` (environment variables still override); fluxo listens on `127.0.0.1:8371` behind Caddy.
+- First-time setup needs a **one-time setup link printed to the server log**, so only someone with server access can create the first Administrator.
+- **Backups:** nightly snapshots (7 kept) and pre-deploy copies (5 kept) on the data volume. No off-site replication (decided 2026-11-16).
