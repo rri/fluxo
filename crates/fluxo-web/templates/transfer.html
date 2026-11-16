@@ -1,0 +1,25 @@
+{% extends "app.html" %}
+{% block title %}Ownership transfer{% endblock %}
+{% block main %}
+<main class="narrow">
+  <nav class="crumbs"><a href="/">Focus</a> / Ownership transfer</nav>
+  <div class="card card-pad">
+    <p><b>{{ from }}</b> wants to make you the <b>owner</b> of this {{ kind }}:</p>
+    <h1 class="mt-12">{{ title }}</h1>
+    {% if !why.is_empty() %}<p class="muted small mt-8">{{ why }}</p>{% endif %}
+    {% if !parents.is_empty() %}<p class="small muted mt-8">Feeds {{ parents }}.</p>{% endif %}
+    <h2 class="mt-20">If you accept</h2>
+    <ul class="small muted list-plain">
+      <li>You become its owner: you can reword it, archive it, invite people and transfer it</li>
+      <li>You own everything beneath it too; steps keep their own owners</li>
+      <li>{{ from }} stays on as a Contributor</li>
+    </ul>
+    {% if !note.is_empty() %}<p class="quote mt-16">“{{ note }}”</p>{% endif %}
+    <form class="form-actions" method="post" action="/transfers/{{ transfer_id }}">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button class="btn ghost" name="answer" value="decline">Decline</button>
+      <button class="btn primary" name="answer" value="accept">Accept ownership</button>
+    </form>
+  </div>
+</main>
+{% endblock %}

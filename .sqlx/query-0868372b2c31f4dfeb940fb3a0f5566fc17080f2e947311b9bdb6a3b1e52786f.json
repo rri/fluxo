@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO memberships (node_id, user_id, role, status, invited_by, invited_at) VALUES (?, ?, ?, 'pending', ?, ?)\n                 ON CONFLICT (node_id, user_id) DO UPDATE SET role = excluded.role, invited_by = excluded.invited_by,\n                     invited_at = excluded.invited_at",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "0868372b2c31f4dfeb940fb3a0f5566fc17080f2e947311b9bdb6a3b1e52786f"
+}

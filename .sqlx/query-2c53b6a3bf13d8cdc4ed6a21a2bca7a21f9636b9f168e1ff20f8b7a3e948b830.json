@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM memberships WHERE node_id = ? AND user_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "2c53b6a3bf13d8cdc4ed6a21a2bca7a21f9636b9f168e1ff20f8b7a3e948b830"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO transfers (node_id, from_user, to_user, note, created_at) VALUES (?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "c1c2935b3188a4077be0c09ebed04fe91bd1b1a59f68d7e841a56b0a20c9ec9a"
+}

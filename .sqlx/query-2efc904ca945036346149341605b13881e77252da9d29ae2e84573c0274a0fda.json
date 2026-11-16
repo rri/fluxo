@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT COUNT(*) FROM memberships m JOIN nodes n ON n.id = m.node_id\n         WHERE m.user_id = ? AND m.status = 'pending' AND m.invited_at > ? AND n.archived_at IS NULL",
+  "describe": {
+    "columns": [
+      {
+        "name": "COUNT(*)",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "2efc904ca945036346149341605b13881e77252da9d29ae2e84573c0274a0fda"
+}

@@ -92,9 +92,9 @@ impl Graph {
         })
     }
 
-    /// The person's role on `id`, ignoring privacy: owner anywhere up the chain wins, otherwise the
-    /// nearest membership.
-    fn role_access(&self, user: Id, id: Id) -> Access {
+    /// The person's role on `id`, ignoring privacy and archiving: owner anywhere up the chain wins,
+    /// otherwise the nearest membership. `Access::None` if they have no role.
+    pub fn role(&self, user: Id, id: Id) -> Access {
         let mut nearest = None;
         for i in self.upward(id) {
             if self.nodes.get(&i).is_some_and(|n| n.owner == Some(user)) {
@@ -113,7 +113,7 @@ impl Graph {
 
     pub fn access(&self, user: Id, id: Id) -> Access {
         let Some(n) = self.nodes.get(&id) else { return Access::None };
-        let role = self.role_access(user, id);
+        let role = self.role(user, id);
         if n.archived {
             return if role == Access::Own { Access::Own } else { Access::None };
         }

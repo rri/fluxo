@@ -535,3 +535,7 @@ main > form + section, main > section + form { margin-top: 36px; }
 .dist-svg .mark-label { font: 10px var(--mono); fill: var(--text-2); }
 .dist-axis { display: flex; justify-content: space-between; }
 .accent-text { color: var(--accent); }
+.w-auto { width: auto; }
+.invite-strip .grow { flex: 1; }
+.list-plain { margin: 6px 0 0; padding-left: 18px; line-height: 1.8; }
+.quote { background: var(--surface-2); padding: 10px 12px; border-radius: var(--radius-sm); font-size: 14px; }

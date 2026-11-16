@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT node_id, from_user FROM transfers WHERE id = ? AND to_user = ? AND status = 'pending'",
+  "describe": {
+    "columns": [
+      {
+        "name": "node_id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "from_user",
+        "ordinal": 1,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "218e6a0f7118b43fa6f533c582e15ef552bfccfeb5f0b39cd0675671cda642ee"
+}

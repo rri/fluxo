@@ -47,7 +47,8 @@ async fn password_then_code_then_focus() {
 
     let r = send(&app, "GET", "/", Some(&signed_in), None).await;
     assert_eq!(r.status, StatusCode::OK);
-    assert!(r.body.contains("Signed in as <b>ada</b>"));
+    assert!(r.body.contains("<h1>Focus</h1>"));
+    assert!(r.body.contains(r#"<div class="menu-item"><b>ada</b></div>"#), "signed in as ada");
     let token = csrf(&r.body);
     let r = send(&app, "POST", "/logout", Some(&signed_in), Some(&format!("csrf={token}"))).await;
     assert_eq!(r.location.as_deref(), Some("/login"));

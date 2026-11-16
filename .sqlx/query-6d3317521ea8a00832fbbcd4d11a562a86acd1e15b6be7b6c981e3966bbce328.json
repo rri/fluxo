@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT goal_id, p50_days, p85_days FROM forecast_marks",
+  "describe": {
+    "columns": [
+      {
+        "name": "goal_id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "p50_days",
+        "ordinal": 1,
+        "type_info": "Float"
+      },
+      {
+        "name": "p85_days",
+        "ordinal": 2,
+        "type_info": "Float"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "6d3317521ea8a00832fbbcd4d11a562a86acd1e15b6be7b6c981e3966bbce328"
+}

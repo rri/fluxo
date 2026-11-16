@@ -118,6 +118,8 @@
 
   {% include "_risks.html" %}
 
+  {% include "_people.html" %}
+
   {% if is_owner && !archived %}
   <section aria-labelledby="own-h">
     <div class="section-head"><h2 id="own-h">Archive</h2></div>
@@ -125,5 +127,6 @@
       <span class="grow xs muted">Hides the task from every goal it feeds. You can restore it later; an Administrator can delete it for good.</span><button class="btn sm danger">Archive task</button></form>
   </section>
   {% endif %}
+  {% include "_history.html" %}
 </main>
 {% endblock %}

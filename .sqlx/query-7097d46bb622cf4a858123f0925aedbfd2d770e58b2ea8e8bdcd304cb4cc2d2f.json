@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO memberships (node_id, user_id, role, status, invited_at, joined_at) VALUES (?, ?, 'watcher', 'active', ?, ?)\n                 ON CONFLICT (node_id, user_id) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "7097d46bb622cf4a858123f0925aedbfd2d770e58b2ea8e8bdcd304cb4cc2d2f"
+}

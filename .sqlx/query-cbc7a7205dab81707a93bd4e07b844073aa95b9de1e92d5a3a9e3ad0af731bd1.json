@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT node_id, role, invited_by FROM memberships WHERE user_id = ? AND status = 'pending' AND invited_at > ? ORDER BY invited_at DESC",
+  "describe": {
+    "columns": [
+      {
+        "name": "node_id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "role",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "invited_by",
+        "ordinal": 2,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "cbc7a7205dab81707a93bd4e07b844073aa95b9de1e92d5a3a9e3ad0af731bd1"
+}

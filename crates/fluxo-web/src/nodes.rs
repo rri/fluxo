@@ -223,9 +223,10 @@ pub struct RiskForm {
 }
 
 pub async fn risk(State(app): State<Shared>, jar: CookieJar, Path(rid): Path<Id>, Form(f): Form<RiskForm>) -> Result<Response> {
-    let Some(node_id) = sqlx::query_scalar!("SELECT node_id FROM risks WHERE id = ?", rid).fetch_optional(&app.db).await? else {
+    let Some(r) = sqlx::query!("SELECT node_id, title FROM risks WHERE id = ?", rid).fetch_optional(&app.db).await? else {
         return Ok(not_found());
     };
+    let (node_id, risk_title) = (r.node_id, r.title);
     let (ctx, world, _) = gate!(app, jar, f.csrf, node_id, Access::Contribute);
     match f.action.as_str() {
         "likelihood" => {
@@ -247,7 +248,7 @@ pub async fn risk(State(app): State<Shared>, jar: CookieJar, Path(rid): Path<Id>
                 )
                 .execute(&app.db)
                 .await?;
-                store::record(&app.db, node_id, ctx.user_id, "risk_likelihood", json!({ "risk": rid, "from": current, "to": p }))
+                store::record(&app.db, node_id, ctx.user_id, "risk_likelihood", json!({ "risk": rid, "title": risk_title, "from": current, "to": p }))
                     .await?;
             }
         }

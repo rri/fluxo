@@ -24,7 +24,11 @@ pub struct Link {
 #[derive(Template)]
 #[template(path = "task.html")]
 struct TaskPage<'a> {
+    people: crate::people::PeopleView,
+    done: Option<&'static str>,
+    history: Vec<crate::updates::Line>,
     theme: &'a str,
+    focus_count: usize,
     nav: &'a str,
     csrf: &'a str,
     username: &'a str,
@@ -133,7 +137,13 @@ pub async fn show(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>,
         }
         None => (String::new(), String::new()),
     };
+    let people = crate::people::view(&app.db, &world, user, id, access).await?;
+    let history = views::history(&app.db, &world, user, id).await?;
     page(TaskPage {
+        people,
+        history,
+        done: views::done_text(q.done.as_deref()),
+        focus_count: crate::updates::badge(&app.db, ctx.user_id).await?,
         critical_in,
         done_p50,
         done_p85,

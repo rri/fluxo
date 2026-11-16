@@ -9,14 +9,17 @@ pub mod session;
 pub mod util;
 
 mod account;
+mod focus;
 mod goals;
 mod nodes;
+mod people;
 mod recovery;
 mod settings;
 mod signin;
 mod store;
 mod tasks;
 mod twofa;
+mod updates;
 mod views;
 
 use std::sync::Arc;
@@ -65,7 +68,8 @@ pub fn now() -> i64 {
 
 pub fn router(state: Shared) -> Router {
     Router::new()
-        .route("/", get(focus))
+        .route("/", get(focus::show))
+        .route("/updates/read", post(focus::mark_read))
         .route("/setup", get(account::setup_page).post(account::setup_submit))
         .route("/signup", get(account::signup_page).post(account::signup_submit))
         .route("/join/{token}", get(account::join_page).post(account::join_submit))
@@ -91,6 +95,10 @@ pub fn router(state: Shared) -> Router {
         .route("/nodes/{id}/restore", post(nodes::restore))
         .route("/nodes/{id}/delete", post(nodes::delete))
         .route("/risks/{id}", post(nodes::risk))
+        .route("/nodes/{id}/people", post(people::people))
+        .route("/nodes/{id}/transfer", post(people::transfer))
+        .route("/invitations/{id}", get(people::invitation_page).post(people::invitation_answer))
+        .route("/transfers/{id}", get(people::transfer_page).post(people::transfer_answer))
         .route("/settings", get(settings::show))
         .route("/settings/profile", post(settings::profile))
         .route("/settings/password", post(settings::password))
@@ -198,32 +206,6 @@ pub(crate) async fn load_user(
         is_admin: u.is_administrator != 0,
         must_reset,
     }))
-}
-
-// ---------------------------------------------------------------- Focus (placeholder until Phase 5)
-
-#[derive(Template)]
-#[template(path = "focus.html")]
-struct FocusPage<'a> {
-    theme: &'a str,
-    nav: &'a str,
-    csrf: &'a str,
-    username: &'a str,
-    initials: String,
-}
-
-async fn focus(State(app): State<Shared>, jar: CookieJar) -> Result<Response> {
-    let ctx = match require_user(&app, &jar).await? {
-        Ok(c) => c,
-        Err(r) => return Ok(r),
-    };
-    page(FocusPage {
-        theme: &ctx.theme,
-        nav: "focus",
-        csrf: &ctx.session.csrf_token,
-        username: &ctx.username,
-        initials: initials(&ctx.username),
-    })
 }
 
 // ---------------------------------------------------------------- middleware and static files

@@ -258,6 +258,12 @@ Each phase ends with something usable and demonstrable. The riskiest unknowns co
 - A sub-goal with no steps may carry an optional rough size (min–max working days, simulated uniformly) until it's broken down. Without one it counts as zero, and every forecast above it names it as left out.
 - Forecasts are cached in memory under a fingerprint of their inputs, with a fixed seed; a forecast history in the database can come later.
 
+**Phase 4 decisions (2026-11-16):**
+- Updates cover changes to the outlook, from anything you own, contribute to or watch (including what's beneath it), never your own actions: P50/P85 moving by a working day or more; a goal reworded, achieved or reopened; a risk added or its likelihood raised; a step finished or archived; people joining or leaving; ownership changes.
+- Anyone signed in can Watch (and stop watching) a public goal; contributing needs an invitation.
+- Transferring ownership moves just that goal; the previous owner stays on as a Contributor.
+- Focus keeps Updates for 90 days; a goal's history keeps every event.
+
 Dogfooding: from Phase 3 on, this plan's phases are entered into fluxo itself as the "Launch fluxo.dev
 beta" goal.
 

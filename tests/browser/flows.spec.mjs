@@ -79,7 +79,7 @@ test('first person sets up fluxo and turns on 2FA', async ({ page }, info) => {
   await page.getByLabel('I’ve saved these somewhere safe').check();
   await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page.getByRole('heading', { name: 'Focus' })).toBeVisible();
-  await expect(page.getByText('Signed in as ada')).toBeVisible();
+  await expect(page.locator('.menu-pop .menu-item b')).toHaveText('ada');
 });
 
 test('sign out, then back in with the authenticator', async ({ page }, info) => {
@@ -141,7 +141,7 @@ test('an invitation link brings in one new person', async ({ page, browser }, in
   await guest.getByRole('button', { name: 'Create account' }).click();
   await expect(guest).toHaveURL(/\/settings\/2fa\/setup\?first=1$/);
   await guest.getByRole('link', { name: 'Skip for now' }).click();
-  await expect(guest.getByText(`Signed in as ${state.invitee}`)).toBeVisible();
+  await expect(guest.locator('.menu-pop .menu-item b')).toHaveText(state.invitee);
   await expect(guest.locator('#adm-h')).toHaveCount(0);
   await guest.goto(link);
   await expect(guest.getByRole('heading', { name: 'This link can’t be used' })).toBeVisible();
@@ -264,4 +264,31 @@ test('a goal shows its forecast', async ({ page }, info) => {
   await expect(page.getByText('P50 finish')).toBeVisible();
   await expect(page.locator('svg.dist-svg')).toBeVisible();
   await expect(page.locator('.graph [data-path="1"]').first()).toBeAttached();
+});
+
+test('invite someone to a goal; they accept and it shows up for both', async ({ page, browser }, info) => {
+  await signInAsAda(page, info);
+  await page.goto('/goals');
+  await page.getByRole('link', { name: /Launch the beta/ }).click();
+  await page.getByLabel('Username to invite').fill(state.invitee);
+  await page.locator('#people').getByRole('button', { name: 'Invite' }).click();
+  await expect(page.getByText('Invitation sent.')).toBeVisible();
+  await expect(page.getByText('Invited · Contributor')).toBeVisible();
+
+  const other = await browser.newContext({ javaScriptEnabled: js(info) });
+  const them = await other.newPage();
+  await them.goto('/login');
+  await them.getByLabel('Username').fill(state.invitee);
+  await them.getByLabel('Password').fill('a completely new password'); // set in the locked-out test
+  await them.getByRole('button', { name: 'Sign in' }).click();
+  await expect(them.locator('.navlink .count')).toHaveText('1');
+  await expect(them.getByRole('heading', { name: 'Waiting on you' })).toBeVisible();
+  await them.getByRole('link', { name: 'Review' }).click();
+  await them.getByRole('button', { name: 'Accept invitation' }).click();
+  await expect(them.getByRole('heading', { level: 1, name: 'Launch the beta' })).toBeVisible();
+  await expect(them.getByRole('link', { name: '+ Add a step' })).toBeVisible();
+  await other.close();
+
+  await page.goto('/');
+  await expect(page.getByText(`${state.invitee} joined`)).toBeVisible();
 });

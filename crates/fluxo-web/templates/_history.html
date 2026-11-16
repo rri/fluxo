@@ -1,0 +1,8 @@
+{% if !history.is_empty() %}
+<section aria-labelledby="hist-h">
+  <details class="card">
+    <summary class="row pointer"><b class="small grow" id="hist-h">History</b><span class="faint small">{{ history.len() }} latest</span></summary>
+    <ul class="list">{% for u in history %}<li class="update read"><span class="unread"></span><div><p class="what small">{{ u.before }} {{ u.subject }}{{ u.after }}</p>{% if !u.context.is_empty() %}<p class="ctx">{{ u.context }}</p>{% endif %}</div><time>{{ u.when }}</time></li>{% endfor %}</ul>
+  </details>
+</section>
+{% endif %}

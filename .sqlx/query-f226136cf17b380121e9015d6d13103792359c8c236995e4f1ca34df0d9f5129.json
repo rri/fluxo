@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO forecast_marks (goal_id, p50_days, p85_days, at) VALUES (?, ?, ?, ?)\n                 ON CONFLICT (goal_id) DO UPDATE SET p50_days = excluded.p50_days, p85_days = excluded.p85_days, at = excluded.at",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "f226136cf17b380121e9015d6d13103792359c8c236995e4f1ca34df0d9f5129"
+}

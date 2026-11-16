@@ -206,6 +206,7 @@ pub async fn current(app: &AppState, world: &World) -> Result<Arc<Forecasts>> {
         .collect();
     let f = Arc::new(Forecasts { fingerprint: fp, computed_at: now(), runs: RUNS, by_node });
     *app.forecasts.lock().expect("forecast cache lock") = Some(f.clone());
+    crate::updates::note_forecast_moves(&app.db, world, &f).await?;
     Ok(f)
 }
 

@@ -1,10 +1,10 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT node_id FROM risks WHERE id = ?",
+  "query": "SELECT to_user FROM transfers WHERE node_id = ? AND status = 'pending'",
   "describe": {
     "columns": [
       {
-        "name": "node_id",
+        "name": "to_user",
         "ordinal": 0,
         "type_info": "Integer"
       }
@@ -16,5 +16,5 @@
       false
     ]
   },
-  "hash": "3c4bfc6df2a0ded59cc5eb47c13fde2c2da82f9168fb37b5e0faa93596b5d79d"
+  "hash": "551c694100e26f5ae8e93fa674d6e5e813c0be66148a70ab4eb9ef097393ce43"
 }

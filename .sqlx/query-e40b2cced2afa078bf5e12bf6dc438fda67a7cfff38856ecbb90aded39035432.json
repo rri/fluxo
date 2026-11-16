@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE memberships SET status = 'active', joined_at = ?\n             WHERE node_id = ? AND user_id = ? AND status = 'pending' AND invited_at > ? RETURNING role",
+  "describe": {
+    "columns": [
+      {
+        "name": "role",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e40b2cced2afa078bf5e12bf6dc438fda67a7cfff38856ecbb90aded39035432"
+}

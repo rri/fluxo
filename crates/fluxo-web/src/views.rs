@@ -89,9 +89,32 @@ pub fn error_text(key: Option<&str>) -> Option<&'static str> {
         "title" => "Give it a title of up to 200 characters.",
         "estimate" => "Give the task an estimate in working days, like 3 or 0.5.",
         "archive-first" => "Archive it before deleting it.",
+        "no-user" => "No one has that username.",
+        "already" => "They already have a role here.",
+        "already-owner" => "They already own it.",
         "size" => "Give a rough size as two numbers of working days, smallest first, like 5 and 15. Leave both blank for none.",
         _ => return None,
     })
+}
+
+pub fn done_text(key: Option<&str>) -> Option<&'static str> {
+    Some(match key? {
+        "invited" => "Invitation sent. They’ll see it on their Focus page and can accept or decline it.",
+        "transfer" => "Transfer requested. Nothing changes until they accept.",
+        _ => return None,
+    })
+}
+
+/// The item's own history: every recorded event, newest first (kept indefinitely).
+pub async fn history(db: &SqlitePool, world: &World, user: Id, id: Id) -> Result<Vec<crate::updates::Line>> {
+    let names = crate::store::usernames(db).await?;
+    Ok(crate::updates::recent(db, 0)
+        .await?
+        .into_iter()
+        .filter(|e| e.node == id)
+        .take(30)
+        .map(|e| crate::updates::describe(&e, world, &names, user, i64::MAX))
+        .collect())
 }
 
 pub fn owner_label(owner: Option<Id>, me: Id, names: &HashMap<Id, String>) -> String {

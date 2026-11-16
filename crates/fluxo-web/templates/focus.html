@@ -4,8 +4,46 @@
 <main>
   <div class="page-head"><div>
     <h1>Focus</h1>
-    <p class="sub">What to do next, ranked by how much expected delay it removes from your goals.</p>
+    <p class="sub">What needs you now, and what changed in the work you follow.</p>
   </div></div>
-  <p class="muted">Signed in as <b>{{ username }}</b>. Ranked work arrives with forecasts.</p>
+
+  {% if !waiting.is_empty() %}
+  <section aria-labelledby="inv-h">
+    <div class="section-head"><h2 id="inv-h">Waiting on you</h2><span class="hint">{{ waiting.len() }}</span></div>
+    <div class="card">
+      {% for w in waiting %}
+      <div class="invite-strip">
+        <span class="avatar sm">{{ w.initials }}</span>
+        <p class="small grow"><b>{{ w.who }}</b> {{ w.text }} <b>{{ w.subject }}</b></p>
+        <a class="btn sm" href="{{ w.href }}">Review</a>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section id="updates" aria-labelledby="upd-h">
+    <div class="section-head"><h2 id="upd-h">Updates</h2><span class="hint">{% if unread > 0 %}{{ unread }} unread{% else %}All read{% endif %} · last 90 days</span>
+      {% if unread > 0 %}{% if let Some(first) = updates.first() %}
+      <form class="right" method="post" action="/updates/read"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="upto" value="{{ first.id }}"><button class="btn sm ghost">Mark all read</button></form>
+      {% endif %}{% endif %}</div>
+    {% if updates.is_empty() %}
+    <div class="card card-pad small muted">Nothing yet. Updates appear here when goals you own, work on or watch change their outlook: forecasts moving, risks rising, steps finishing, people joining.</div>
+    {% else %}
+    <ul class="list card">
+      {% for u in updates %}
+      <li class="update{% if !u.unread %} read{% endif %}"><span class="unread"{% if u.unread %} aria-label="Unread"{% endif %}></span>
+        <div><p class="what">{{ u.before }} {% if u.href.is_empty() %}{{ u.subject }}{% else %}<a href="{{ u.href }}">{{ u.subject }}</a>{% endif %}{{ u.after }}</p>{% if !u.context.is_empty() %}<p class="ctx">{{ u.context }}</p>{% endif %}</div>
+        <time>{{ u.when }}</time></li>
+      {% endfor %}
+    </ul>
+    {% if more > 0 %}<p class="xs faint mt-8">{{ more }} older update{% if more != 1 %}s{% endif %} not shown.</p>{% endif %}
+    {% endif %}
+  </section>
+
+  <section aria-labelledby="next-h">
+    <div class="section-head"><h2 id="next-h">Next up</h2></div>
+    <div class="card card-pad small muted">Your next steps, ranked by how much expected delay they remove, arrive in the next update. Until then, <a href="/goals">Goals</a> shows what’s critical now.</div>
+  </section>
 </main>
 {% endblock %}

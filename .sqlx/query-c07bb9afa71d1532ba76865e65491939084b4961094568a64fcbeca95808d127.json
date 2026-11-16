@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO update_reads (user_id, last_read_event_id) VALUES (?, ?)\n         ON CONFLICT (user_id) DO UPDATE SET last_read_event_id = MAX(last_read_event_id, excluded.last_read_event_id)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "c07bb9afa71d1532ba76865e65491939084b4961094568a64fcbeca95808d127"
+}

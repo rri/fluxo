@@ -79,6 +79,7 @@ pub struct Shown {
 #[template(path = "settings.html")]
 struct SettingsPage<'a> {
     theme: &'a str,
+    focus_count: usize,
     nav: &'a str,
     csrf: &'a str,
     username: &'a str,
@@ -255,6 +256,7 @@ async fn render(app: &AppState, ctx: &Ctx, n: (&str, &str, bool), shown: Shown) 
         None
     };
     page(SettingsPage {
+        focus_count: crate::updates::badge(&app.db, ctx.user_id).await?,
         theme: &ctx.theme,
         nav: "settings",
         csrf: &ctx.session.csrf_token,

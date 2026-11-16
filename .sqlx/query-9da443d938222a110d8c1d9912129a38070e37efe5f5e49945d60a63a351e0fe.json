@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO memberships (node_id, user_id, role, status, invited_at, joined_at) VALUES (?, ?, 'contributor', 'active', ?, ?)\n             ON CONFLICT (node_id, user_id) DO UPDATE SET role = 'contributor', status = 'active', joined_at = excluded.joined_at",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "9da443d938222a110d8c1d9912129a38070e37efe5f5e49945d60a63a351e0fe"
+}

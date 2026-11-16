@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO events (node_id, actor_id, kind, detail, at) VALUES (?, NULL, 'forecast_moved', ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "30f281a016106bf1859d27e1f7f88277463345922b5ac56756477ff95f6ce774"
+}

@@ -40,6 +40,7 @@ pub struct GoalCard {
 #[template(path = "goals.html")]
 struct GoalsPage<'a> {
     theme: &'a str,
+    focus_count: usize,
     nav: &'a str,
     csrf: &'a str,
     username: &'a str,
@@ -148,6 +149,7 @@ pub async fn index(State(app): State<Shared>, jar: CookieJar) -> Result<Response
             .map(|n| (n.href(), n.title.clone())),
     );
     page(GoalsPage {
+        focus_count: crate::updates::badge(&app.db, ctx.user_id).await?,
         theme: &ctx.theme,
         nav: "goals",
         csrf: &ctx.session.csrf_token,
@@ -165,6 +167,7 @@ pub async fn index(State(app): State<Shared>, jar: CookieJar) -> Result<Response
 #[template(path = "goal_new.html")]
 struct NewGoalPage<'a> {
     theme: &'a str,
+    focus_count: usize,
     nav: &'a str,
     csrf: &'a str,
     username: &'a str,
@@ -200,6 +203,7 @@ pub async fn new_page(State(app): State<Shared>, jar: CookieJar, Query(q): Query
     };
     let world = World::load(&app.db).await?;
     page(NewGoalPage {
+        focus_count: crate::updates::badge(&app.db, ctx.user_id).await?,
         theme: &ctx.theme,
         nav: "goals",
         csrf: &ctx.session.csrf_token,
@@ -281,6 +285,7 @@ pub async fn create(State(app): State<Shared>, jar: CookieJar, Form(f): Form<New
     let error = views::check_title(title).or_else(|| (why.chars().count() > 2000).then_some("Keep the why under 2,000 characters."));
     if let Some(error) = error {
         return page(NewGoalPage {
+            focus_count: crate::updates::badge(&app.db, ctx.user_id).await?,
             theme: &ctx.theme,
             nav: "goals",
             csrf: &ctx.session.csrf_token,
@@ -301,7 +306,11 @@ pub async fn create(State(app): State<Shared>, jar: CookieJar, Form(f): Form<New
 #[derive(Template)]
 #[template(path = "goal.html")]
 struct GoalPage<'a> {
+    people: crate::people::PeopleView,
+    done: Option<&'static str>,
+    history: Vec<crate::updates::Line>,
     theme: &'a str,
+    focus_count: usize,
     nav: &'a str,
     csrf: &'a str,
     username: &'a str,
@@ -356,6 +365,7 @@ pub struct Band {
 #[derive(Deserialize)]
 pub struct PageQuery {
     pub(crate) error: Option<String>,
+    pub(crate) done: Option<String>,
 }
 
 pub async fn show(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>, Query(q): Query<PageQuery>) -> Result<Response> {
@@ -418,7 +428,13 @@ pub async fn show(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>,
         _ => String::new(),
     };
     let error = views::error_text(q.error.as_deref());
+    let people = crate::people::view(&app.db, &world, ctx.user_id, id, access).await?;
+    let history = views::history(&app.db, &world, ctx.user_id, id).await?;
     page(GoalPage {
+        people,
+        history,
+        done: views::done_text(q.done.as_deref()),
+        focus_count: crate::updates::badge(&app.db, ctx.user_id).await?,
         theme: &ctx.theme,
         nav: "goals",
         csrf: &ctx.session.csrf_token,

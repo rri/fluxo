@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE transfers SET status = 'accepted', resolved_at = ? WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "e2b0ba945d923a6c2db0c77b6bdfc14f3010b112880271c3ba4914c09107cf3f"
+}

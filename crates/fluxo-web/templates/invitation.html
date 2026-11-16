@@ -1,0 +1,35 @@
+{% extends "app.html" %}
+{% block title %}Invitation{% endblock %}
+{% block main %}
+<main class="narrow">
+  <nav class="crumbs"><a href="/">Focus</a> / Invitation</nav>
+  <div class="card card-pad">
+    <p><b>{{ inviter }}</b> invited you to <b>{% if role == "watcher" %}watch{% else %}contribute to{% endif %}</b> this {{ kind }}:</p>
+    <h1 class="mt-12">{{ title }}</h1>
+    {% if !why.is_empty() %}<p class="muted small mt-8">{{ why }}</p>{% endif %}
+    <h2 class="mt-20">As {% if role == "watcher" %}a Watcher{% else %}a Contributor{% endif %} you can</h2>
+    <ul class="small muted list-plain">
+      {% if role == "watcher" %}
+      <li>See it, and everything beneath it, even if it’s private</li>
+      <li>Get Updates on your Focus page when its outlook changes</li>
+      {% else %}
+      <li>Change estimates, risks, links and progress</li>
+      <li>Add sub-goals and tasks</li>
+      <li>Do the same on everything beneath it ({{ below }} item{% if below != 1 %}s{% endif %})</li>
+      <li>Get Updates on your Focus page when its outlook changes</li>
+      {% endif %}
+    </ul>
+    <p class="xs faint mt-8">Only the owner ({{ owner }}) can archive it, transfer it or invite people.</p>
+    {% if expired %}
+    <p class="form-error mt-16">This invitation has expired. Ask {{ inviter }} to send a new one.</p>
+    {% else %}
+    <form class="form-actions" method="post" action="/invitations/{{ node_id }}">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button class="btn ghost" name="answer" value="decline">Decline</button>
+      <button class="btn primary" name="answer" value="accept">Accept invitation</button>
+    </form>
+    {% endif %}
+  </div>
+  <p class="xs faint mt-12">Sent {{ sent }}. Invitations expire after 14 days.</p>
+</main>
+{% endblock %}

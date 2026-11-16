@@ -154,6 +154,8 @@
 
   {% include "_risks.html" %}
 
+  {% include "_people.html" %}
+
   <section id="links-h" aria-labelledby="feeds-h">
     <div class="section-head"><h2 id="feeds-h">Feeds</h2><span class="hint">{% if feeds.is_empty() %}A top-level goal{% else %}The goals this one is part of{% endif %}</span></div>
     {% if !feeds.is_empty() || (is_owner && !parent_options.is_empty()) %}
@@ -215,5 +217,6 @@
       <form method="post" action="/nodes/{{ a.0 }}/restore"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn sm">Restore</button></form></li>{% endfor %}</ul>
   </section>
   {% endif %}
+  {% include "_history.html" %}
 </main>
 {% endblock %}

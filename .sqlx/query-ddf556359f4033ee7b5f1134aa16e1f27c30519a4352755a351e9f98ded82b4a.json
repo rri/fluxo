@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT last_read_event_id FROM update_reads WHERE user_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "last_read_event_id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "ddf556359f4033ee7b5f1134aa16e1f27c30519a4352755a351e9f98ded82b4a"
+}
