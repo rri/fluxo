@@ -231,11 +231,21 @@ async fn archive_restore_and_delete() {
     assert!(send(&app, "GET", &format!("/goals/{g}"), Some(&c), None).await.body.contains(&format!(r#"data-id="{only}""#)));
 
     let r = send(&app, "POST", &format!("/nodes/{g}/delete"), Some(&c), Some(&format!("csrf={t}"))).await;
-    assert_eq!(r.location.as_deref(), Some(format!("/goals/{g}?error=archive-first#top").as_str()));
+    assert_eq!(r.status, StatusCode::FORBIDDEN, "only archived items can be deleted");
     send(&app, "POST", &format!("/nodes/{g}/archive"), Some(&c), Some(&format!("csrf={t}"))).await;
+    // Owners archive; only Administrators delete for good.
+    add_user(&app, "kofi", false).await;
+    let kofi = sign_in(&app, "kofi", None).await;
+    let kt = token(&app, &kofi, "/settings").await;
+    let r = send(&app, "POST", &format!("/nodes/{g}/delete"), Some(&kofi), Some(&format!("csrf={kt}"))).await;
+    assert_eq!(r.status, StatusCode::FORBIDDEN);
+    assert!(!send(&app, "GET", &format!("/goals/{g}"), Some(&c), None).await.body.contains("Delete permanently"));
+    let r = send(&app, "GET", "/settings", Some(&c), None).await;
+    assert!(r.body.contains("Archived goals and tasks"));
+    assert!(r.body.contains("and 1 step only it holds"));
     assert!(send(&app, "GET", "/goals", Some(&c), None).await.body.contains("<b class=\"small grow\">Archived</b>"));
     let r = send(&app, "POST", &format!("/nodes/{g}/delete"), Some(&c), Some(&format!("csrf={t}"))).await;
-    assert_eq!(r.location.as_deref(), Some("/goals"));
+    assert_eq!(r.location.as_deref(), Some("/settings?done=deleted#archived-h"));
     let left: Vec<String> = sqlx::query_scalar("SELECT title FROM nodes ORDER BY id").fetch_all(&app.db).await.unwrap();
     assert_eq!(left, vec!["Other", "Shared"], "what only it held is gone; shared work stays");
     let home: Option<i64> = sqlx::query_scalar("SELECT home_parent_id FROM nodes WHERE id = ?").bind(shared).fetch_one(&app.db).await.unwrap();

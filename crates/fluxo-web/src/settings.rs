@@ -48,6 +48,15 @@ pub struct CodeRow {
     pub active: bool,
 }
 
+pub struct ArchivedRow {
+    pub id: i64,
+    pub title: String,
+    pub kind: &'static str,
+    pub owner: String,
+    pub archived: String,
+    pub also: usize,
+}
+
 pub struct AdminView {
     pub signup_mode: String,
     pub invites: Vec<InviteRow>,
@@ -55,6 +64,7 @@ pub struct AdminView {
     pub codes: Vec<CodeRow>,
     pub issued: Option<crate::recovery::Issued>,
     pub lookup: String,
+    pub archived: Vec<ArchivedRow>,
 }
 
 /// Things shown once on the page that follows an action.
@@ -109,6 +119,7 @@ fn notice(q: &Notice) -> (&'static str, &'static str, bool) {
             "signup" => ("admin", "Saved."),
             "revoked" => ("admin", "Invitation revoked."),
             "code-revoked" => ("recovery", "Recovery code cancelled."),
+            "deleted" => ("archived", "Deleted permanently."),
             _ => return ("", "", false),
         };
         return (s, m, false);
@@ -216,7 +227,23 @@ async fn render(app: &AppState, ctx: &Ctx, n: (&str, &str, bool), shown: Shown) 
                 CodeRow { id: r.id, username: r.username, issued_by, created: date(r.created_at), status, active }
             })
             .collect();
+        let world = crate::store::World::load(&app.db).await?;
+        let names = crate::store::usernames(&app.db).await?;
+        let mut archived: Vec<&crate::store::Node> = world.nodes.values().filter(|n| n.archived_at.is_some()).collect();
+        archived.sort_by_key(|n| std::cmp::Reverse(n.archived_at));
+        let archived = archived
+            .into_iter()
+            .map(|n| ArchivedRow {
+                id: n.id,
+                title: n.title.clone(),
+                kind: if n.is_goal() { "Goal" } else { "Task" },
+                owner: n.owner_id.and_then(|o| names.get(&o).cloned()).unwrap_or_else(|| "no one".into()),
+                archived: n.archived_at.map(date).unwrap_or_default(),
+                also: crate::nodes::doomed(&world, n.id).len() - 1,
+            })
+            .collect();
         Some(AdminView {
+            archived,
             signup_mode,
             invites,
             new_link: shown.new_link,

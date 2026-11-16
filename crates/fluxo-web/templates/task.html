@@ -5,9 +5,8 @@
   <nav class="crumbs">{% for c in crumbs %}{% if !loop.first %} / {% endif %}{% if c.href.is_empty() %}{{ c.title }}{% else %}<a href="{{ c.href }}">{{ c.title }}</a>{% endif %}{% endfor %}</nav>
   {% if let Some(e) = error %}<p class="form-error" role="alert">{{ e }}</p>{% endif %}
   {% if archived %}
-  <div class="callout mb-12 inline"><span class="grow">This task is archived. Only you can see it.</span>
+  <div class="callout mb-12 inline"><span class="grow">This task is archived. Only you can see it. Restore it, or an Administrator can delete it for good.</span>
     <form method="post" action="/nodes/{{ node_id }}/restore"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn sm">Restore</button></form>
-    <form method="post" action="/nodes/{{ node_id }}/delete" data-confirm="Delete this task permanently? This can’t be undone."><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn sm danger">Delete permanently</button></form>
   </div>
   {% endif %}
 
@@ -22,7 +21,7 @@
       {% else if can_edit %}
       <a class="btn sm primary" href="/goals/new">Create the goal it serves</a>
       {% endif %}
-      {% if is_owner %}<form method="post" action="/nodes/{{ node_id }}/archive"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn sm">Remove (archive, then delete)</button></form>{% endif %}
+      {% if is_owner %}<form method="post" action="/nodes/{{ node_id }}/archive"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn sm">Remove (archive)</button></form>{% endif %}
     </div>
   </div>
   {% endif %}
@@ -113,7 +112,7 @@
   <section aria-labelledby="own-h">
     <div class="section-head"><h2 id="own-h">Archive</h2></div>
     <form class="card card-pad danger-zone inline" method="post" action="/nodes/{{ node_id }}/archive"><input type="hidden" name="csrf" value="{{ csrf }}">
-      <span class="grow xs muted">Hides the task from every goal it feeds. You can restore it, or delete it permanently.</span><button class="btn sm danger">Archive task</button></form>
+      <span class="grow xs muted">Hides the task from every goal it feeds. You can restore it later; an Administrator can delete it for good.</span><button class="btn sm danger">Archive task</button></form>
   </section>
   {% endif %}
 </main>

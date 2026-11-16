@@ -286,14 +286,9 @@ pub async fn restore(State(app): State<Shared>, jar: CookieJar, Path(id): Path<I
     Ok(back_to(&world, id, "", "top"))
 }
 
-/// Permanently delete an archived item, with everything beneath it that feeds nothing else.
-pub async fn delete(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>, Form(f): Form<CsrfForm>) -> Result<Response> {
-    let (_, world, _) = gate!(app, jar, f.csrf, id, Access::Own);
-    let node = &world.nodes[&id];
-    if node.archived_at.is_none() {
-        return Ok(back_to(&world, id, "error=archive-first", "top"));
-    }
-    // Collect what goes with it: descendants whose every parent is being deleted.
+/// An archived item plus everything beneath it that feeds nothing else: what a permanent delete
+/// removes.
+pub(crate) fn doomed(world: &World, id: Id) -> Vec<Id> {
     let mut doomed = vec![id];
     let mut i = 0;
     while i < doomed.len() {
@@ -305,6 +300,25 @@ pub async fn delete(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id
         }
         i += 1;
     }
+    doomed
+}
+
+/// Permanently delete an archived item, with everything beneath it that feeds nothing else.
+/// Archiving is the person's own action; deleting for good is an Administrator's (Settings).
+pub async fn delete(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id>, Form(f): Form<CsrfForm>) -> Result<Response> {
+    let ctx = match require_user(&app, &jar).await? {
+        Ok(c) => c,
+        Err(r) => return Ok(r),
+    };
+    if !ctx.csrf_ok(&f.csrf) || !ctx.is_admin {
+        return Ok(forbidden());
+    }
+    let world = World::load(&app.db).await?;
+    let Some(node) = world.nodes.get(&id) else { return Ok(Redirect::to("/settings#archived-h").into_response()) };
+    if node.archived_at.is_none() {
+        return Ok(forbidden());
+    }
+    let doomed = doomed(&world, id);
     let mut tx = app.db.begin().await?;
     // Anything staying whose home is going moves its home to another parent first.
     for n in world.nodes.values().filter(|n| !doomed.contains(&n.id)) {
@@ -318,6 +332,6 @@ pub async fn delete(State(app): State<Shared>, jar: CookieJar, Path(id): Path<Id
         sqlx::query!("DELETE FROM nodes WHERE id = ?", d).execute(&mut *tx).await?;
     }
     tx.commit().await?;
-    let to = node.home_parent_id.filter(|p| !doomed.contains(p)).map(|p| format!("/goals/{p}")).unwrap_or_else(|| "/goals".into());
-    Ok(Redirect::to(&to).into_response())
+    tracing::info!(admin = ctx.user_id, node = id, removed = doomed.len(), "permanently deleted archived item");
+    Ok(Redirect::to("/settings?done=deleted#archived-h").into_response())
 }

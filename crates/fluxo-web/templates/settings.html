@@ -153,6 +153,27 @@
     </div>
 
     <div class="admin-block">
+      <div class="section-head"><h3 id="archived-h">Archived goals and tasks</h3><span class="hint">People archive their own work; only Administrators delete it for good</span></div>
+      {% call note("archived") %}
+      {% if admin.archived.is_empty() %}
+      <div class="card row small muted">Nothing is archived.</div>
+      {% else %}
+      <div class="card table-wrap">
+        <table class="data">
+          <thead><tr><th>Item</th><th>Owner</th><th>Archived</th><th></th></tr></thead>
+          <tbody>
+          {% for a in admin.archived %}
+            <tr><td><b>{{ a.title }}</b><br><span class="xs faint">{{ a.kind }}{% if a.also > 0 %} · and {{ a.also }} step{% if a.also != 1 %}s{% endif %} only it holds{% endif %}</span></td>
+              <td class="small">{{ a.owner }}</td><td class="small">{{ a.archived }}</td>
+              <td><form method="post" action="/nodes/{{ a.id }}/delete" data-confirm="Delete “{{ a.title }}”{% if a.also > 0 %} and {{ a.also }} step(s) only it holds{% endif %} permanently? This can’t be undone."><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn sm danger">Delete permanently</button></form></td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="admin-block">
       <div class="section-head"><h3>Who can sign up</h3></div>
       <form class="card card-pad" method="post" action="/settings/admin/signup">
         <input type="hidden" name="csrf" value="{{ csrf }}">

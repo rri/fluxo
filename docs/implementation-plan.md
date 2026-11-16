@@ -246,7 +246,7 @@ Each phase ends with something usable and demonstrable. The riskiest unknowns co
 **Phase 2 decisions (2026-11-16):**
 - Only the owner (of the goal or a goal above it) changes a goal's statement, why, coverage and privacy; statement changes are recorded. Contributors change the path beneath it.
 - A goal is finished when its owner marks it achieved; fluxo suggests it once every step is done. Achieved goals leave forecasts but stay visible.
-- Removal archives first (owner only, restorable); an archived item can then be deleted permanently.
+- Removal archives (the owner's action, restorable). Permanent deletion is an Administrator action, from Settings → Administrator → Archived goals and tasks.
 - Steps are added with an inline form on the goal page; full details live on each step's own page.
 - A task may be attached to no goal (owners can remove its last goal). Its page shows a notice recommending it be attached to the goal it serves or removed, and the Goals page lists such tasks. Principle: model people's real work and avoid rules they'd work around (jobs to be done).
 
