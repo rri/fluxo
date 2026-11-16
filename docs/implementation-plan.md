@@ -1,11 +1,9 @@
 # fluxo — implementation plan
 
-Status: **draft for review** · 2026-11-16
+Status: **approved** · decisions D1–D24 settled 2026-11-16 · Phase 0 in progress
 
 This plan turns the round 2 mocks (`mocks/`) into a working application at https://fluxo.dev.
-It follows the decisions already made (see "Settled decisions"). Every choice still open is listed
-as a numbered decision **D1–D24** with a recommendation; nothing marked "Proposed" is final until you
-confirm it.
+Every decision is recorded with its number (D1–D24) in sections 3 and 8.
 
 ---
 
@@ -76,9 +74,11 @@ browser ──HTTPS──► reverse proxy (TLS) ──► fluxo (single Rust bi
 
 ---
 
-## 3. Backend technology choices (for your decision)
+## 3. Backend technology choices (decided 2026-11-16)
 
-| # | Decision | Recommendation | Alternatives |
+All fifteen were decided as recommended; the alternatives are kept for the record.
+
+| # | Decision | Decided | Not chosen |
 |---|---|---|---|
 | D1 | Rendering model | Server-rendered HTML + progressive enhancement | Static pages + JSON API (works without JS only with extra effort) |
 | D2 | Code layout | Cargo workspace with 4 crates (above) | Single crate with modules |
@@ -112,7 +112,8 @@ admin_codes     (id, user_id, issued_by, code_hash, expires_at, used_at, revoked
 nodes           (id, kind 'goal'|'task', title, what NULL, why, owner_id NULL (orphaned),
                  home_parent_id NULL, coverage NULL, clarity NULL, estimate_days NULL,
                  remaining_days NULL, status 'todo'|'doing'|'done', started_at,
-                 statement_changed_at, created_by, created_at, archived_at NULL)
+                 private BOOL (goals; cascades via home parent), statement_changed_at,
+                 created_by, created_at, archived_at NULL)
 node_parents    (child_id, parent_id, PRIMARY KEY(child_id, parent_id))   -- "feeds"
 dependencies    (node_id, needs_id, PRIMARY KEY(node_id, needs_id))       -- sibling order
 risks           (id, node_id, title, impact_min_days, impact_max_days, created_by, created_at)
@@ -133,11 +134,19 @@ sim_node        (run_id, node_id, goal_id, criticality, slack_p50, expected_dela
 Rules enforced in `fluxo-core`, inside a transaction, rather than by the database:
 - A task never has children.
 - `node_parents` stays free of cycles.
-- Both ends of a dependency must share at least one parent goal. **(D16)**
+- `dependencies` stays free of cycles. A dependency may point at any step the author can see, including
+  one under a different goal (shown in that goal's graph as an external "Waiting on" input). **(D16)**
 - An item's home parent must be one of its parents.
 
-**Effective access**: start at the node and walk up through its parents. The most specific active
-membership found wins. The owner of the node or of any ancestor counts as an owner. **(D17)**
+**Visibility (reading):** every goal and task is visible to every signed-in user, unless it is
+private. `nodes.private` marks a goal private; an item is private if it, or any goal on its
+**home-parent chain**, is marked private. A private item is visible only to its owner and to people
+holding a role on it or on an ancestor. Private steps appear in other goals' graphs as placeholders
+("private step · 6d") and still count in forecasts.
+
+**Roles (editing and following):** start at the node and walk up through **every** parent. The most
+specific active membership found wins. The owner of the node or of any ancestor counts as an owner.
+Contributors edit; Watchers get Updates. **(D17)**
 
 ---
 
@@ -231,24 +240,25 @@ beta" goal.
 
 ---
 
-## 8. Open product questions
+## 8. Product decisions (decided 2026-11-16)
 
-These came up while drawing the mocks or writing this plan; each needs your call.
+- **D16** Dependencies may cross goals. A dependency from outside a goal is drawn as an external "Waiting on" input, and the simulation includes it.
+- **D17** Roles flow down from **every** parent; the most specific role wins.
+- **D18** Clarity spreads (multiples of the likely estimate): high 0.85–1.3, medium 0.75–1.6, low 0.6–2.2.
+- **D19** Unknown work scales with the known critical path: partial 0–25%, low 0–75%. Low-coverage goals show "nebulous" dates.
+- **D20** Dates use the goal owner's calendar.
+- **D21** Focus ranks by a fast estimate, then re-simulates the top 20 exactly (same random numbers).
+- **D22** Strict CSP: no inline scripts.
+- **D23** People can export, as JSON, everything they can see.
+- **D24** A declined handover goes to the Administrators' list of items without an owner.
+- **Invitations** expire after 14 days.
+- **Updates** reach people only inside fluxo (Focus). No email or push in the first release.
+- **Visibility:** goals are public to signed-in users by default. Owners can mark a goal private, which cascades down. A shared step follows its home-parent chain. Search shows only what you can see. (Details in section 4.)
 
-- **D16** Must both ends of a dependency share a parent goal? Or may dependencies cross into other goals (for example, Accounts & auth waits on Rust API skeleton)? The mocks show a cross-goal "Waiting on" note. *Recommended:* allow it, and draw it as an external input, not as a sibling edge.
-- **D17** With several parents, which roles flow down: every parent's, or only the home parent's? *Recommended:* every parent's, with the most specific role winning.
-- **D18** Are the clarity multipliers above acceptable as starting values?
-- **D19** Should "unknown work" scale with the known path (as proposed), or should the goal owner enter a rough range for it?
-- **D20** Should dates use the owner's calendar, or each step owner's calendar? *Recommended:* the owner's for now.
-- **D21** Is the approximate Focus score good enough to ship, with exact re-checks later?
-- **D22** Is the strict CSP acceptable? It forbids inline scripts.
-- **D23** What can people export: JSON of goals they own, or of everything they can see?
-- **D24** If a suggested new owner declines a handover, should the item go to the Administrators, as the mock currently says?
-
-Also worth deciding before Phase 4:
-- Do invitations expire after 14 days, as the mock says?
-- How do Updates reach people who aren't signed in? There is no email by design, so today the answer is "they don't".
-- Can someone search across goals they can't see? *Recommended:* no.
+**Mock follow-ups** these decisions create (to fold into the templates in Phases 2–4):
+- A "Private" toggle in Goal settings, and a lock marker on private goals.
+- A public goal you have no role on is read-only, with a "Watch" button so you can follow its Updates.
+- External "Waiting on" inputs in the path graph (D16).
 
 ---
 
