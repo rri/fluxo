@@ -335,7 +335,7 @@ Confirmed by the owner (details in `docs/threat-model.md` §6):
 
 Spec and tests re-checked, threat model re-assessed after a penetration test
 (`docs/threat-model.md` §7), repository checked for secrets and unused code, and every page
-audited with Lighthouse and axe. Choices made in this review (to be confirmed):
+audited with Lighthouse and axe. Choices made in this review, confirmed by the owner on 2026-11-17:
 
 1. **Equally near roles:** when someone has a Contributor and a Watcher role at the same distance
    above an item (through different parents), Contributor wins. Before, it depended on link order.
