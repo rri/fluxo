@@ -1,5 +1,5 @@
 <section id="people" aria-labelledby="ppl-h">
-  <div class="section-head"><h2 id="ppl-h">People</h2><span class="hint">Roles carry down to everything beneath</span>
+  <div class="section-head"><h2 id="ppl-h">People</h2><span class="hint">Roles apply to everything beneath</span>
     {% if people.can_watch %}<form class="right" method="post" action="/nodes/{{ node_id }}/people"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="watch"><button class="btn sm">Watch</button></form>{% endif %}
     {% if !people.my_direct_role.is_empty() %}<form class="right" method="post" action="/nodes/{{ node_id }}/people"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="leave"><button class="btn sm ghost">{% if people.my_direct_role == "watcher" %}Stop watching{% else %}Leave{% endif %}</button></form>{% endif %}
   </div>
@@ -27,7 +27,7 @@
   <div class="card card-pad mt-12">
     {% if people.transfer_to.is_empty() %}
     <form class="inline" method="post" action="/nodes/{{ node_id }}/transfer"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="request">
-      <span class="grow"><b class="small">Transfer ownership</b><br><span class="xs muted">They must accept. You stay on as a Contributor.</span></span>
+      <span class="grow desc"><b class="small">Transfer ownership</b><br><span class="xs muted">You stay on as a Contributor.</span></span>
       <input name="username" class="input input-sm w-160" placeholder="Username" aria-label="Transfer to" autocapitalize="none" required>
       <input name="note" class="input input-sm w-160" placeholder="Note (optional)" aria-label="Note for them" maxlength="500">
       <button class="btn sm">Request</button></form>

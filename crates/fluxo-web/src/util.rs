@@ -33,6 +33,28 @@ pub fn ago(unix: i64, now: i64) -> String {
     }
 }
 
+/// Days since 1970-01-01 for a real YYYY-MM-DD date (`None` for "2026-02-30" and the like).
+pub fn day_number(s: &str) -> Option<i64> {
+    if !is_iso_date(s) {
+        return None;
+    }
+    let (y, m, d): (i64, i64, i64) = (s[0..4].parse().ok()?, s[5..7].parse().ok()?, s[8..10].parse().ok()?);
+    // Howard Hinnant's days-from-civil.
+    let y2 = if m <= 2 { y - 1 } else { y };
+    let era = y2.div_euclid(400);
+    let yoe = y2 - era * 400;
+    let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let n = era * 146_097 + doe - 719_468;
+    (iso(n) == s).then_some(n)
+}
+
+/// "2026-12-24" for a day number.
+pub fn iso(day: i64) -> String {
+    let (y, m, d) = civil(day * 86_400);
+    format!("{y:04}-{m:02}-{d:02}")
+}
+
 /// Is `s` a plausible YYYY-MM-DD date?
 pub fn is_iso_date(s: &str) -> bool {
     let b = s.as_bytes();
@@ -58,5 +80,8 @@ mod tests {
         assert!(is_iso_date("2026-12-24"));
         assert!(!is_iso_date("2026-13-01"));
         assert!(!is_iso_date("24/12/2026"));
+        assert_eq!(day_number("1970-01-02"), Some(1));
+        assert_eq!(day_number("2000-02-29").map(iso).as_deref(), Some("2000-02-29"));
+        assert_eq!(day_number("2026-02-30"), None);
     }
 }

@@ -134,8 +134,12 @@ test('an invitation link brings in one new person', async ({ page, browser }, in
   await page.goto('/settings');
   await page.getByPlaceholder(/Who is it for/).fill('For Kofi');
   await page.getByRole('button', { name: 'Create invitation link' }).click();
+  await expect(page).toHaveURL(/\/settings$/); // a redirect: reloading can't resubmit
+  await expect(page.locator('#new-link')).toBeFocused();
   const link = await page.locator('#new-link').inputValue();
   expect(link).toContain('/join/');
+  await page.reload();
+  await expect(page.locator('#new-link')).toHaveCount(0); // shown once
 
   const other = await browser.newContext({ javaScriptEnabled: js(info) });
   const guest = await other.newPage();
@@ -157,7 +161,8 @@ test('a locked-out person gets back in with an Administrator’s code', async ({
   await signInAsAda(page, info);
   await page.goto('/settings');
   await page.locator('#rec-user').fill(state.invitee);
-  await page.getByRole('button', { name: 'Make a recovery code' }).click();
+  await page.getByRole('button', { name: 'Generate a recovery code' }).click();
+  await expect(page.locator('#issued-code')).toBeFocused();
   const code = await page.locator('#issued-code').inputValue();
   expect(code).toMatch(/^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/);
 
@@ -202,7 +207,7 @@ test('break a goal down and track a task', async ({ page }, info) => {
   await signInAsAda(page, info);
   await page.goto('/goals');
   await page.getByRole('link', { name: '+ New goal' }).first().click();
-  await page.getByLabel('The goal').fill('Launch the beta');
+  await page.getByLabel('Goal headline').fill('Launch the beta');
   await page.getByLabel('Why it matters').fill('Real teams, real goals.');
   await page.getByRole('button', { name: 'Create goal' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Launch the beta' })).toBeVisible();
@@ -232,7 +237,7 @@ test('break a goal down and track a task', async ({ page }, info) => {
   await graph.getByRole('link', { name: /API/ }).click();
   await page.locator('label[for="s-p"]').click(); // In progress
   await page.getByLabel('Remaining').fill('2');
-  await page.getByRole('button', { name: 'Save task' }).click();
+  await page.locator('#top').getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText('In progress', { exact: true }).first()).toBeVisible();
 
   await page.getByPlaceholder('New risk…').fill('Vendor API changes');

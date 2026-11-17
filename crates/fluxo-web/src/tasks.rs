@@ -46,6 +46,10 @@ struct TaskPage<'a> {
     remaining: String,
     started: String,
     archived: bool,
+    /// When an archived item is deleted for good.
+    purge_on: String,
+    /// Days archived items are kept.
+    retention: i64,
     can_edit: bool,
     is_owner: bool,
     /// Feeds no goal: show the "not attached" notice.
@@ -146,6 +150,7 @@ pub async fn show(
         };
     let people = crate::people::view(&app.db, &world, user, id, access).await?;
     let history = views::history(&app.db, &world, user, id).await?;
+    let retention = crate::store::retention_days(&app.db).await?;
     page(TaskPage {
         people,
         history,
@@ -172,6 +177,8 @@ pub async fn show(
         remaining: task.remaining_days.map(|d| views::days(d).trim_end_matches('d').to_string()).unwrap_or_default(),
         started: task.started_at.map(date).unwrap_or_default(),
         archived: task.archived_at.is_some(),
+        purge_on: task.archived_at.map(|a| crate::util::date(a + retention * 86_400)).unwrap_or_default(),
+        retention,
         can_edit: access.can_contribute() && task.archived_at.is_none(),
         is_owner: access.is_owner(),
         unattached: current_parents.is_empty(),

@@ -361,8 +361,7 @@ pub async fn restore(
     Ok(back_to(&world, id, "", "top"))
 }
 
-/// An archived item plus everything beneath it that feeds nothing else: what a permanent delete
-/// removes.
+/// An archived item plus everything beneath it that feeds nothing else: what purging it removes.
 pub(crate) fn doomed(world: &World, id: Id) -> Vec<Id> {
     let mut doomed = vec![id];
     let mut i = 0;
@@ -378,40 +377,50 @@ pub(crate) fn doomed(world: &World, id: Id) -> Vec<Id> {
     doomed
 }
 
-/// Permanently delete an archived item, with everything beneath it that feeds nothing else.
-/// Archiving is the person's own action; deleting for good is an Administrator's (Settings).
-pub async fn delete(
-    State(app): State<Shared>,
-    jar: CookieJar,
-    Path(id): Path<Id>,
-    Form(f): Form<CsrfForm>,
-) -> Result<Response> {
-    let ctx = match require_user(&app, &jar).await? {
-        Ok(c) => c,
-        Err(r) => return Ok(r),
-    };
-    if !ctx.csrf_ok(&f.csrf) || !ctx.is_admin {
-        return Ok(forbidden());
+/// Delete, for good, every item archived longer ago than the retention period, with everything
+/// beneath it that feeds nothing else. Returns how many items went.
+pub async fn purge_archived(db: &sqlx::SqlitePool) -> Result<usize> {
+    let cutoff = now() - store::retention_days(db).await? * 86_400;
+    let world = World::load(db).await?;
+    let mut due: Vec<Id> =
+        world.nodes.values().filter(|n| n.archived_at.is_some_and(|a| a <= cutoff)).map(|n| n.id).collect();
+    // Shallowest first, so an archived goal takes along archived steps beneath it.
+    due.sort_by_key(|id| (world.home_chain(*id).len(), *id));
+    let (mut gone, mut seen) = (Vec::new(), std::collections::HashSet::new());
+    for id in due {
+        if !seen.contains(&id) {
+            gone.extend(doomed(&world, id).into_iter().filter(|d| seen.insert(*d)));
+        }
     }
-    let world = World::load(&app.db).await?;
-    let Some(node) = world.nodes.get(&id) else { return Ok(Redirect::to("/settings#archived-h").into_response()) };
-    if node.archived_at.is_none() {
-        return Ok(forbidden());
+    if gone.is_empty() {
+        return Ok(0);
     }
-    let doomed = doomed(&world, id);
-    let mut tx = app.db.begin().await?;
+    let mut tx = db.begin().await?;
     // Anything staying whose home is going moves its home to another parent first.
-    for n in world.nodes.values().filter(|n| !doomed.contains(&n.id)) {
-        if n.home_parent_id.is_some_and(|h| doomed.contains(&h)) {
-            let next = world.parents.get(&n.id).and_then(|ps| ps.iter().copied().find(|p| !doomed.contains(p)));
+    for n in world.nodes.values().filter(|n| !seen.contains(&n.id)) {
+        if n.home_parent_id.is_some_and(|h| seen.contains(&h)) {
+            let next = world.parents.get(&n.id).and_then(|ps| ps.iter().copied().find(|p| !seen.contains(p)));
             sqlx::query!("UPDATE nodes SET home_parent_id = ? WHERE id = ?", next, n.id).execute(&mut *tx).await?;
         }
     }
     // Deepest first, so nothing is deleted while something below still points at it.
-    for d in doomed.iter().rev() {
+    for d in gone.iter().rev() {
         sqlx::query!("DELETE FROM nodes WHERE id = ?", d).execute(&mut *tx).await?;
     }
     tx.commit().await?;
-    tracing::info!(admin = ctx.user_id, node = id, removed = doomed.len(), "permanently deleted archived item");
-    Ok(Redirect::to("/settings?done=deleted#archived-h").into_response())
+    Ok(gone.len())
+}
+
+/// Check every hour for archived items past the retention period.
+pub fn spawn_purge(db: sqlx::SqlitePool) {
+    tokio::spawn(async move {
+        loop {
+            match purge_archived(&db).await {
+                Ok(0) => {}
+                Ok(n) => tracing::info!(removed = n, "deleted archived items past the retention period"),
+                Err(e) => tracing::warn!(error = %e.0, "purging archived items failed"),
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
+        }
+    });
 }

@@ -15,7 +15,7 @@ mod admin;
 mod export;
 mod focus;
 mod goals;
-mod nodes;
+pub mod nodes;
 mod people;
 mod ranking;
 mod recovery;
@@ -60,6 +60,8 @@ pub struct AppState {
     pub forecasts: std::sync::Mutex<Option<Arc<forecast::Forecasts>>>,
     /// Focus rechecks ("what if this were resolved"), keyed by forecast fingerprint.
     pub rechecks: std::sync::Mutex<ranking::RecheckCache>,
+    /// Invitation links and recovery codes waiting to be shown after a redirect.
+    pub flash: settings::Flash,
     /// Where people reach fluxo, e.g. `https://fluxo.dev`, for links (else the request's Host).
     pub public_url: Option<String>,
     /// Proxies (Caddy) whose X-Forwarded-For names the real visitor.
@@ -77,6 +79,7 @@ impl AppState {
             setup_done: AtomicBool::new(false),
             forecasts: Default::default(),
             rechecks: Default::default(),
+            flash: Default::default(),
             public_url: None,
             trusted_proxies: vec![std::net::IpAddr::from([127, 0, 0, 1])],
             setup_token: {
@@ -127,7 +130,6 @@ pub fn router(state: Shared) -> Router {
         .route("/nodes/{id}/risks", post(nodes::add_risk))
         .route("/nodes/{id}/archive", post(nodes::archive))
         .route("/nodes/{id}/restore", post(nodes::restore))
-        .route("/nodes/{id}/delete", post(nodes::delete))
         .route("/risks/{id}", post(nodes::risk))
         .route("/nodes/{id}/people", post(people::people))
         .route("/nodes/{id}/transfer", post(people::transfer))
@@ -138,12 +140,14 @@ pub fn router(state: Shared) -> Router {
         .route("/settings/password", post(settings::password))
         .route("/settings/theme", post(settings::theme))
         .route("/settings/calendar", post(settings::calendar))
+        .route("/settings/calendar/days-off", post(settings::days_off))
         .route("/settings/sessions/end", post(settings::end_session))
         .route("/settings/sessions/end-others", post(settings::end_other_sessions))
         .route("/settings/2fa/setup", get(twofa::setup_page).post(twofa::setup_submit))
-        .route("/settings/2fa/codes", post(twofa::regenerate_codes))
+        .route("/settings/2fa/codes", get(twofa::codes_shown).post(twofa::regenerate_codes))
         .route("/settings/2fa/off", post(twofa::turn_off))
         .route("/settings/admin/signup", post(settings::signup_mode))
+        .route("/settings/admin/retention", post(settings::retention))
         .route("/settings/admin/invites", post(settings::create_invite))
         .route("/settings/admin/invites/revoke", post(settings::revoke_invite))
         .route("/settings/admin/recovery", post(settings::issue_recovery_code))

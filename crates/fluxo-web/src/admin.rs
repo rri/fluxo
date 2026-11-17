@@ -151,7 +151,8 @@ pub async fn set_role(State(app): State<Shared>, jar: CookieJar, Form(f): Form<R
         }
     }
     tracing::info!(by = ctx.user_id, user = f.user, administrator = make, "Administrator role changed");
-    Ok(back(if make { "done=admin-added" } else { "done=admin-removed" }, "roles-h"))
+    let done = if make { "done=admin-added" } else { "done=admin-removed" };
+    Ok(back(&format!("{done}&user={}", f.user), "roles-h"))
 }
 
 #[derive(Deserialize)]
@@ -201,7 +202,7 @@ pub async fn assign(State(app): State<Shared>, jar: CookieJar, Form(f): Form<Ass
     .await?;
     tx.commit().await?;
     tracing::info!(by = ctx.user_id, node = f.node, to, "unowned item offered");
-    Ok(back("done=assigned", "unowned-h"))
+    Ok(back(&format!("done=assigned&user={to}"), "unowned-h"))
 }
 
 // ---------------------------------------------------------------- deleting your account

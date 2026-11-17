@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT days_off FROM user_calendar WHERE user_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "days_off",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "d45c5f1a5221ccb52b8606685dc8f43b4867dd30d87d3197c2fcc603077282a3"
+}

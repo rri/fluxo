@@ -55,14 +55,23 @@ async fn there_is_always_an_administrator() {
     let r =
         send(&app, "POST", "/settings/admin/role", Some(&ada), Some(&format!("csrf={t}&user={ada_id}&admin=0"))).await;
     assert_eq!(r.location.as_deref(), Some("/settings?error=last-admin#roles-h"));
-    send(&app, "POST", "/settings/admin/role", Some(&ada), Some(&format!("csrf={t}&user={kofi_id}&admin=1"))).await;
+    let r =
+        send(&app, "POST", "/settings/admin/role", Some(&ada), Some(&format!("csrf={t}&user={kofi_id}&admin=1"))).await;
+    let to = r.location.unwrap();
+    assert_eq!(to, format!("/settings?done=admin-added&user={kofi_id}#roles-h"));
+    let page = send(&app, "GET", to.trim_end_matches("#roles-h"), Some(&ada), None).await.body;
+    assert!(page.contains("<b>kofi</b> is now an <b>Administrator</b>."), "the notice names them");
     assert!(
         send(&app, "GET", "/settings", Some(&kofi), None).await.body.contains(r#"id="adm-h""#),
         "kofi is now an Administrator"
     );
     let r =
         send(&app, "POST", "/settings/admin/role", Some(&ada), Some(&format!("csrf={t}&user={ada_id}&admin=0"))).await;
-    assert_eq!(r.location.as_deref(), Some("/settings?done=admin-removed#roles-h"), "fine while another remains");
+    assert_eq!(
+        r.location.as_deref(),
+        Some(format!("/settings?done=admin-removed&user={ada_id}#roles-h").as_str()),
+        "fine while another remains"
+    );
 }
 
 #[tokio::test]
@@ -170,7 +179,7 @@ async fn deleting_an_account_hands_work_over() {
         Some(&format!("csrf={kt}&node={lonely}&username=lin")),
     )
     .await;
-    assert_eq!(r.location.as_deref(), Some("/settings?done=assigned#unowned-h"));
+    assert!(r.location.unwrap().starts_with("/settings?done=assigned&user="));
     assert!(send(&app, "GET", "/settings", Some(&kofi), None).await.body.contains("Offered to <b>lin</b>"));
     let f = send(&app, "GET", "/", Some(&lin), None).await.body;
     assert!(f.contains("<b>An Administrator</b> wants you to own <b>Lonely</b>"));

@@ -139,7 +139,7 @@ unattached tasks; pending invitations and transfers; unread updates.
   ownership transfers, each with "Review".
 - **FO3** Updates: outlook-changing events from the last 90 days on items the person owns,
   contributes to or watches (directly or above), newest first, unread ones marked. Empty state:
-  "Nothing yet. Updates appear here when…". "Mark all read" appears only when something is
+  "Nothing yet. Changes to goals…". "Mark all read" appears only when something is
   unread.
 - **FO4** Next up: ranked Do / De-risk / Clarify items for work the person can contribute to and
   that feeds a goal, with tabs (All, Do, De-risk, Clarify) and counts. Each item shows why,
@@ -220,26 +220,32 @@ unattached tasks; pending invitations and transfers; unread updates.
 ## 11. Archiving and deleting
 
 - **A1** Archiving and restoring are owner actions. Archived items drop out of forecasts and
-  Focus and are visible only to their owners.
-- **A2** Deleting for good is an Administrator action, only for archived items, from Settings; it
-  removes the item and everything beneath it that feeds nothing else, after a confirmation.
+  Focus and are visible only to their owners, with the date they'll be deleted.
+- **A2** No one deletes items by hand. An archived item is deleted for good once it has been
+  archived for the retention period (an Administrator picks 7, 30, 90, 180 or 365 days; 30 by
+  default), checked hourly. It takes along everything beneath it that feeds nothing else;
+  shared steps move their home to a remaining goal. Restoring before then cancels it.
 
 ## 12. Settings (`/settings`)
 
 - **S1** Sections for everyone: Account (username, display name ≤64, role), Password (current
   + new twice; changing it signs out other devices), Two-factor authentication (on: since,
   codes left, new codes with password, turn off with password + code; off: set up), Appearance,
-  Working calendar (working days, time zone, days off), Sessions (this device marked; sign out
+  Working calendar (working days, time zone; days off added and removed one date or range at a
+  time, shown as ranges, at most a year per range), Sessions (this device marked; sign out
   others), Export, Delete account.
 - **S2** Notices appear in the section they belong to, from a fixed list (never echoed from the
-  address).
-- **S3** Members never see the Administrator section, and every Administrator action answers them
+  address; a notice about a person names them by looking up the id in the address).
+- **S2a** Every Settings form posts, then redirects (reloading never resubmits). An invitation
+  link or recovery code made by a post is held in memory for the next page (5 minutes at most,
+  by session), shown once beside what made it, and focused.
+- **S3** Members never see the Admin section, and every Administrator action answers them
   403.
 - **S4** Administrators also see: sign-up mode (invitation only, open, closed), invitations
   (create with a note; the link is shown once; revoke), recovery codes (issue for someone else,
   shown once, 24 hours; cancel), People (role, 2FA, last active; make or remove Administrator;
   the last Administrator can't be removed), Goals and tasks without an owner (titles only;
-  offer to someone), Archived items (delete for good).
+  offer to someone), Archived items (retention period; owner, archived and deletion dates).
 - **S5** Export downloads JSON of everything the person can read, nothing more.
 
 ## 13. Accounts leaving and changing hands
@@ -249,6 +255,8 @@ unattached tasks; pending invitations and transfers; unread updates.
 - **D2** Each owned item gets a suggested new owner: the nearest owner above, else the
   longest-standing Contributor (on it or above), else the Administrators. The person can change
   each suggestion. Every recipient must accept; declined items go to the Administrators.
+  Deleting an account is the only way an item loses its owner: an ordinary transfer that's
+  declined leaves the item with its owner.
 - **D3** Pending offers made by the person leaving, and pending offers on items they hand over,
   are replaced by the handover (at most one pending transfer per item).
 - **D4** The account can never sign in again; its username stays reserved and in history.

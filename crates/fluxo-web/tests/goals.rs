@@ -275,8 +275,8 @@ async fn links_refuse_loops_and_keep_tasks_attached() {
     .await;
     assert_eq!(r.location.as_deref(), Some(format!("/tasks/{b}#top").as_str()));
     let r = send(&app, "GET", &format!("/tasks/{b}"), Some(&c), None).await;
-    assert!(r.body.contains("This task isn’t attached to any goal."));
-    assert!(r.body.contains("Attach to this goal"));
+    assert!(r.body.contains("This task isn’t attached to any goal</b>"));
+    assert!(r.body.contains(">Attach</button>"));
     let r = send(&app, "GET", "/goals", Some(&c), None).await;
     assert!(r.body.contains("Tasks not attached to any goal"));
     assert!(r.body.contains(&format!(r#"<a class="grow" href="/tasks/{b}#unattached">B</a>"#)));
@@ -343,7 +343,7 @@ async fn risks_keep_their_likelihood_history() {
 }
 
 #[tokio::test]
-async fn archive_restore_and_delete() {
+async fn archive_restore_and_purge() {
     let (app, _) = with_ada(false).await;
     let c = sign_in(&app, "ada", None).await;
     let g = new_goal(&app, &c, "Parent", None).await;
@@ -369,22 +369,35 @@ async fn archive_restore_and_delete() {
         send(&app, "GET", &format!("/goals/{g}"), Some(&c), None).await.body.contains(&format!(r#"data-id="{only}""#))
     );
 
-    let r = send(&app, "POST", &format!("/nodes/{g}/delete"), Some(&c), Some(&format!("csrf={t}"))).await;
-    assert_eq!(r.status, StatusCode::FORBIDDEN, "only archived items can be deleted");
     send(&app, "POST", &format!("/nodes/{g}/archive"), Some(&c), Some(&format!("csrf={t}"))).await;
-    // Owners archive; only Administrators delete for good.
+    let page = send(&app, "GET", &format!("/goals/{g}"), Some(&c), None).await.body;
+    assert!(page.contains("This goal is archived and will be permanently deleted on "));
+    let r = send(&app, "GET", "/settings", Some(&c), None).await;
+    assert!(r.body.contains("Archived goals and tasks"));
+    assert!(r.body.contains("· Goal · 1 more step</span>"));
+    assert!(r.body.contains(r#"<option value="30" selected>30 days</option>"#), "kept 30 days by default");
+    assert!(send(&app, "GET", "/goals", Some(&c), None).await.body.contains("<b class=\"small grow\">Archived</b>"));
+
+    // Only Administrators set how long; only allowed choices count.
     add_user(&app, "kofi", false).await;
     let kofi = sign_in(&app, "kofi", None).await;
     let kt = token(&app, &kofi, "/settings").await;
-    let r = send(&app, "POST", &format!("/nodes/{g}/delete"), Some(&kofi), Some(&format!("csrf={kt}"))).await;
+    let r = send(&app, "POST", "/settings/admin/retention", Some(&kofi), Some(&format!("csrf={kt}&days=7"))).await;
     assert_eq!(r.status, StatusCode::FORBIDDEN);
-    assert!(!send(&app, "GET", &format!("/goals/{g}"), Some(&c), None).await.body.contains("Delete permanently"));
-    let r = send(&app, "GET", "/settings", Some(&c), None).await;
-    assert!(r.body.contains("Archived goals and tasks"));
-    assert!(r.body.contains("and 1 step only it holds"));
-    assert!(send(&app, "GET", "/goals", Some(&c), None).await.body.contains("<b class=\"small grow\">Archived</b>"));
-    let r = send(&app, "POST", &format!("/nodes/{g}/delete"), Some(&c), Some(&format!("csrf={t}"))).await;
-    assert_eq!(r.location.as_deref(), Some("/settings?done=deleted#archived-h"));
+    send(&app, "POST", "/settings/admin/retention", Some(&c), Some(&format!("csrf={t}&days=1"))).await;
+    let days: i64 = sqlx::query_scalar("SELECT archive_retention_days FROM instance").fetch_one(&app.db).await.unwrap();
+    assert_eq!(days, 30);
+    let r = send(&app, "POST", "/settings/admin/retention", Some(&c), Some(&format!("csrf={t}&days=7"))).await;
+    assert_eq!(r.location.as_deref(), Some("/settings?done=retention#archived-h"));
+
+    // Nothing goes before its time; then what only it held goes with it.
+    assert_eq!(fluxo_web::nodes::purge_archived(&app.db).await.ok(), Some(0));
+    sqlx::query("UPDATE nodes SET archived_at = archived_at - 7 * 86400 WHERE id = ?")
+        .bind(g)
+        .execute(&app.db)
+        .await
+        .unwrap();
+    assert_eq!(fluxo_web::nodes::purge_archived(&app.db).await.ok(), Some(2));
     let left: Vec<String> = sqlx::query_scalar("SELECT title FROM nodes ORDER BY id").fetch_all(&app.db).await.unwrap();
     assert_eq!(left, vec!["Other", "Shared"], "what only it held is gone; shared work stays");
     let home: Option<i64> = sqlx::query_scalar("SELECT home_parent_id FROM nodes WHERE id = ?")

@@ -187,6 +187,7 @@ async fn serve() -> Result<(), BoxError> {
 
     fluxo_web::slips::spawn(state.clone()); // daily "dates slipping" check
     fluxo_web::session::spawn_purge(db.clone()); // idle sessions and old sign-in failures
+    fluxo_web::nodes::spawn_purge(db.clone()); // archived items past the retention period
     fluxo_web::backup::spawn_nightly(db, s.data_dir.join("backups"), s.backup_keep);
 
     let app = router(state);

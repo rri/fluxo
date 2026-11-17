@@ -4,7 +4,6 @@
 <main>
   <div class="page-head"><div>
     <h1>Focus</h1>
-    <p class="sub">What needs you now, and what changed in the work you follow.</p>
   </div></div>
 
   {% if !waiting.is_empty() %}
@@ -28,7 +27,7 @@
       <form class="right" method="post" action="/updates/read"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="upto" value="{{ first.id }}"><button class="btn sm ghost">Mark all read</button></form>
       {% endif %}{% endif %}</div>
     {% if updates.is_empty() %}
-    <div class="card card-pad small muted">Nothing yet. Updates appear here when goals you own, work on or watch change their outlook: forecasts moving, risks rising, steps finishing, people joining.</div>
+    <div class="card card-pad small muted">Nothing yet. Changes to goals you own, contribute to or watch appear here.</div>
     {% else %}
     <ul class="list card">
       {% for u in updates %}
@@ -42,7 +41,7 @@
   </section>
 
   <section id="next" aria-labelledby="next-h">
-    <div class="section-head"><h2 id="next-h">Next up</h2><span class="hint">Ranked by expected delay removed, across every goal it feeds</span></div>
+    <div class="section-head"><h2 id="next-h">Next up</h2><span class="hint">Ranked by expected delay removed</span></div>
     <nav class="tabs" aria-label="Show">
       <a class="tab" href="/?show=all#next-h"{% if show == "all" %} aria-current="page"{% endif %}>All<span class="n">{{ counts[0] }}</span></a>
       <a class="tab" href="/?show=do#next-h"{% if show == "do" %} aria-current="page"{% endif %}>Do<span class="n">{{ counts[1] }}</span></a>
@@ -50,7 +49,7 @@
       <a class="tab" href="/?show=clarify#next-h"{% if show == "clarify" %} aria-current="page"{% endif %}>Clarify<span class="n">{{ counts[3] }}</span></a>
     </nav>
     {% if items.is_empty() %}
-    <div class="card card-pad small muted">{% if show == "all" %}Nothing to rank yet. Focus lists tasks, risks and goals you own or contribute to once they feed a goal.{% else %}Nothing here right now.{% endif %}</div>
+    <div class="card card-pad small muted">{% if show == "all" %}Nothing to rank yet. Add tasks and risks to a goal you own or contribute to.{% else %}Nothing here right now.{% endif %}</div>
     {% else %}
     <ol class="list card">
       {% for i in items %}

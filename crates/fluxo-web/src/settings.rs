@@ -1,5 +1,9 @@
 //! The Settings page: account, password, 2FA status, appearance, working calendar, sessions and,
-//! for Administrators, the Administrator section (sign-up mode and invitations).
+//! for Administrators, the Admin section.
+//!
+//! Every form posts, then redirects back (so reloading never resubmits). Secrets made by a post
+//! (an invitation link, a recovery code) ride across that redirect in memory, keyed by session,
+//! and are shown once, next to where they were made.
 
 use askama::Template;
 use axum::extract::{Form, Query, State};
@@ -12,10 +16,15 @@ use rand::Rng;
 use serde::Deserialize;
 
 use crate::session::{self, describe_agent};
-use crate::util::{ago, date, is_iso_date};
+use crate::util::{ago, date, day_number, iso};
 use crate::{AppState, Ctx, Result, Shared, auth, forbidden, initials, now, page, require_user};
 
 const INVITE_DAYS: i64 = 7;
+/// How long archived items can be kept, in days (Administrators pick one).
+pub const RETENTION_CHOICES: [i64; 5] = [7, 30, 90, 180, 365];
+/// Longest days-off range added at once, and most days off kept.
+const MAX_RANGE: i64 = 366;
+const MAX_DAYS_OFF: usize = 3_000;
 const DAYS: [&str; 7] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 pub struct Day {
@@ -33,6 +42,8 @@ pub struct SessionRow {
 
 pub struct InviteRow {
     pub id: i64,
+    /// Just made: the link, shown this once.
+    pub link: Option<String>,
     pub note: String,
     pub created: String,
     pub status: String,
@@ -49,33 +60,66 @@ pub struct CodeRow {
 }
 
 pub struct ArchivedRow {
-    pub id: i64,
     pub title: String,
     pub kind: &'static str,
     pub owner: String,
     pub archived: String,
+    pub purge: String,
     pub also: usize,
+}
+
+/// A day off, or a run of consecutive days off, as one chip.
+pub struct DayOff {
+    pub from: String,
+    pub to: String,
+    pub label: String,
 }
 
 pub struct AdminView {
     pub signup_mode: String,
     pub invites: Vec<InviteRow>,
-    pub new_link: Option<String>,
     pub codes: Vec<CodeRow>,
     pub issued: Option<crate::recovery::Issued>,
     pub lookup: String,
     pub archived: Vec<ArchivedRow>,
     pub people: Vec<crate::admin::AdminPerson>,
     pub admins: usize,
+    pub retention: i64,
     pub unowned: Vec<crate::admin::UnownedRow>,
 }
 
 /// Things shown once on the page that follows an action.
 #[derive(Default)]
 pub struct Shown {
-    pub new_link: Option<String>,
+    /// The invitation just made, and its link.
+    pub new_invite: Option<(i64, String)>,
     pub issued: Option<crate::recovery::Issued>,
     pub lookup: String,
+    /// New 2FA recovery codes, and whether this is first-time setup.
+    pub codes: Option<(Vec<String>, bool)>,
+}
+
+/// Shown values waiting for the redirect that follows a post, by session. Never written to disk.
+#[derive(Default)]
+pub struct Flash(std::sync::Mutex<std::collections::HashMap<String, (i64, Shown)>>);
+
+impl Flash {
+    const TTL: i64 = 300;
+
+    pub(crate) fn put(&self, session: String, shown: Shown) {
+        let t = now();
+        let mut m = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        m.retain(|_, (at, _)| t - *at < Self::TTL);
+        m.insert(session, (t, shown));
+    }
+
+    pub(crate) fn take(&self, session: &str) -> Shown {
+        let mut m = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        match m.remove(session) {
+            Some((at, shown)) if now() - at < Self::TTL => shown,
+            _ => Shown::default(),
+        }
+    }
 }
 
 #[derive(Template)]
@@ -94,10 +138,11 @@ struct SettingsPage<'a> {
     codes_left: i64,
     days: Vec<Day>,
     time_zone: String,
-    days_off: String,
+    days_off: Vec<DayOff>,
     sessions: Vec<SessionRow>,
+    retention_choices: [i64; 5],
     notice_for: &'a str,
-    notice: &'a str,
+    notice: Vec<(String, bool)>,
     is_error: bool,
     admin: Option<AdminView>,
 }
@@ -106,10 +151,40 @@ struct SettingsPage<'a> {
 pub struct Notice {
     done: Option<String>,
     error: Option<String>,
+    /// The person a notice is about (by id, so a link can't put words in fluxo's mouth).
+    user: Option<i64>,
+}
+
+/// A notice as text runs; `true` runs are bold.
+type Runs = Vec<(String, bool)>;
+
+fn plain(s: &str) -> Runs {
+    vec![(s.to_string(), false)]
 }
 
 /// (section, message, is_error) for a `?done=` or `?error=` key.
-fn notice(q: &Notice) -> (&'static str, &'static str, bool) {
+fn notice(q: &Notice, who: &str) -> (&'static str, Runs, bool) {
+    let about = |before: &str, after: Runs| {
+        let mut r = plain(before);
+        r.push((who.to_string(), true));
+        r.extend(after);
+        r.retain(|(t, _)| !t.is_empty());
+        r
+    };
+    match (q.done.as_deref(), who.is_empty()) {
+        (Some("admin-added"), false) => {
+            let after = vec![(" is now an ".into(), false), ("Administrator".into(), true), (".".into(), false)];
+            return ("roles", about("", after), false);
+        }
+        (Some("admin-removed"), false) => {
+            let after = vec![(" is no longer an ".into(), false), ("Administrator".into(), true), (".".into(), false)];
+            return ("roles", about("", after), false);
+        }
+        (Some("assigned"), false) => {
+            return ("unowned", about("Offered to ", plain(". It stays here until they accept.")), false);
+        }
+        _ => {}
+    }
     if let Some(k) = q.done.as_deref() {
         let (s, m) = match k {
             "profile" => ("account", "Saved."),
@@ -120,16 +195,15 @@ fn notice(q: &Notice) -> (&'static str, &'static str, bool) {
             "others" => ("sessions", "Signed out everywhere else."),
             "2fa-off" => ("tfa", "Two-factor authentication is off. Your recovery codes no longer work."),
             "recovery-used" => ("tfa", "You signed in with a recovery code, which can’t be used again."),
-            "signup" => ("admin", "Saved."),
-            "revoked" => ("admin", "Invitation revoked."),
+            "signup" => ("signup", "Saved."),
+            "revoked" => ("invites", "Invitation revoked."),
             "code-revoked" => ("recovery", "Recovery code cancelled."),
-            "deleted" => ("archived", "Deleted permanently."),
-            "admin-added" => ("roles", "They’re now an Administrator."),
-            "admin-removed" => ("roles", "They’re no longer an Administrator."),
-            "assigned" => ("unowned", "Offered to them. It stays here until they accept."),
-            _ => return ("", "", false),
+            "retention" => ("archived", "Saved."),
+            "off-added" => ("days-off", "Added."),
+            "off-removed" => ("days-off", "Removed."),
+            _ => return ("", vec![], false),
         };
-        return (s, m, false);
+        return (s, plain(m), false);
     }
     if let Some(k) = q.error.as_deref() {
         let (s, m) = match k {
@@ -145,12 +219,39 @@ fn notice(q: &Notice) -> (&'static str, &'static str, bool) {
             "last-admin" => ("roles", "There has to be at least one Administrator. Make someone else one first."),
             "no-user" => ("unowned", "No one has that username."),
             "calendar-tz" => ("calendar", "Enter a time zone name like Europe/Lisbon or America/New_York."),
-            "calendar-days" => ("calendar", "Write days off as dates like 2026-12-24, separated by commas."),
-            _ => return ("", "", false),
+            "off-dates" => ("days-off", "Pick a start date, and an end date on or after it."),
+            "off-long" => ("days-off", "Add at most a year at a time."),
+            "off-many" => ("days-off", "That’s too many days off. Remove some old ones first."),
+            "recovery-user" => ("recovery", "No one has that username."),
+            "recovery-self" => {
+                ("recovery", "You can’t generate a recovery code for yourself. Ask another Administrator.")
+            }
+            _ => return ("", vec![], false),
         };
-        return (s, m, true);
+        return (s, plain(m), true);
     }
-    ("", "", false)
+    ("", vec![], false)
+}
+
+/// Consecutive dates (sorted) as chips: "Dec 24, 2026" or "Dec 24, 2026 – Jan 2, 2027".
+fn day_off_chips(days: &[String]) -> Vec<DayOff> {
+    let mut runs: Vec<(i64, i64)> = Vec::new();
+    let mut nums: Vec<i64> = days.iter().filter_map(|d| day_number(d)).collect();
+    nums.sort_unstable();
+    nums.dedup();
+    for n in nums {
+        match runs.last_mut() {
+            Some((_, to)) if *to + 1 == n => *to = n,
+            _ => runs.push((n, n)),
+        }
+    }
+    runs.into_iter()
+        .map(|(a, b)| DayOff {
+            from: iso(a),
+            to: iso(b),
+            label: if a == b { date(a * 86_400) } else { format!("{} – {}", date(a * 86_400), date(b * 86_400)) },
+        })
+        .collect()
 }
 
 fn link_base(headers: &HeaderMap, secure: bool) -> String {
@@ -158,7 +259,7 @@ fn link_base(headers: &HeaderMap, secure: bool) -> String {
     format!("{}://{host}", if secure { "https" } else { "http" })
 }
 
-async fn render(app: &AppState, ctx: &Ctx, n: (&str, &str, bool), shown: Shown) -> Result<Response> {
+async fn render(app: &AppState, ctx: &Ctx, n: (&str, Runs, bool), shown: Shown) -> Result<Response> {
     let u = sqlx::query!("SELECT display_name, totp_enabled, totp_enabled_at FROM users WHERE id = ?", ctx.user_id)
         .fetch_one(&app.db)
         .await?;
@@ -209,7 +310,8 @@ async fn render(app: &AppState, ctx: &Ctx, n: (&str, &str, bool), shown: Shown) 
                 } else {
                     (format!("Open until {}", date(r.expires_at)), true)
                 };
-                InviteRow { id: r.id, note: r.note, created: date(r.created_at), status, active }
+                let link = shown.new_invite.as_ref().filter(|(id, _)| *id == r.id).map(|(_, l)| l.clone());
+                InviteRow { id: r.id, link, note: r.note, created: date(r.created_at), status, active }
             })
             .collect();
         let rows = sqlx::query!(
@@ -236,6 +338,7 @@ async fn render(app: &AppState, ctx: &Ctx, n: (&str, &str, bool), shown: Shown) 
                 CodeRow { id: r.id, username: r.username, issued_by, created: date(r.created_at), status, active }
             })
             .collect();
+        let retention = crate::store::retention_days(&app.db).await?;
         let world = crate::store::World::load(&app.db).await?;
         let names = crate::store::usernames(&app.db).await?;
         let mut archived: Vec<&crate::store::Node> = world.nodes.values().filter(|n| n.archived_at.is_some()).collect();
@@ -243,11 +346,11 @@ async fn render(app: &AppState, ctx: &Ctx, n: (&str, &str, bool), shown: Shown) 
         let archived = archived
             .into_iter()
             .map(|n| ArchivedRow {
-                id: n.id,
                 title: n.title.clone(),
                 kind: if n.is_goal() { "Goal" } else { "Task" },
                 owner: n.owner_id.and_then(|o| names.get(&o).cloned()).unwrap_or_else(|| "no one".into()),
                 archived: n.archived_at.map(date).unwrap_or_default(),
+                purge: n.archived_at.map(|a| date(a + retention * 86_400)).unwrap_or_default(),
                 also: crate::nodes::doomed(&world, n.id).len() - 1,
             })
             .collect();
@@ -257,11 +360,11 @@ async fn render(app: &AppState, ctx: &Ctx, n: (&str, &str, bool), shown: Shown) 
         Some(AdminView {
             people,
             admins,
+            retention,
             unowned,
             archived,
             signup_mode,
             invites,
-            new_link: shown.new_link,
             codes,
             issued: shown.issued,
             lookup: shown.lookup,
@@ -283,8 +386,9 @@ async fn render(app: &AppState, ctx: &Ctx, n: (&str, &str, bool), shown: Shown) 
         codes_left,
         days: DAYS.iter().enumerate().map(|(i, l)| Day { index: i, label: l, on: mask & (1 << i) != 0 }).collect(),
         time_zone,
-        days_off: days_off.join(", "),
+        days_off: day_off_chips(&days_off),
         sessions,
+        retention_choices: RETENTION_CHOICES,
         notice_for: n.0,
         notice: n.1,
         is_error: n.2,
@@ -315,7 +419,15 @@ fn back(query: &str, anchor: &str) -> Response {
 
 pub async fn show(State(app): State<Shared>, jar: CookieJar, Query(q): Query<Notice>) -> Result<Response> {
     let ctx = signed_in!(app, jar);
-    render(&app, &ctx, notice(&q), Shown::default()).await
+    let who = match q.user {
+        Some(u) => sqlx::query_scalar!("SELECT username FROM users WHERE id = ?", u)
+            .fetch_optional(&app.db)
+            .await?
+            .unwrap_or_default(),
+        None => String::new(),
+    };
+    let shown = app.flash.take(&ctx.session.reference());
+    render(&app, &ctx, notice(&q, &who), shown).await
 }
 
 #[derive(Deserialize)]
@@ -399,7 +511,6 @@ pub struct CalendarForm {
     d5: Option<String>,
     d6: Option<String>,
     time_zone: String,
-    days_off: String,
 }
 
 pub async fn calendar(State(app): State<Shared>, jar: CookieJar, Form(f): Form<CalendarForm>) -> Result<Response> {
@@ -417,26 +528,74 @@ pub async fn calendar(State(app): State<Shared>, jar: CookieJar, Form(f): Form<C
     if !tz_ok {
         return Ok(back("error=calendar-tz", "cal-h"));
     }
-    let days: Vec<&str> = f.days_off.split([',', '\n', ' ']).map(str::trim).filter(|d| !d.is_empty()).collect();
-    if !days.iter().all(|d| is_iso_date(d)) {
-        return Ok(back("error=calendar-days", "cal-h"));
-    }
-    let mut days: Vec<&str> = days;
-    days.sort_unstable();
-    days.dedup();
-    let json = serde_json::to_string(&days)?;
     sqlx::query!(
-        "INSERT INTO user_calendar (user_id, workdays_mask, time_zone, days_off) VALUES (?, ?, ?, ?)
-         ON CONFLICT (user_id) DO UPDATE SET workdays_mask = excluded.workdays_mask,
-             time_zone = excluded.time_zone, days_off = excluded.days_off",
+        "INSERT INTO user_calendar (user_id, workdays_mask, time_zone, days_off) VALUES (?, ?, ?, '[]')
+         ON CONFLICT (user_id) DO UPDATE SET workdays_mask = excluded.workdays_mask, time_zone = excluded.time_zone",
         ctx.user_id,
         mask,
-        tz,
-        json
+        tz
     )
     .execute(&app.db)
     .await?;
     Ok(back("done=calendar", "cal-h"))
+}
+
+#[derive(Deserialize)]
+pub struct DaysOffForm {
+    csrf: String,
+    action: String,
+    from: String,
+    #[serde(default)]
+    to: String,
+}
+
+/// Add or remove one day off, or a range of them (a blank `to` means just `from`).
+pub async fn days_off(State(app): State<Shared>, jar: CookieJar, Form(f): Form<DaysOffForm>) -> Result<Response> {
+    let ctx = signed_in!(app, jar);
+    check_csrf!(ctx, f.csrf);
+    let from = day_number(f.from.trim());
+    let to = if f.to.trim().is_empty() { from } else { day_number(f.to.trim()) };
+    let (Some(from), Some(to)) = (from, to) else {
+        return Ok(Redirect::to("/settings?error=off-dates").into_response());
+    };
+    if to < from {
+        return Ok(Redirect::to("/settings?error=off-dates").into_response());
+    }
+    if to - from >= MAX_RANGE {
+        return Ok(Redirect::to("/settings?error=off-long").into_response());
+    }
+    let stored = sqlx::query_scalar!("SELECT days_off FROM user_calendar WHERE user_id = ?", ctx.user_id)
+        .fetch_optional(&app.db)
+        .await?
+        .unwrap_or_else(|| "[]".into());
+    let mut days: std::collections::BTreeSet<String> = serde_json::from_str::<Vec<String>>(&stored)
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|d| day_number(d).is_some())
+        .collect();
+    let range = (from..=to).map(iso);
+    let adding = f.action == "add";
+    if adding {
+        days.extend(range);
+        if days.len() > MAX_DAYS_OFF {
+            return Ok(Redirect::to("/settings?error=off-many").into_response());
+        }
+    } else {
+        for d in range {
+            days.remove(&d);
+        }
+    }
+    let json = serde_json::to_string(&days)?;
+    sqlx::query!(
+        "INSERT INTO user_calendar (user_id, workdays_mask, time_zone, days_off) VALUES (?, 31, 'UTC', ?)
+         ON CONFLICT (user_id) DO UPDATE SET days_off = excluded.days_off",
+        ctx.user_id,
+        json
+    )
+    .execute(&app.db)
+    .await?;
+    // No #fragment, so the From box's autofocus works (it scrolls there too).
+    Ok(Redirect::to(if adding { "/settings?done=off-added" } else { "/settings?done=off-removed" }).into_response())
 }
 
 #[derive(Deserialize)]
@@ -485,7 +644,7 @@ pub async fn signup_mode(State(app): State<Shared>, jar: CookieJar, Form(f): For
     if matches!(f.mode.as_str(), "open" | "invite" | "closed") {
         sqlx::query!("UPDATE instance SET signup_mode = ? WHERE id = 1", f.mode).execute(&app.db).await?;
     }
-    Ok(back("done=signup", "adm-h"))
+    Ok(back("done=signup", "signup-h"))
 }
 
 #[derive(Deserialize)]
@@ -512,7 +671,7 @@ pub async fn create_invite(
     let hash = crate::account::token_hash(&token);
     let note: String = crate::views::clean(&f.note, false).chars().take(100).collect();
     let (t, expires) = (now(), now() + INVITE_DAYS * 86_400);
-    sqlx::query!(
+    let id = sqlx::query!(
         "INSERT INTO signup_invites (token_hash, created_by, note, created_at, expires_at) VALUES (?, ?, ?, ?, ?)",
         hash,
         ctx.user_id,
@@ -521,12 +680,14 @@ pub async fn create_invite(
         expires
     )
     .execute(&app.db)
-    .await?;
-    // The link is shown once, on this page, and never stored.
+    .await?
+    .last_insert_rowid();
+    // The link is shown once, next to its invitation, and never stored.
     let base = app.public_url.clone().unwrap_or_else(|| link_base(&headers, app.secure_cookies));
     let link = format!("{base}/join/{token}");
-    let shown = Shown { new_link: Some(link), ..Default::default() };
-    render(&app, &ctx, ("admin", "Invitation created. Copy the link now: it won’t be shown again.", false), shown).await
+    app.flash.put(ctx.session.reference(), Shown { new_invite: Some((id, link)), ..Default::default() });
+    // No #fragment: browsers skip autofocus when there is one, and focusing the link scrolls to it.
+    Ok(Redirect::to("/settings").into_response())
 }
 
 #[derive(Deserialize)]
@@ -549,7 +710,7 @@ pub async fn revoke_invite(State(app): State<Shared>, jar: CookieJar, Form(f): F
     )
     .execute(&app.db)
     .await?;
-    Ok(back("done=revoked", "adm-h"))
+    Ok(back("done=revoked", "inv-h"))
 }
 
 #[derive(Deserialize)]
@@ -569,21 +730,34 @@ pub async fn issue_recovery_code(
         return Ok(forbidden());
     }
     use crate::recovery::IssueOutcome;
-    let lookup = f.username.trim().to_string();
-    let (n, shown) = match crate::recovery::issue(&app, ctx.user_id, &f.username).await? {
-        IssueOutcome::Issued(i) => (
-            ("recovery", "Recovery code created. Give it to them directly; it won’t be shown again.", false),
-            Shown { issued: Some(i), ..Default::default() },
-        ),
-        IssueOutcome::NoSuchUser => {
-            (("recovery", "No one has that username.", true), Shown { lookup, ..Default::default() })
-        }
-        IssueOutcome::Yourself => (
-            ("recovery", "You can’t make a recovery code for yourself. Ask another Administrator.", true),
-            Shown { lookup, ..Default::default() },
-        ),
+    let lookup: String = f.username.trim().chars().take(64).collect();
+    let (to, shown) = match crate::recovery::issue(&app, ctx.user_id, &f.username).await? {
+        IssueOutcome::Issued(i) => ("", Shown { issued: Some(i), ..Default::default() }),
+        IssueOutcome::NoSuchUser => ("?error=recovery-user#rec-h", Shown { lookup, ..Default::default() }),
+        IssueOutcome::Yourself => ("?error=recovery-self#rec-h", Shown { lookup, ..Default::default() }),
     };
-    render(&app, &ctx, n, shown).await
+    app.flash.put(ctx.session.reference(), shown);
+    Ok(Redirect::to(&format!("/settings{to}")).into_response())
+}
+
+#[derive(Deserialize)]
+pub struct RetentionForm {
+    csrf: String,
+    days: i64,
+}
+
+/// How long archived goals and tasks are kept before they're deleted for good.
+pub async fn retention(State(app): State<Shared>, jar: CookieJar, Form(f): Form<RetentionForm>) -> Result<Response> {
+    let ctx = signed_in!(app, jar);
+    check_csrf!(ctx, f.csrf);
+    if !ctx.is_admin {
+        return Ok(forbidden());
+    }
+    if RETENTION_CHOICES.contains(&f.days) {
+        sqlx::query!("UPDATE instance SET archive_retention_days = ? WHERE id = 1", f.days).execute(&app.db).await?;
+        tracing::info!(by = ctx.user_id, days = f.days, "archive retention changed");
+    }
+    Ok(back("done=retention", "archived-h"))
 }
 
 #[derive(Deserialize)]

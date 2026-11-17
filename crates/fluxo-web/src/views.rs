@@ -102,7 +102,6 @@ pub fn error_text(key: Option<&str>) -> Option<&'static str> {
         "risk" => "Give the risk a title, a likelihood from 0 to 100%, and an impact range in days (smallest first).",
         "title" => "Give it a title of up to 200 characters.",
         "estimate" => "Give the task an estimate in working days, like 3 or 0.5.",
-        "archive-first" => "Archive it before deleting it.",
         "no-user" => "No one has that username.",
         "already" => "They already have a role here.",
         "already-owner" => "They already own it.",

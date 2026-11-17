@@ -8,7 +8,7 @@
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="field"><label for="u">Username</label><input id="u" name="username" class="input" value="{{ username }}" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
   <div class="field"><label for="c">Recovery code from an Administrator</label><input id="c" name="code" class="input mono" placeholder="XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" required>
-    <span class="help">Codes work once and expire 24 hours after the Administrator makes them.</span></div>
+    <span class="help">Codes work once and expire after 24 hours.</span></div>
   <button class="btn primary block mt-20">Continue</button>
 </form>
 <p class="auth-foot"><a href="/login">Back to sign in</a></p>

@@ -360,6 +360,10 @@ struct GoalPage<'a> {
     private_here: bool,
     achieved: Option<String>,
     archived: bool,
+    /// When an archived item is deleted for good.
+    purge_on: String,
+    /// Days archived items are kept.
+    retention: i64,
     stamp: String,
     steps: Vec<StepView>,
     anchor_deps: String,
@@ -482,6 +486,7 @@ pub async fn show(
     let error = views::error_text(q.error.as_deref());
     let people = crate::people::view(&app.db, &world, ctx.user_id, id, access).await?;
     let history = views::history(&app.db, &world, ctx.user_id, id).await?;
+    let retention = store::retention_days(&app.db).await?;
     page(GoalPage {
         people,
         history,
@@ -504,6 +509,8 @@ pub async fn show(
         private_here: goal.private,
         achieved: goal.achieved_at.map(date),
         archived: goal.archived_at.is_some(),
+        purge_on: goal.archived_at.map(|a| crate::util::date(a + retention * 86_400)).unwrap_or_default(),
+        retention,
         stamp,
         anchor_deps,
         suggest_achieved: all_done && goal.achieved_at.is_none() && access.is_owner(),

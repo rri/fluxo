@@ -6,7 +6,7 @@
 
   {% if let Some(e) = error %}<p class="form-error" role="alert">{{ e }}</p>{% endif %}
   {% if archived %}
-  <div class="callout mb-12 inline"><span class="grow">This goal is archived. Only you can see it. Restore it, or an Administrator can delete it for good.</span>
+  <div class="callout mb-12 inline"><span class="grow">This goal is archived and will be permanently deleted on {{ purge_on }}.</span>
     <form method="post" action="/nodes/{{ id }}/restore"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn sm">Restore</button></form>
   </div>
   {% endif %}
@@ -61,7 +61,7 @@
   {% endif %}
 
   <section id="path" aria-labelledby="path-h">
-    <div class="section-head"><h2 id="path-h">The path</h2><span class="hint">Read down for what each step needs. Work rises toward the goal.</span></div>
+    <div class="section-head"><h2 id="path-h">The path</h2></div>
     {% if steps.is_empty() %}
     <div class="card card-pad empty"><p><b>No steps yet.</b></p><p class="small muted">Break the goal down into sub-goals and tasks. Until then its path is unknown{% if !size_min.is_empty() %}, and forecasts use its rough size of about {{ size_min }}–{{ size_max }} working days{% else %}, and goals above it can’t include it in their dates{% endif %}.</p>
       {% if can_edit %}
@@ -110,7 +110,7 @@
 
   {% if can_edit %}
   <section id="add" aria-labelledby="add-h">
-    <div class="section-head"><h2 id="add-h">Add a step</h2><span class="hint">A task has a known what and why; a sub-goal’s what is still open</span></div>
+    <div class="section-head"><h2 id="add-h">Add a step</h2></div>
     <form class="card card-pad" method="post" action="/goals/{{ id }}/steps">
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <div class="field"><label for="st-t">Title</label><input id="st-t" name="title" class="input" maxlength="200" required></div>
@@ -166,7 +166,7 @@
       {% if can_edit && !parent_options.is_empty() %}
       <li><form class="row" method="post" action="/nodes/{{ node_id }}/parents"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="add">
         <select name="goal" class="input grow" aria-label="Goal this one also feeds">{% for o in parent_options %}<option value="{{ o.value }}">{{ o.label }}</option>{% endfor %}</select>
-        <button class="btn sm">Also feeds this goal</button></form></li>
+        <button class="btn sm">Add</button></form></li>
       {% endif %}
     </ul>
     {% endif %}
@@ -174,12 +174,12 @@
 
   {% if is_owner %}
   <section id="edit" aria-labelledby="edit-h">
-    <div class="section-head"><h2 id="edit-h">Goal settings</h2><span class="hint">Change the goal deliberately. Adjust the path freely.</span></div>
+    <div class="section-head"><h2 id="edit-h">Goal settings</h2></div>
     <form class="card card-pad" method="post" action="/goals/{{ id }}/statement">
       <input type="hidden" name="csrf" value="{{ csrf }}">
-      <div class="field"><label for="g-title">Goal</label><input id="g-title" name="title" class="input" value="{{ title }}" maxlength="200" required></div>
+      <div class="field"><label for="g-title">Goal headline</label><input id="g-title" name="title" class="input" value="{{ title }}" maxlength="200" required></div>
       <div class="field"><label for="g-why">Why it matters</label><textarea id="g-why" name="why" class="input" maxlength="2000">{{ why }}</textarea></div>
-      <div class="form-actions"><span class="xs faint">Changes to the statement are recorded.</span><button class="btn">Save statement</button></div>
+      <div class="form-actions"><button class="btn">Save</button></div>
     </form>
     <form class="card card-pad mt-12" method="post" action="/goals/{{ id }}/shape">
       <input type="hidden" name="csrf" value="{{ csrf }}">
@@ -190,7 +190,7 @@
           <input type="radio" name="coverage" id="gc-f" value="full"{% if coverage == "full" %} checked{% endif %}><label for="gc-f">Full</label>
         </span>
         <span class="help">Anything short of full adds unknown work to the forecast. Break the goal down further to raise coverage.</span></div>
-      <label class="inline small mt-12"><input type="checkbox" name="private" value="1"{% if private_here %} checked{% endif %}> Private: only people with a role on this goal, or a goal above it, can see it and everything beneath it</label>
+      <label class="check small mt-12"><input type="checkbox" name="private" value="1"{% if private_here %} checked{% endif %}><span><b>Private.</b> Only people with a role on this goal, or a goal above it, can see it and everything beneath it.</span></label>
       <div class="form-actions"><button class="btn">Save</button></div>
     </form>
     <div class="card card-pad mt-12 danger-zone">
@@ -199,12 +199,12 @@
         <span class="grow small">Achieved {{ a }}.</span><button class="btn sm">Reopen</button></form>
       {% else %}
       <form class="inline" method="post" action="/goals/{{ id }}/achieved"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="achieved" value="1">
-        <span class="grow small">Reached the outcome?</span><button class="btn sm">Mark achieved</button></form>
+        <span class="grow small">Outcome reached?</span><button class="btn sm">Mark achieved</button></form>
       {% endif %}
       {% if !archived %}
       <div class="menu-sep sep-16"></div>
       <form class="inline" method="post" action="/nodes/{{ id }}/archive"><input type="hidden" name="csrf" value="{{ csrf }}">
-        <span class="grow"><b class="small">Archive</b><br><span class="xs muted">Hides it and everything only it holds. You can restore it later; an Administrator can delete it for good.</span></span><button class="btn sm danger">Archive goal</button></form>
+        <span class="grow desc"><b class="small">Archive</b><br><span class="xs muted">Archived items are permanently deleted after {{ retention }} days.</span></span><button class="btn sm danger">Archive goal</button></form>
       {% endif %}
     </div>
   </section>
@@ -212,7 +212,7 @@
 
   {% if !archived_steps.is_empty() %}
   <section id="archived" aria-labelledby="arch-h">
-    <div class="section-head"><h2 id="arch-h">Archived steps</h2><span class="hint">Only you see these</span></div>
+    <div class="section-head"><h2 id="arch-h">Archived steps</h2></div>
     <ul class="list card">{% for a in archived_steps %}<li class="row"><a class="grow" href="{{ a.2 }}">{{ a.1 }}</a>
       <form method="post" action="/nodes/{{ a.0 }}/restore"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn sm">Restore</button></form></li>{% endfor %}</ul>
   </section>

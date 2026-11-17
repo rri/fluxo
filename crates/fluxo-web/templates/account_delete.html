@@ -12,7 +12,7 @@
   <form method="post" action="/settings/delete">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <section aria-labelledby="ho-h">
-      <div class="section-head"><h2 id="ho-h">Who takes over</h2><span class="hint">Each has a suggested new owner. Change any of them.</span></div>
+      <div class="section-head"><h2 id="ho-h">Who takes over</h2><span class="hint">Change any suggestion</span></div>
       {% if rows.is_empty() %}
       <div class="card row small muted">You don’t own any goals or tasks.</div>
       {% else %}
@@ -28,7 +28,7 @@
         {% endfor %}
       </ul>
       {% endif %}
-      <p class="xs faint mt-8">Suggestions follow the nearest goal owner above the item, then its longest-standing Contributor, then the Administrators. Each new owner is asked to accept; if they decline, it goes to the Administrators. Your name stays on the history of what you created and changed, and your username stays reserved.</p>
+      <p class="xs faint mt-8">Each new owner must accept. If they decline, the item goes to the Administrators. Your username stays on the history and can’t be reused.</p>
     </section>
 
     {% if is_admin %}

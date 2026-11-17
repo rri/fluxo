@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT archive_retention_days FROM instance WHERE id = 1",
+  "describe": {
+    "columns": [
+      {
+        "name": "archive_retention_days",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "eaf11422439abaf38315d08f33a8df8573af070430bcbe5bd7894c12a9c323cf"
+}

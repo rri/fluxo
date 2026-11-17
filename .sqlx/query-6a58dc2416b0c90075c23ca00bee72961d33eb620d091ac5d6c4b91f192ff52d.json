@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO user_calendar (user_id, workdays_mask, time_zone, days_off) VALUES (?, 31, 'UTC', ?)\n         ON CONFLICT (user_id) DO UPDATE SET days_off = excluded.days_off",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "6a58dc2416b0c90075c23ca00bee72961d33eb620d091ac5d6c4b91f192ff52d"
+}

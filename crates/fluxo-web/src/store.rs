@@ -282,6 +282,11 @@ impl World {
     }
 }
 
+/// Days an archived goal or task is kept before it's deleted for good.
+pub async fn retention_days(db: &SqlitePool) -> Result<i64> {
+    Ok(sqlx::query_scalar!("SELECT archive_retention_days FROM instance WHERE id = 1").fetch_one(db).await?)
+}
+
 pub async fn usernames(db: &SqlitePool) -> Result<HashMap<Id, String>> {
     Ok(sqlx::query!(r#"SELECT id AS "id!", username FROM users"#)
         .fetch_all(db)

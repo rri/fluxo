@@ -83,12 +83,14 @@ fn post_routes(g: i64, t: i64, r: i64) -> Vec<String> {
         "/settings/password",
         "/settings/theme",
         "/settings/calendar",
+        "/settings/calendar/days-off",
         "/settings/sessions/end",
         "/settings/sessions/end-others",
         "/settings/2fa/setup",
         "/settings/2fa/codes",
         "/settings/2fa/off",
         "/settings/admin/signup",
+        "/settings/admin/retention",
         "/settings/admin/invites",
         "/settings/admin/invites/revoke",
         "/settings/admin/recovery",
@@ -104,7 +106,7 @@ fn post_routes(g: i64, t: i64, r: i64) -> Vec<String> {
     for p in ["steps", "statement", "shape", "achieved", "size"] {
         v.push(format!("/goals/{g}/{p}"));
     }
-    for p in ["parents", "needs", "risks", "archive", "restore", "delete", "people", "transfer"] {
+    for p in ["parents", "needs", "risks", "archive", "restore", "people", "transfer"] {
         v.push(format!("/nodes/{t}/{p}"));
     }
     v.push(format!("/tasks/{t}"));
@@ -289,7 +291,7 @@ async fn g8_v2_s3_what_each_kind_of_person_sees() {
         ("/settings/admin/assign", "node=1&username=kofi".into()),
         ("/settings/admin/invites/revoke", "invite=1".into()),
         ("/settings/admin/recovery/revoke", "code=1".into()),
-        ("/nodes/1/delete", String::new()),
+        ("/settings/admin/retention", "days=7".into()),
     ] {
         let r = send(&app, "POST", path, Some(&kofi), Some(&format!("csrf={kt}&{form}"))).await;
         assert_eq!(r.status, StatusCode::FORBIDDEN, "{path}");
@@ -304,7 +306,7 @@ async fn go2_fo3_fo4_empty_states() {
     assert!(goals.contains("No goals yet."));
     assert!(!goals.contains("Tasks not attached") && !goals.contains("Archived"));
     let focus = send(&app, "GET", "/", Some(&ada), None).await.body;
-    assert!(focus.contains("Nothing yet. Updates appear here"));
+    assert!(focus.contains("Nothing yet. Changes to goals"));
     assert!(focus.contains("Nothing to rank yet."));
     assert!(!focus.contains("Waiting on you") && !focus.contains("Mark all read"));
     assert!(!focus.contains(r#"class="count""#), "no badge with nothing new");

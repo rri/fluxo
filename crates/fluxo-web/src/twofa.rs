@@ -219,7 +219,26 @@ pub async fn setup_submit(State(app): State<Shared>, jar: CookieJar, Form(f): Fo
     .execute(&app.db)
     .await?;
     let codes = new_codes(&app, ctx.user_id).await?;
-    codes_page(&ctx.theme, codes, first)
+    show_codes_next(&app, &ctx, codes, first)
+}
+
+/// New codes are shown on the page after a redirect, so reloading can't make another set.
+fn show_codes_next(app: &crate::AppState, ctx: &crate::Ctx, codes: Vec<String>, first: bool) -> Result<Response> {
+    let shown = crate::settings::Shown { codes: Some((codes, first)), ..Default::default() };
+    app.flash.put(ctx.session.reference(), shown);
+    Ok(Redirect::to("/settings/2fa/codes").into_response())
+}
+
+/// The codes just made, once. Afterwards (a reload, a bookmark) it's back to Settings.
+pub async fn codes_shown(State(app): State<Shared>, jar: CookieJar) -> Result<Response> {
+    let ctx = match require_user(&app, &jar).await? {
+        Ok(c) => c,
+        Err(r) => return Ok(r),
+    };
+    match app.flash.take(&ctx.session.reference()).codes {
+        Some((codes, first)) => codes_page(&ctx.theme, codes, first),
+        None => Ok(Redirect::to("/settings#tfa-h").into_response()),
+    }
 }
 
 pub async fn regenerate_codes(
@@ -251,7 +270,7 @@ pub async fn regenerate_codes(
         }
     }
     let codes = new_codes(&app, ctx.user_id).await?;
-    codes_page(&ctx.theme, codes, false)
+    show_codes_next(&app, &ctx, codes, false)
 }
 
 pub async fn turn_off(

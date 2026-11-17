@@ -100,6 +100,8 @@ Status: **Mitigated** (it was already in place), **Fixed** (fixed in this review
 | I11 | Watchers seeing an item's title after it's archived ("X archived") | Accepted | They could already see it; the update tells them where it went. |
 | I12 | Deploy details in the public repository: the server's Tailscale address and its SSH host key | Accepted | The address is reachable only inside the tailnet, and a host key is public by nature. Neither grants access; the deploy key and Tailscale credentials are only in GitHub's encrypted secrets. |
 | I13 | Secrets committed to the repository | Mitigated | Checked across every commit and branch: no private keys, tokens, passwords or `.env` files. `secret.key`, the database and backups live only on the server; `.gitignore` covers build output and test artifacts. |
+| I14 | Invitation links and recovery codes held between a post and the page after it | Mitigated | Kept in process memory only (never the database or logs), keyed by the session that made them, taken on first read and dropped after 5 minutes or a restart. Only that Administrator's next Settings page shows them. |
+| I15 | Archived work kept indefinitely | Mitigated | Archived items are deleted for good after the retention period an Administrator sets (7–365 days). Backups still hold them for up to 7 nights. |
 
 ### Denial of service
 

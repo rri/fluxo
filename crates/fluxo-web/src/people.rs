@@ -289,7 +289,6 @@ struct InvitationPage<'a> {
     inviter: String,
     role: String,
     below: usize,
-    owner: String,
     sent: String,
     expired: bool,
 }
@@ -331,7 +330,6 @@ pub async fn invitation_page(State(app): State<Shared>, jar: CookieJar, Path(id)
         inviter: m.invited_by.and_then(|u| names.get(&u).cloned()).unwrap_or_else(|| "Someone".into()),
         role: m.role,
         below,
-        owner: n.owner_id.and_then(|u| names.get(&u).cloned()).unwrap_or_else(|| "no one".into()),
         sent: crate::util::ago(m.invited_at, now()).to_lowercase(),
         expired: m.invited_at <= now() - INVITE_DAYS * 86_400,
     })

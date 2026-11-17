@@ -2,7 +2,7 @@
 {% block title %}Settings{% endblock %}
 
 {% macro note(section) %}
-{% if notice_for == section %}<p class="notice{% if is_error %} error{% endif %}" role="status">{{ notice }}</p>{% endif %}
+{% if notice_for == section %}<p class="notice{% if is_error %} error{% endif %}" role="status">{% for s in notice %}{% if s.1 %}<b>{{ s.0 }}</b>{% else %}{{ s.0 }}{% endif %}{% endfor %}</p>{% endif %}
 {% endmacro %}
 
 {% block main %}
@@ -15,8 +15,8 @@
     <form class="card card-pad" method="post" action="/settings/profile">
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <dl class="kv">
-        <dt>Role</dt><dd>{% if is_admin %}<span class="pill accent">Administrator</span> <a class="small" href="#adm-h">Administrator settings below</a>{% else %}Member{% endif %}</dd>
-        <dt>Username</dt><dd class="inline"><span class="mono">{{ username }}</span><span class="xs faint">Can’t be changed. People use it to invite you.</span></dd>
+        <dt>Role</dt><dd>{% if is_admin %}<span class="pill accent">Administrator</span>{% else %}Member{% endif %}</dd>
+        <dt>Username</dt><dd class="inline"><span class="mono">{{ username }}</span><span class="xs faint">Usernames are permanent and can’t be changed.</span></dd>
         <dt><label for="dn">Display name</label></dt><dd><input id="dn" name="display_name" class="input w-280" value="{{ display_name }}" maxlength="64"></dd>
       </dl>
       <div class="form-actions"><button class="btn">Save</button></div>
@@ -30,11 +30,11 @@
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <input type="text" name="username" value="{{ username }}" autocomplete="username" hidden>
       <dl class="kv">
-        <dt><label for="cp">Current</label></dt><dd><input id="cp" name="current" type="password" class="input w-280" autocomplete="current-password" required></dd>
-        <dt><label for="np">New</label></dt><dd><input id="np" name="new" type="password" class="input w-280" autocomplete="new-password" minlength="12" required data-strength="#np-bar"><div class="strength w-280" hidden><i id="np-bar"></i></div></dd>
-        <dt><label for="np2">Confirm new</label></dt><dd><input id="np2" name="confirm" type="password" class="input w-280" autocomplete="new-password" required></dd>
+        <dt><label for="cp">Current password</label></dt><dd><input id="cp" name="current" type="password" class="input w-280" autocomplete="current-password" required></dd>
+        <dt><label for="np">New password</label></dt><dd><input id="np" name="new" type="password" class="input w-280" autocomplete="new-password" minlength="12" required data-strength="#np-bar"><div class="strength w-280" hidden><i id="np-bar"></i></div></dd>
+        <dt><label for="np2">Confirm new password</label></dt><dd><input id="np2" name="confirm" type="password" class="input w-280" autocomplete="new-password" required></dd>
       </dl>
-      <div class="form-actions"><span class="xs faint">Changing it signs you out on your other devices.</span><button class="btn">Change password</button></div>
+      <div class="form-actions"><span class="xs faint grow desc">Changing your password signs you out on your other devices.</span><button class="btn">Change password</button></div>
     </form>
   </section>
 
@@ -46,25 +46,25 @@
       <div class="row"><span class="grow"><b class="small">Authenticator app</b><br><span class="xs muted">Added {{ totp_since }}</span></span><a class="btn sm" href="/settings/2fa/setup">Replace</a></div>
       <form class="row row-top" method="post" action="/settings/2fa/codes">
         <input type="hidden" name="csrf" value="{{ csrf }}">
-        <span class="grow"><b class="small">Recovery codes</b><br><span class="xs muted">{{ codes_left }} of 8 unused. Making new ones cancels the old ones.</span></span>
-        <input name="password" type="password" class="input input-sm w-160" placeholder="Your password" aria-label="Your password, to make new codes" autocomplete="current-password" required>
-        <button class="btn sm">Make new codes</button>
+        <span class="grow desc"><b class="small">Recovery codes</b><br><span class="xs muted">{{ codes_left }} of 8 unused. Generating new codes cancels the old ones.</span></span>
+        <input name="password" type="password" class="input input-sm w-160" placeholder="Your password" aria-label="Your password, to generate new codes" autocomplete="current-password" required>
+        <button class="btn sm">Generate new codes</button>
       </form>
       <form class="row row-top" method="post" action="/settings/2fa/off">
         <input type="hidden" name="csrf" value="{{ csrf }}">
-        <span class="grow"><b class="small">Turn off 2FA</b><br><span class="xs muted">Needs your password and a current code</span></span>
+        <span class="grow desc"><b class="small">Turn off 2FA</b><br><span class="xs muted">Requires your password and a current code.</span></span>
         <input name="password" type="password" class="input input-sm w-160" placeholder="Your password" aria-label="Your password, to turn off 2FA" autocomplete="current-password" required>
         <input name="code" class="input input-sm w-90 mono" placeholder="Code" aria-label="Current authenticator code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" required>
         <button class="btn sm danger">Turn off</button>
       </form>
     </div>
     {% else %}
-    <div class="card row"><span class="grow small muted">Add a code from an authenticator app to every sign-in. Recommended.</span><a class="btn sm primary" href="/settings/2fa/setup">Set up 2FA</a></div>
+    <div class="card row wrap"><span class="grow desc small muted">Add a code from an authenticator app to every sign-in. <b>Recommended.</b></span><a class="btn sm primary" href="/settings/2fa/setup">Set up 2FA</a></div>
     {% endif %}
   </section>
 
   <section aria-labelledby="app-h">
-    <div class="section-head"><h2 id="app-h">Appearance</h2><span class="hint">Saved to your account, so it follows you to every device</span></div>
+    <div class="section-head"><h2 id="app-h">Appearance</h2><span class="hint">Applies to all your devices</span></div>
     {% call note("appearance") %}
     <form class="card card-pad" method="post" action="/settings/theme">
       <input type="hidden" name="csrf" value="{{ csrf }}">
@@ -82,19 +82,35 @@
   <section aria-labelledby="cal-h">
     <div class="section-head"><h2 id="cal-h">Working calendar</h2><span class="hint">Turns working-day estimates into dates for goals you own</span></div>
     {% call note("calendar") %}
-    <form class="card card-pad" method="post" action="/settings/calendar">
-      <input type="hidden" name="csrf" value="{{ csrf }}">
-      <dl class="kv">
-        <dt>Working days</dt>
-        <dd class="inline small">{% for d in days %}<label><input type="checkbox" name="d{{ d.index }}" value="1"{% if d.on %} checked{% endif %}> {{ d.label }}</label>{% endfor %}</dd>
-        <dt><label for="tz">Time zone</label></dt>
-        <dd><input id="tz" name="time_zone" class="input w-280" value="{{ time_zone }}" list="tz-list" required>
-          <datalist id="tz-list"><option value="UTC"><option value="Europe/London"><option value="Europe/Lisbon"><option value="Europe/Berlin"><option value="America/New_York"><option value="America/Chicago"><option value="America/Los_Angeles"><option value="Asia/Kolkata"><option value="Asia/Singapore"><option value="Asia/Tokyo"><option value="Australia/Sydney"></datalist></dd>
-        <dt><label for="off">Days off</label></dt>
-        <dd><textarea id="off" name="days_off" class="input mono small" rows="2" placeholder="2026-12-24, 2026-12-25">{{ days_off }}</textarea></dd>
-      </dl>
-      <div class="form-actions"><button class="btn">Save</button></div>
-    </form>
+    <div class="card card-pad">
+      <form method="post" action="/settings/calendar">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <dl class="kv">
+          <dt>Working days</dt>
+          <dd class="inline small">{% for d in days %}<label><input type="checkbox" name="d{{ d.index }}" value="1"{% if d.on %} checked{% endif %}> {{ d.label }}</label>{% endfor %}</dd>
+          <dt><label for="tz">Time zone</label></dt>
+          <dd><input id="tz" name="time_zone" class="input w-280" value="{{ time_zone }}" list="tz-list" required>
+            <datalist id="tz-list"><option value="UTC"><option value="Europe/London"><option value="Europe/Lisbon"><option value="Europe/Berlin"><option value="America/New_York"><option value="America/Chicago"><option value="America/Los_Angeles"><option value="Asia/Kolkata"><option value="Asia/Singapore"><option value="Asia/Tokyo"><option value="Australia/Sydney"></datalist></dd>
+        </dl>
+        <div class="form-actions"><button class="btn">Save</button></div>
+      </form>
+      <div class="menu-sep sep-16"></div>
+      <h3 class="label" id="off-h">Days off</h3>
+      {% call note("days-off") %}
+      {% if !days_off.is_empty() %}
+      <ul class="chips" aria-labelledby="off-h">
+        {% for r in days_off %}
+        <li class="chip">{{ r.label }}<form method="post" action="/settings/calendar/days-off"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="remove"><input type="hidden" name="from" value="{{ r.from }}"><input type="hidden" name="to" value="{{ r.to }}"><button class="x" aria-label="Remove {{ r.label }}">×</button></form></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      <form class="inline" method="post" action="/settings/calendar/days-off">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="add">
+        <span class="inline"><label class="small" for="off-from">From</label><input id="off-from" name="from" type="date" class="input input-sm date" required{% if notice_for == "days-off" %} autofocus{% endif %}></span>
+        <span class="inline"><label class="small" for="off-to">To</label><input id="off-to" name="to" type="date" class="input input-sm date"></span>
+        <button class="btn sm">Add</button>
+      </form>
+    </div>
   </section>
 
   <section aria-labelledby="ses-h">
@@ -112,9 +128,8 @@
   </section>
 
   {% if let Some(admin) = admin %}
-  <section id="administrator" aria-labelledby="adm-h">
-    <div class="section-head"><h2 id="adm-h">Administrator</h2><span class="hint">Only Administrators see this</span></div>
-    {% call note("admin") %}
+  <section id="admin" aria-labelledby="adm-h">
+    <div class="section-head"><h2 id="adm-h">Admin</h2><span class="hint">Actions that impact users across the site</span></div>
 
     <div class="admin-block">
       <div class="section-head"><h3 id="rec-h">Help someone who’s locked out</h3></div>
@@ -124,23 +139,23 @@
           <input type="hidden" name="csrf" value="{{ csrf }}">
           <label class="sr-only" for="rec-user">Username</label>
           <input id="rec-user" name="username" class="input w-280" placeholder="Username" value="{{ admin.lookup }}" autocapitalize="none" spellcheck="false" required>
-          <button class="btn primary">Make a recovery code</button>
+          <button class="btn primary">Generate a recovery code</button>
         </form>
-        <p class="xs faint mt-12">Check who you’re talking to first. The code works once, for 24 hours. They set a new password after using it, and their 2FA is turned off until they set it up again. You never see their password.</p>
+        <p class="xs faint mt-12"><b>Verify the identity of the person you’re talking to and make sure they’re the user.</b> Recovery codes can only be used once, within 24 hours. Users must set a new password immediately after using one, and their 2FA is turned off until they set it up again.</p>
         {% if let Some(i) = admin.issued %}
-        <div class="issued mt-16">
+        <div class="issued mt-16" id="issued">
           <div class="inline">
-            <div class="grow"><div class="xs muted">Recovery code for <b>{{ i.username }}</b></div><input id="issued-code" class="code-field" value="{{ i.code }}" readonly aria-label="Recovery code"></div>
+            <div class="grow"><label class="xs muted" for="issued-code">Recovery code for <b>{{ i.username }}</b></label><input id="issued-code" class="code-field" value="{{ i.code }}" readonly autofocus></div>
             <button class="btn sm js-only" type="button" data-copy="#issued-code">Copy</button>
           </div>
-          <p class="xs muted mt-12">Expires {{ i.expires }}. Give it to {{ i.username }} directly, over a channel you trust. They enter it at <span class="mono">/locked</span>.</p>
+          <p class="xs muted mt-12">Expires {{ i.expires }}. Copy it now: it won’t be shown again. Give it to {{ i.username }} directly, over a channel you trust. They enter it at <span class="mono">/locked</span>.</p>
         </div>
         {% endif %}
       </div>
       {% if !admin.codes.is_empty() %}
       <div class="card table-wrap mt-12">
         <table class="data">
-          <thead><tr><th>Person</th><th>Made by</th><th>When</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>User</th><th>Created by</th><th>Created</th><th>Status</th><th></th></tr></thead>
           <tbody>
           {% for c in admin.codes %}
             <tr><td>{{ c.username }}</td><td class="small">{{ c.issued_by }}</td><td class="small">{{ c.created }}</td><td class="small">{{ c.status }}</td>
@@ -153,7 +168,7 @@
     </div>
 
     <div class="admin-block">
-      <div class="section-head"><h3 id="roles-h">Administrators</h3><span class="hint">Administrators can make other people Administrators</span></div>
+      <div class="section-head"><h3 id="roles-h">Administrators</h3></div>
       {% call note("roles") %}
       <div class="card table-wrap">
         <table class="data">
@@ -170,22 +185,21 @@
           </tbody>
         </table>
       </div>
-      <p class="xs faint mt-8">There must always be at least one Administrator.</p>
     </div>
 
     <div class="admin-block">
-      <div class="section-head"><h3 id="unowned-h">Goals and tasks without an owner</h3><span class="hint">Left when an account was deleted with no one to take them, or when someone declined</span></div>
+      <div class="section-head"><h3 id="unowned-h">Goals and tasks without an owner</h3></div>
       {% call note("unowned") %}
       {% if admin.unowned.is_empty() %}
       <div class="card row small muted">Everything has an owner.</div>
       {% else %}
       <div class="card table-wrap">
         <table class="data">
-          <thead><tr><th>Item</th><th>Was owned by</th><th>Part of</th><th>New owner</th></tr></thead>
+          <thead><tr><th>Item</th><th>Previous owner</th><th>Part of</th><th>Since</th><th>New owner</th></tr></thead>
           <tbody>
           {% for u in admin.unowned %}
-            <tr><td><b>{{ u.title }}</b><br><span class="xs faint">{{ u.kind }}{% if !u.since.is_empty() %} · since {{ u.since }}{% endif %}</span></td>
-              <td class="small">{{ u.was }}</td><td class="small">{{ u.home }}</td>
+            <tr><td><b>{{ u.title }}</b> <span class="xs faint">· {{ u.kind }}</span></td>
+              <td class="small">{{ u.was }}</td><td class="small">{{ u.home }}</td><td class="small">{{ u.since }}</td>
               <td>{% if !u.pending_to.is_empty() %}<span class="small">Offered to <b>{{ u.pending_to }}</b></span><br>{% endif %}
                 <form class="inline" method="post" action="/settings/admin/assign"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="node" value="{{ u.id }}">
                   <input name="username" class="input input-sm w-160" placeholder="Username" aria-label="New owner for {{ u.title }}" autocapitalize="none" required><button class="btn sm">{% if u.pending_to.is_empty() %}Offer{% else %}Offer instead{% endif %}</button></form></td></tr>
@@ -194,23 +208,27 @@
         </table>
       </div>
       {% endif %}
-      <p class="xs faint mt-8">The new owner is asked to accept, as with any transfer. You see titles only; private items stay closed to you unless you have a role on them.</p>
     </div>
 
     <div class="admin-block">
-      <div class="section-head"><h3 id="archived-h">Archived goals and tasks</h3><span class="hint">People archive their own work; only Administrators delete it for good</span></div>
+      <div class="section-head"><h3 id="archived-h">Archived goals and tasks</h3></div>
       {% call note("archived") %}
+      <form class="card row wrap" method="post" action="/settings/admin/retention" data-autosave>
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <label class="grow desc small" for="ret">Delete archived items permanently after</label>
+        <select id="ret" name="days" class="input input-sm w-auto">{% for d in retention_choices %}<option value="{{ d }}"{% if *d == admin.retention %} selected{% endif %}>{{ d }} days</option>{% endfor %}</select>
+        <button class="btn sm no-js">Save</button>
+      </form>
       {% if admin.archived.is_empty() %}
-      <div class="card row small muted">Nothing is archived.</div>
+      <div class="card row small muted mt-12">Nothing is archived.</div>
       {% else %}
-      <div class="card table-wrap">
+      <div class="card table-wrap mt-12">
         <table class="data">
-          <thead><tr><th>Item</th><th>Owner</th><th>Archived</th><th></th></tr></thead>
+          <thead><tr><th>Item</th><th>Owner</th><th>Archived</th><th>Deletion date</th></tr></thead>
           <tbody>
           {% for a in admin.archived %}
-            <tr><td><b>{{ a.title }}</b><br><span class="xs faint">{{ a.kind }}{% if a.also > 0 %} · and {{ a.also }} step{% if a.also != 1 %}s{% endif %} only it holds{% endif %}</span></td>
-              <td class="small">{{ a.owner }}</td><td class="small">{{ a.archived }}</td>
-              <td><form method="post" action="/nodes/{{ a.id }}/delete" data-confirm="Delete “{{ a.title }}”{% if a.also > 0 %} and {{ a.also }} step(s) only it holds{% endif %} permanently? This can’t be undone."><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn sm danger">Delete permanently</button></form></td></tr>
+            <tr><td><b>{{ a.title }}</b> <span class="xs faint">· {{ a.kind }}{% if a.also > 0 %} · {{ a.also }} more step{% if a.also != 1 %}s{% endif %}{% endif %}</span></td>
+              <td class="small">{{ a.owner }}</td><td class="small">{{ a.archived }}</td><td class="small">{{ a.purge }}</td></tr>
           {% endfor %}
           </tbody>
         </table>
@@ -219,7 +237,8 @@
     </div>
 
     <div class="admin-block">
-      <div class="section-head"><h3>Who can sign up</h3></div>
+      <div class="section-head"><h3 id="signup-h">Who can sign up</h3></div>
+      {% call note("signup") %}
       <form class="card card-pad" method="post" action="/settings/admin/signup">
         <input type="hidden" name="csrf" value="{{ csrf }}">
         <div class="choices">
@@ -232,16 +251,11 @@
     </div>
 
     <div class="admin-block">
-      <div class="section-head"><h3>Invitations</h3><span class="hint">Single-use links, valid for 7 days</span></div>
-      {% if let Some(link) = admin.new_link %}
-      <div class="issued mb-12">
-        <div class="xs muted">New invitation link</div>
-        <div class="inline"><input id="new-link" class="input mono grow" value="{{ link }}" readonly aria-label="Invitation link"><button class="btn sm js-only" type="button" data-copy="#new-link">Copy</button></div>
-      </div>
-      {% endif %}
-      <form class="card row" method="post" action="/settings/admin/invites">
+      <div class="section-head"><h3 id="inv-h">Invitations</h3><span class="hint">Single-use links, valid for 7 days</span></div>
+      {% call note("invites") %}
+      <form class="card row wrap" method="post" action="/settings/admin/invites">
         <input type="hidden" name="csrf" value="{{ csrf }}">
-        <input name="note" class="input grow" maxlength="100" placeholder="Who is it for? (optional, only Administrators see this)" aria-label="Note">
+        <input name="note" class="input grow min-200" maxlength="100" placeholder="Who is it for? (optional)" aria-label="Who the invitation is for (optional)">
         <button class="btn primary">Create invitation link</button>
       </form>
       {% if !admin.invites.is_empty() %}
@@ -250,8 +264,14 @@
           <thead><tr><th>Note</th><th>Created</th><th>Status</th><th></th></tr></thead>
           <tbody>
           {% for i in admin.invites %}
-            <tr><td>{% if i.note.is_empty() %}<span class="faint">No note</span>{% else %}{{ i.note }}{% endif %}</td><td class="small">{{ i.created }}</td><td class="small">{{ i.status }}</td>
+            <tr{% if i.link.is_some() %} class="fresh"{% endif %}><td>{% if i.note.is_empty() %}<span class="faint">No note</span>{% else %}{{ i.note }}{% endif %}</td><td class="small">{{ i.created }}</td><td class="small">{{ i.status }}</td>
               <td>{% if i.active %}<form method="post" action="/settings/admin/invites/revoke"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="invite" value="{{ i.id }}"><button class="btn sm ghost">Revoke</button></form>{% endif %}</td></tr>
+            {% if let Some(link) = i.link %}
+            <tr class="fresh" id="new-invite"><td colspan="4">
+              <label class="xs muted" for="new-link">Invitation link. Copy it now: it won’t be shown again.</label>
+              <div class="inline mt-4"><input id="new-link" class="input mono grow" value="{{ link }}" readonly autofocus><button class="btn sm js-only" type="button" data-copy="#new-link">Copy</button></div>
+            </td></tr>
+            {% endif %}
           {% endfor %}
           </tbody>
         </table>
@@ -264,7 +284,7 @@
   <section aria-labelledby="exp-h">
     <div class="section-head"><h2 id="exp-h">Export</h2></div>
     <div class="card card-pad inline">
-      <p class="small muted grow">Download everything you can see (goals, tasks, risks and their history) as a JSON file.</p>
+      <p class="small muted grow desc">Download everything you can see (goals, tasks, risks and their history) as a JSON file.</p>
       <a class="btn" href="/settings/export">Download export</a>
     </div>
   </section>
@@ -272,7 +292,7 @@
   <section aria-labelledby="del-h">
     <div class="section-head"><h2 id="del-h">Delete account</h2></div>
     <div class="card card-pad danger-zone inline">
-      <p class="small muted grow">Your goals and tasks aren’t deleted. You choose who takes over each one, starting from fluxo’s suggestions.</p>
+      <p class="small muted grow desc">Your goals and tasks aren’t deleted. You choose who takes over each one.</p>
       <a class="btn danger" href="/settings/delete">Delete account…</a>
     </div>
   </section>

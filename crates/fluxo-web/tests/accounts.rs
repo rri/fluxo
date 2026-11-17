@@ -81,8 +81,15 @@ async fn sign_up_follows_the_administrators_choice() {
     // An invitation link works once.
     let r = send(&app, "POST", "/settings/admin/invites", Some(&admin), Some(&format!("csrf={atoken}&note=For+kofi")))
         .await;
+    assert_eq!(r.location.as_deref(), Some("/settings"), "post, then redirect: reloading can't resubmit");
+    let r = send(&app, "GET", "/settings", Some(&admin), None).await;
     assert!(r.body.contains("won’t be shown again"));
+    assert!(r.body.contains(r#"<tr class="fresh" id="new-invite">"#), "the link sits with its invitation");
     let link = field(&r.body, r#"id="new-link" class="input mono grow" value=""#);
+    assert!(
+        !send(&app, "GET", "/settings", Some(&admin), None).await.body.contains("new-link"),
+        "shown once: a reload doesn't show it again"
+    );
     assert!(link.starts_with("https://fluxo.test/join/"));
     let path = link.trim_start_matches("https://fluxo.test");
     let r = send(&app, "GET", path, None, None).await;
@@ -107,7 +114,8 @@ async fn sign_up_follows_the_administrators_choice() {
     assert_eq!(r.status, StatusCode::FORBIDDEN);
 
     // Revoked links stop working.
-    let r = send(&app, "POST", "/settings/admin/invites", Some(&admin), Some(&format!("csrf={atoken}&note="))).await;
+    send(&app, "POST", "/settings/admin/invites", Some(&admin), Some(&format!("csrf={atoken}&note="))).await;
+    let r = send(&app, "GET", "/settings", Some(&admin), None).await;
     let path2 = field(&r.body, r#"id="new-link" class="input mono grow" value=""#).replace("https://fluxo.test", "");
     let id = field(&r.body, r#"name="invite" value=""#);
     send(&app, "POST", "/settings/admin/invites/revoke", Some(&admin), Some(&format!("csrf={atoken}&invite={id}")))
@@ -124,7 +132,8 @@ async fn sign_up_follows_the_administrators_choice() {
     assert_eq!(r.location.as_deref(), Some("/settings/2fa/setup?first=1"));
 
     // Closed: no sign-up, and even fresh invitation links don't work.
-    let r = send(&app, "POST", "/settings/admin/invites", Some(&admin), Some(&format!("csrf={atoken}&note="))).await;
+    send(&app, "POST", "/settings/admin/invites", Some(&admin), Some(&format!("csrf={atoken}&note="))).await;
+    let r = send(&app, "GET", "/settings", Some(&admin), None).await;
     let path3 = field(&r.body, r#"id="new-link" class="input mono grow" value=""#).replace("https://fluxo.test", "");
     send(&app, "POST", "/settings/admin/signup", Some(&admin), Some(&format!("csrf={atoken}&mode=closed"))).await;
     assert!(send(&app, "GET", "/signup", None, None).await.body.contains("Sign-up isn’t open"));
@@ -162,7 +171,11 @@ async fn turning_on_2fa_gives_recovery_codes_that_work_once() {
     let code = totp::code_at(&secret, now() as u64);
     let r =
         send(&app, "POST", "/settings/2fa/setup", Some(&c), Some(&format!("csrf={token}&code={code}&first="))).await;
+    assert_eq!(r.location.as_deref(), Some("/settings/2fa/codes"), "post, then redirect");
+    let r = send(&app, "GET", "/settings/2fa/codes", Some(&c), None).await;
     assert!(r.body.contains("Save your recovery codes"));
+    let reload = send(&app, "GET", "/settings/2fa/codes", Some(&c), None).await;
+    assert_eq!(reload.location.as_deref(), Some("/settings#tfa-h"), "shown once; a reload makes no new codes");
     let codes: Vec<String> = r.body.split("<span>").skip(1).map(|s| s[..9].to_string()).collect();
     assert_eq!(codes.len(), 8);
     assert!(codes.iter().all(|c| c.len() == 9 && &c[4..5] == "-"));
@@ -242,36 +255,41 @@ async fn settings_save_and_validate() {
     );
 
     // Calendar.
-    let r = send(
-        &app,
-        "POST",
-        "/settings/calendar",
-        Some(&c),
-        Some(&format!("csrf={token}&time_zone=Europe%2FLisbon&days_off=")),
-    )
-    .await;
+    let r =
+        send(&app, "POST", "/settings/calendar", Some(&c), Some(&format!("csrf={token}&time_zone=Europe%2FLisbon")))
+            .await;
     assert_eq!(r.location.as_deref(), Some("/settings?error=calendar-none#cal-h"));
     let r = send(
         &app,
         "POST",
         "/settings/calendar",
         Some(&c),
-        Some(&format!("csrf={token}&d0=1&time_zone=Europe%2FLisbon&days_off=24%2F12")),
-    )
-    .await;
-    assert_eq!(r.location.as_deref(), Some("/settings?error=calendar-days#cal-h"));
-    let r = send(
-        &app,
-        "POST",
-        "/settings/calendar",
-        Some(&c),
-        Some(&format!("csrf={token}&d0=1&d2=1&time_zone=Europe%2FLisbon&days_off=2026-12-25%2C+2026-12-24")),
+        Some(&format!("csrf={token}&d0=1&d2=1&time_zone=Europe%2FLisbon")),
     )
     .await;
     assert_eq!(r.location.as_deref(), Some("/settings?done=calendar#cal-h"));
+
+    // Days off are added a day or a range at a time, and shown as ranges.
+    let off = |q: &str| format!("csrf={token}&{q}");
+    for (q, to) in [
+        ("action=add&from=2026-12-24&to=2026-12-20", "/settings?error=off-dates"),
+        ("action=add&from=2026-02-30&to=", "/settings?error=off-dates"),
+        ("action=add&from=2026-01-01&to=2027-06-01", "/settings?error=off-long"),
+        ("action=add&from=2026-12-24&to=2027-01-01", "/settings?done=off-added"),
+        ("action=add&from=2026-11-27&to=", "/settings?done=off-added"),
+        ("action=remove&from=2026-12-28&to=2026-12-28", "/settings?done=off-removed"),
+    ] {
+        let r = send(&app, "POST", "/settings/calendar/days-off", Some(&c), Some(&off(q))).await;
+        assert_eq!(r.location.as_deref(), Some(to), "{q}");
+    }
     let (mask, days): (i64, String) =
         sqlx::query_as("SELECT workdays_mask, days_off FROM user_calendar").fetch_one(&app.db).await.unwrap();
-    assert_eq!((mask, days.as_str()), (0b101, r#"["2026-12-24","2026-12-25"]"#));
+    assert_eq!(mask, 0b101);
+    assert_eq!(days.matches("2026-").count() + days.matches("2027-").count(), 9, "{days}");
+    let page = send(&app, "GET", "/settings", Some(&c), None).await.body;
+    for chip in ["Nov 27, 2026<form", "Dec 24, 2026 – Dec 27, 2026<form", "Dec 29, 2026 – Jan 1, 2027<form"] {
+        assert!(page.contains(chip), "{chip}");
+    }
 
     // Changing the password signs out other devices.
     let r = send(
@@ -306,21 +324,35 @@ async fn administrator_code_gets_a_locked_out_person_back_in() {
     let admin = sign_in(&app, "ada", None).await;
     let token = csrf(&send(&app, "GET", "/settings", Some(&admin), None).await.body);
 
-    let r =
-        send(&app, "POST", "/settings/admin/recovery", Some(&admin), Some(&format!("csrf={token}&username=ada"))).await;
-    assert!(r.body.contains("can’t make a recovery code for yourself"));
-    let r =
-        send(&app, "POST", "/settings/admin/recovery", Some(&admin), Some(&format!("csrf={token}&username=nobody")))
+    // Each post redirects; what it made is shown once on the page that follows.
+    let issue = |who: &'static str| {
+        let (app, admin, token) = (&app, admin.clone(), token.clone());
+        async move {
+            let r = send(
+                app,
+                "POST",
+                "/settings/admin/recovery",
+                Some(&admin),
+                Some(&format!("csrf={token}&username={who}")),
+            )
             .await;
-    assert!(r.body.contains("No one has that username"));
-    let r = send(&app, "POST", "/settings/admin/recovery", Some(&admin), Some(&format!("csrf={token}&username=Kofi")))
-        .await;
-    let first = field(&r.body, r#"id="issued-code" class="code-field" value=""#);
-    let r = send(&app, "POST", "/settings/admin/recovery", Some(&admin), Some(&format!("csrf={token}&username=kofi")))
-        .await;
-    let code = field(&r.body, r#"id="issued-code" class="code-field" value=""#);
+            let to = r.location.expect("redirects");
+            let page = to.split('#').next().unwrap_or_default().to_string();
+            (to, send(app, "GET", &page, Some(&admin), None).await.body)
+        }
+    };
+    let (to, body) = issue("ada").await;
+    assert_eq!(to, "/settings?error=recovery-self#rec-h");
+    assert!(body.contains("can’t generate a recovery code for yourself"));
+    let (_, body) = issue("nobody").await;
+    assert!(body.contains(r#"value="nobody""#), "the username stays in the box");
+    let (to, body) = issue("Kofi").await;
+    assert_eq!(to, "/settings");
+    let first = field(&body, r#"id="issued-code" class="code-field" value=""#);
+    let (_, r) = issue("kofi").await;
+    let code = field(&r, r#"id="issued-code" class="code-field" value=""#);
     assert_ne!(first, code);
-    assert!(r.body.contains("Cancelled"), "a new code cancels the earlier one");
+    assert!(r.contains("Cancelled"), "a new code cancels the earlier one");
 
     let r = send(&app, "GET", "/locked", None, None).await;
     let (anon, t) = (r.cookie.unwrap(), csrf(&r.body));
