@@ -42,6 +42,8 @@ Create a `production` environment (deployments from `main` only) holding:
   Auth Keys write scope and the tag `tag:ci`.
 - `DEPLOY_SSH_KEY`: the private half of fluxo's deploy key (below).
 - `DEPLOY_KNOWN_HOSTS`: the server's SSH host key, as `100.82.93.4 ssh-ed25519 …`.
+  Take it from the server itself, not from `ssh-keyscan`:
+  `ssh root@SERVER 'cat /etc/ssh/ssh_host_ed25519_key.pub' | awk '{print "100.82.93.4", $1, $2}'`.
 
 Make fluxo's own deploy key, on your machine, not the server:
 
@@ -97,4 +99,9 @@ recovery code and set up 2FA again.
 - Deploy logs: `journalctl -t fluxo-deploy`.
 - A snapshot any time: `runuser -u fluxo -- env FLUXO_CONFIG=/etc/fluxo/fluxo.toml fluxo backup /mnt/data/fluxo/backups/manual.db`.
 - Backups: nightly snapshots (7 kept) and pre-deploy copies (5 kept) are in
-  `/mnt/data/fluxo/backups`, on the same volume as the database.
+  `/mnt/data/fluxo/backups`, on the same volume as the database. There is no
+  off-site copy, so copy a snapshot off the server by hand when it matters:
+  `scp 'root@SERVER:/mnt/data/fluxo/backups/nightly-*.db' .` (all 7).
+  To restore one: stop fluxo, delete `fluxo.db-wal` and `fluxo.db-shm`, put the
+  snapshot in place with `install -m 600 -o fluxo -g fluxo SNAPSHOT /mnt/data/fluxo/fluxo.db`
+  and start fluxo.
