@@ -392,3 +392,40 @@ test('every page meets WCAG 2.1 AA in light and dark (G15)', async ({ browser },
   await context.close();
   expect(problems).toEqual([]);
 });
+
+/** Places where the page is wider than the screen: sideways scrolling, or something sticking out of it. */
+async function overflow(page) {
+  return page.evaluate(() => {
+    const W = document.documentElement.clientWidth, out = [];
+    if (document.documentElement.scrollWidth > W + 1) out.push(`page is ${document.documentElement.scrollWidth}px wide`);
+    const scrolls = (e) => { for (let a = e.parentElement; a && a !== document.body; a = a.parentElement) if (/auto|scroll|hidden/.test(getComputedStyle(a).overflowX)) return true; return false; };
+    for (const e of document.querySelectorAll('body *')) {
+      const r = e.getBoundingClientRect();
+      if (!r.width || !r.height || e.closest('[hidden], .sr-only')) continue;
+      if ((r.right > W + 1 || r.left < -1) && !scrolls(e)) out.push(`${e.tagName.toLowerCase()}.${e.className} «${(e.innerText || '').trim().slice(0, 30)}»`);
+    }
+    return out.slice(0, 5);
+  });
+}
+
+test('every page fits a phone screen (G16)', async ({ browser }, info) => {
+  const context = await browser.newContext({ ...info.project.use, viewport: { width: 320, height: 720 } });
+  const page = await context.newPage();
+  const problems = [];
+  const check = async (path) => {
+    for (const width of [320, 390]) {
+      await page.setViewportSize({ width, height: 720 });
+      await page.goto(path);
+      for (const p of await overflow(page)) problems.push(`${width}px ${path}: ${p}`);
+    }
+  };
+  for (const path of ['/login', '/signup', '/locked', '/join/not-a-real-link', '/nope']) await check(path);
+  await signInAsAda(page, info);
+  await page.goto('/goals');
+  const goal = await page.getByRole('link', { name: /Launch the beta/ }).getAttribute('href');
+  await page.goto(goal);
+  const task = await page.locator('a[href^="/tasks/"]').first().getAttribute('href');
+  for (const path of ['/', '/goals', goal, task, '/goals/new', '/settings', '/settings/2fa/setup', '/settings/delete', '/goals/999999']) await check(path);
+  await context.close();
+  expect(problems).toEqual([]);
+});

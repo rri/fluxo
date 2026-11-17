@@ -69,7 +69,7 @@
             <form method="post" action="/focus/snooze"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="item" value="{{ i.key }}"><button class="btn sm ghost">Snooze until tomorrow</button></form>
           </div>
         </div>
-        <div class="gain">{% if let Some(g) = i.gain %}<div class="v">{% if !i.exact %}~{% endif %}−{{ "{:.1}"|format(g) }}d</div><div class="l">expected</div>{% else %}<div class="v faint">?</div><div class="l">not sized</div>{% endif %}</div>
+        <div class="gain">{% if let Some(g) = i.gain %}<div class="v">{% if *g < 0.05 %}&lt;0.1d{% else %}{% if !i.exact %}~{% endif %}−{{ "{:.1}"|format(g) }}d{% endif %}</div><div class="l">expected</div>{% else %}<div class="v faint">?</div><div class="l">not sized</div>{% endif %}</div>
       </li>
       {% endfor %}
     </ol>

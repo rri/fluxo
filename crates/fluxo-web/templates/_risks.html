@@ -28,7 +28,7 @@
         <input type="hidden" name="csrf" value="{{ csrf }}">
         <input name="title" class="input grow min-200" placeholder="New risk…" aria-label="Risk title" maxlength="200" required>
         <span class="inline small muted"><input name="likelihood" class="input num w-60" placeholder="%" aria-label="Likelihood %" inputmode="numeric" required>likely, adds
-          <input name="min" class="input num w-56" placeholder="min" aria-label="Impact at least, days" inputmode="decimal" required>–<input name="max" class="input num w-56" placeholder="max" aria-label="Impact at most, days" inputmode="decimal" required>days</span>
+          <span class="inline nowrap"><input name="min" class="input num w-56" placeholder="min" aria-label="Impact at least, days" inputmode="decimal" required>–<input name="max" class="input num w-56" placeholder="max" aria-label="Impact at most, days" inputmode="decimal" required>days</span></span>
         <button class="btn sm">Add risk</button>
       </form>
     </li>

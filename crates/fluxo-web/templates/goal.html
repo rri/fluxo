@@ -80,7 +80,7 @@
       {% if !gap.is_empty() %}<span><i class="lg-box"></i>Unknown work</span>{% endif %}
       <span>Left bar = criticality %</span>
     </div>
-    <div class="card pad-20"><div class="graph">
+    <div class="card pad-20"><div class="graph-scroll"><div class="graph">
       <ol class="path-list">
         <li data-id="goal" data-deps="{{ anchor_deps }}{% if !gap.is_empty() %} gap{% endif %}" data-path="1" data-wide="1">
           <a class="node anchor" href="#top"><span class="n-kind">Goal</span><span class="n-title">{{ title }}</span><span class="n-meta"><span>coverage {{ coverage }}</span></span></a>
@@ -103,8 +103,8 @@
         </li>
         {% endif %}
       </ol>
-    </div>
-    <div class="axis-note"><span>↑ finishes last</span><span>Hover a step to trace it</span><span>↓ starts first</span></div></div>
+    </div></div>
+    <div class="axis-note"><span>↑ finishes last</span><span class="hover-only">Hover a step to trace it</span><span>↓ starts first</span></div></div>
     {% endif %}
   </section>
 
@@ -158,7 +158,7 @@
 
   <section id="links-h" aria-labelledby="feeds-h">
     <div class="section-head"><h2 id="feeds-h">Feeds</h2><span class="hint">{% if feeds.is_empty() %}No goal in fluxo yet{% else %}The goals this one contributes to{% endif %}</span></div>
-    {% if !feeds.is_empty() || (is_owner && !parent_options.is_empty()) %}
+    {% if !feeds.is_empty() || (can_edit && !parent_options.is_empty()) %}
     <ul class="list card">
       {% for p in feeds %}<li class="row"><span class="grow">{% if p.href.is_empty() %}{{ p.title }}{% else %}<a href="{{ p.href }}">{{ p.title }}</a>{% endif %}{% if p.home %} <span class="pill accent">home</span>{% endif %}</span>
         {% if can_edit %}{% if !p.home %}<form method="post" action="/nodes/{{ node_id }}/parents"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="home"><input type="hidden" name="goal" value="{{ p.id }}"><button class="btn sm ghost">Make home</button></form>{% endif %}

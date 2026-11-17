@@ -430,7 +430,7 @@ pub async fn show(
     let stamp = if goal.statement_changed_at > goal.created_at + 60 {
         format!("Set {} · statement changed {}", date(goal.created_at), date(goal.statement_changed_at))
     } else {
-        format!("Set {} · statement unchanged since", date(goal.created_at))
+        format!("Set {} · never changed", date(goal.created_at))
     };
     let risks = views::risk_views(store::risks(&app.db, id).await?);
     let (path_risks, exposure) = views::path_risks(&app.db, &world, ctx.user_id, id).await?;

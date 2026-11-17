@@ -88,7 +88,8 @@
     graph.classList.add('enhanced');
 
     function layout() {
-      var W = graph.clientWidth, gapX = 16, gapY = 46, DW = 10;
+      graph.style.width = '';
+      var W = graph.clientWidth, gapX = 16, gapY = 46, DW = 10, MINW = 128;
       var rows = []; for (var i = 0; i < nRows; i++) rows.push([]);
       nodes.forEach(function (n) { rows[n.row].push(n); n.ups = []; });
       // Every edge joins an upper item (the dependent, smaller row) to a lower one (its prerequisite).
@@ -107,6 +108,16 @@
           chains.push({ upper: n, lower: p, pts: chain });
         });
       });
+      // Too many steps side by side to stay readable: widen the graph and let its card scroll.
+      rows.forEach(function (r) {
+        var real = r.filter(function (x) { return !x.dummy; }).length, dum = r.length - real;
+        W = Math.max(W, real * MINW + dum * (DW + gapX) + Math.max(real - 1, 0) * gapX);
+      });
+      if (W > graph.clientWidth) {
+        graph.style.width = W + 'px';
+        var sc = graph.closest('.graph-scroll'); // open centred on the goal at the top
+        if (sc) sc.scrollLeft = (sc.scrollWidth - sc.clientWidth) / 2;
+      }
       var nodeW = 240;
       rows.forEach(function (r) {
         var real = r.filter(function (x) { return !x.dummy; }).length, dum = r.length - real;

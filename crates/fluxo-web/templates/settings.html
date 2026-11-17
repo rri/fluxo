@@ -106,8 +106,8 @@
       {% endif %}
       <form class="inline" method="post" action="/settings/calendar/days-off">
         <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="add">
-        <span class="inline"><label class="small" for="off-from">From</label><input id="off-from" name="from" type="date" class="input input-sm date" required{% if notice_for == "days-off" %} autofocus{% endif %}></span>
-        <span class="inline"><label class="small" for="off-to">To</label><input id="off-to" name="to" type="date" class="input input-sm date"></span>
+        <span class="inline"><label class="small w-label" for="off-from">From</label><input id="off-from" name="from" type="date" class="input input-sm date" required{% if notice_for == "days-off" %} autofocus{% endif %}></span>
+        <span class="inline"><label class="small w-label" for="off-to">To</label><input id="off-to" name="to" type="date" class="input input-sm date"></span>
         <button class="btn sm">Add</button>
       </form>
     </div>
@@ -138,7 +138,7 @@
         <form class="inline" method="post" action="/settings/admin/recovery">
           <input type="hidden" name="csrf" value="{{ csrf }}">
           <label class="sr-only" for="rec-user">Username</label>
-          <input id="rec-user" name="username" class="input w-280" placeholder="Username" value="{{ admin.lookup }}" autocapitalize="none" spellcheck="false" required>
+          <input id="rec-user" name="username" class="input grow min-200" placeholder="Username" value="{{ admin.lookup }}" autocapitalize="none" spellcheck="false" required>
           <button class="btn primary">Generate a recovery code</button>
         </form>
         <p class="xs faint mt-12"><b>Verify the identity of the person you’re talking to and make sure they’re the user.</b> Recovery codes can only be used once, within 24 hours. Users must set a new password immediately after using one, and their 2FA is turned off until they set it up again.</p>
@@ -154,11 +154,11 @@
       </div>
       {% if !admin.codes.is_empty() %}
       <div class="card table-wrap mt-12">
-        <table class="data">
+        <table class="data stack">
           <thead><tr><th>User</th><th>Created by</th><th>Created</th><th>Status</th><th></th></tr></thead>
           <tbody>
           {% for c in admin.codes %}
-            <tr><td>{{ c.username }}</td><td class="small">{{ c.issued_by }}</td><td class="small">{{ c.created }}</td><td class="small">{{ c.status }}</td>
+            <tr><td><b>{{ c.username }}</b></td><td class="small" data-label="Created by">{{ c.issued_by }}</td><td class="small" data-label="Created">{{ c.created }}</td><td class="small" data-label="Status">{{ c.status }}</td>
               <td>{% if c.active %}<form method="post" action="/settings/admin/recovery/revoke"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="code" value="{{ c.id }}"><button class="btn sm ghost">Cancel</button></form>{% endif %}</td></tr>
           {% endfor %}
           </tbody>
@@ -171,13 +171,13 @@
       <div class="section-head"><h3 id="roles-h">Administrators</h3></div>
       {% call note("roles") %}
       <div class="card table-wrap">
-        <table class="data">
+        <table class="data stack">
           <thead><tr><th>Username</th><th>Role</th><th>2FA</th><th>Last active</th><th></th></tr></thead>
           <tbody>
           {% for p in admin.people %}
             <tr><td>{{ p.username }}{% if p.me %} <span class="xs faint">(you)</span>{% endif %}</td>
-              <td>{% if p.is_admin %}<span class="pill accent">Administrator</span>{% else %}Member{% endif %}</td>
-              <td class="small">{% if p.tfa %}On{% else %}Off{% endif %}</td><td class="small">{{ p.active }}</td>
+              <td data-label="Role">{% if p.is_admin %}<span class="pill accent">Administrator</span>{% else %}Member{% endif %}</td>
+              <td class="small" data-label="2FA">{% if p.tfa %}On{% else %}Off{% endif %}</td><td class="small" data-label="Last active">{{ p.active }}</td>
               <td><form method="post" action="/settings/admin/role"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="user" value="{{ p.id }}">
                 {% if p.is_admin %}{% if admin.admins > 1 %}<input type="hidden" name="admin" value="0"><button class="btn sm ghost">Remove Administrator</button>{% endif %}
                 {% else %}<input type="hidden" name="admin" value="1"><button class="btn sm">Make Administrator</button>{% endif %}</form></td></tr>
@@ -194,12 +194,12 @@
       <div class="card row small muted">Everything has an owner.</div>
       {% else %}
       <div class="card table-wrap">
-        <table class="data">
+        <table class="data stack">
           <thead><tr><th>Item</th><th>Previous owner</th><th>Part of</th><th>Since</th><th>New owner</th></tr></thead>
           <tbody>
           {% for u in admin.unowned %}
             <tr><td><b>{{ u.title }}</b> <span class="xs faint">· {{ u.kind }}</span></td>
-              <td class="small">{{ u.was }}</td><td class="small">{{ u.home }}</td><td class="small">{{ u.since }}</td>
+              <td class="small" data-label="Previous owner">{{ u.was }}</td><td class="small" data-label="Part of">{{ u.home }}</td><td class="small" data-label="Since">{{ u.since }}</td>
               <td>{% if !u.pending_to.is_empty() %}<span class="small">Offered to <b>{{ u.pending_to }}</b></span><br>{% endif %}
                 <form class="inline" method="post" action="/settings/admin/assign"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="node" value="{{ u.id }}">
                   <input name="username" class="input input-sm w-160" placeholder="Username" aria-label="New owner for {{ u.title }}" autocapitalize="none" required><button class="btn sm">{% if u.pending_to.is_empty() %}Offer{% else %}Offer instead{% endif %}</button></form></td></tr>
@@ -223,12 +223,12 @@
       <div class="card row small muted mt-12">Nothing is archived.</div>
       {% else %}
       <div class="card table-wrap mt-12">
-        <table class="data">
+        <table class="data stack">
           <thead><tr><th>Item</th><th>Owner</th><th>Archived</th><th>Deletion date</th></tr></thead>
           <tbody>
           {% for a in admin.archived %}
             <tr><td><b>{{ a.title }}</b> <span class="xs faint">· {{ a.kind }}{% if a.also > 0 %} · {{ a.also }} more step{% if a.also != 1 %}s{% endif %}{% endif %}</span></td>
-              <td class="small">{{ a.owner }}</td><td class="small">{{ a.archived }}</td><td class="small">{{ a.purge }}</td></tr>
+              <td class="small" data-label="Owner">{{ a.owner }}</td><td class="small" data-label="Archived">{{ a.archived }}</td><td class="small" data-label="Deletion date">{{ a.purge }}</td></tr>
           {% endfor %}
           </tbody>
         </table>
@@ -260,11 +260,11 @@
       </form>
       {% if !admin.invites.is_empty() %}
       <div class="card table-wrap mt-12">
-        <table class="data">
+        <table class="data stack">
           <thead><tr><th>Note</th><th>Created</th><th>Status</th><th></th></tr></thead>
           <tbody>
           {% for i in admin.invites %}
-            <tr{% if i.link.is_some() %} class="fresh"{% endif %}><td>{% if i.note.is_empty() %}<span class="faint">No note</span>{% else %}{{ i.note }}{% endif %}</td><td class="small">{{ i.created }}</td><td class="small">{{ i.status }}</td>
+            <tr{% if i.link.is_some() %} class="fresh"{% endif %}><td>{% if i.note.is_empty() %}<span class="faint">No note</span>{% else %}{{ i.note }}{% endif %}</td><td class="small" data-label="Created">{{ i.created }}</td><td class="small" data-label="Status">{{ i.status }}</td>
               <td>{% if i.active %}<form method="post" action="/settings/admin/invites/revoke"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="invite" value="{{ i.id }}"><button class="btn sm ghost">Revoke</button></form>{% endif %}</td></tr>
             {% if let Some(link) = i.link %}
             <tr class="fresh" id="new-invite"><td colspan="4">

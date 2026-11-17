@@ -26,7 +26,7 @@
   {% if people.can_invite %}
   <div class="card card-pad mt-12">
     {% if people.transfer_to.is_empty() %}
-    <form class="inline" method="post" action="/nodes/{{ node_id }}/transfer"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="request">
+    <form class="inline transfer-form" method="post" action="/nodes/{{ node_id }}/transfer"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="request">
       <span class="grow desc"><b class="small">Transfer ownership</b><br><span class="xs muted">You stay on as a Contributor.</span></span>
       <input name="username" class="input input-sm w-160" placeholder="Username" aria-label="Transfer to" autocapitalize="none" required>
       <input name="note" class="input input-sm w-160" placeholder="Note (optional)" aria-label="Note for them" maxlength="500">

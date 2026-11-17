@@ -69,9 +69,12 @@ async fn ranks_by_expected_delay_removed() {
     // Retiring the 50% risk of 4–8 days (~3 days) beats settling the task's own uncertainty.
     assert_eq!(titles[..2], ["Vendor slip", "Long and fuzzy"], "{items:?}");
     assert_eq!(*titles.last().unwrap(), "Short and clear", "off the critical path, little to gain");
-    assert!(items.iter().all(|(_, g)| g.starts_with('−')), "top items are exact rechecks, no ~: {items:?}");
+    // Exact rechecks, so no "~"; a gain that rounds to nothing reads "<0.1d", never "−0.0d".
+    assert!(items.iter().all(|(_, g)| g.starts_with('−') || g == "&lt;0.1d"), "{items:?}");
+    assert!(!r.body.contains("−0.0d"));
     let gain = |name: &str| -> f64 {
-        items.iter().find(|(t, _)| t == name).unwrap().1.trim_start_matches('−').trim_end_matches('d').parse().unwrap()
+        let g = &items.iter().find(|(t, _)| t == name).unwrap().1;
+        if g == "&lt;0.1d" { 0.0 } else { g.trim_start_matches('−').trim_end_matches('d').parse().unwrap() }
     };
     // A 50% risk of 4–8 days on a task that's always critical removes about 3 days.
     assert!((gain("Vendor slip") - 3.0).abs() < 0.6, "{}", gain("Vendor slip"));

@@ -218,7 +218,7 @@ section + section { margin-top: 36px; }
 .field + .field { margin-top: 16px; }
 .field label, .label { font-size: 13px; font-weight: 550; color: var(--text); }
 .field .help { font-size: 12px; color: var(--text-3); }
-.input, select.input, textarea.input {
+.input {
   width: 100%; height: 38px; padding: 0 12px; border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font: inherit;
 }
@@ -250,7 +250,7 @@ textarea.input { height: auto; min-height: 72px; padding: 10px 12px; resize: ver
 .tab .n { font: 12px var(--mono); color: var(--text-3); margin-left: 4px; }
 
 /* ---------- Focus inbox ---------- */
-.focus-item { display: grid; grid-template-columns: 28px 1fr auto; gap: 14px; padding: 16px 18px; align-items: start; }
+.focus-item { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 14px; padding: 16px 18px; align-items: start; }
 .focus-item .rank { font: 600 13px var(--mono); color: var(--text-3); padding-top: 2px; }
 .focus-item .title { font-weight: 550; color: var(--text); }
 .focus-item .title:hover { color: var(--accent); text-decoration: none; }
@@ -267,7 +267,7 @@ textarea.input { height: auto; min-height: 72px; padding: 10px 12px; resize: ver
 
 
 /* ---------- Forecast band ---------- */
-.forecast { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border); border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
+.forecast { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1px; background: var(--border); border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
 .forecast > div { background: var(--surface); padding: 14px 16px; }
 .forecast .k { font-size: 12px; color: var(--text-3); }
 .forecast .v { font: 600 18px var(--mono); margin-top: 2px; }
@@ -320,8 +320,8 @@ textarea.input { height: auto; min-height: 72px; padding: 10px 12px; resize: ver
 .graph.focusing .node:not(.hl) { opacity: .35; }
 
 /* ---------- Node detail ---------- */
-.kv { display: grid; grid-template-columns: 140px 1fr; gap: 12px 16px; align-items: center; }
-@media (max-width: 560px) { .kv { grid-template-columns: 1fr; gap: 4px; } .kv > dt { margin-top: 10px; } }
+.kv { display: grid; grid-template-columns: minmax(140px, max-content) 1fr; gap: 12px 16px; align-items: center; }
+@media (max-width: 560px) { .kv { grid-template-columns: 1fr; gap: 4px; } .kv > dt { margin-top: 10px; } .kv > dt:first-of-type { margin-top: 0; } }
 .kv dt { font-size: 13px; color: var(--text-2); }
 .kv dd { margin: 0; }
 .spread { height: 8px; border-radius: 4px; background: var(--surface-2); position: relative; margin-top: 8px; }
@@ -337,7 +337,13 @@ textarea.input { height: auto; min-height: 72px; padding: 10px 12px; resize: ver
 .risk .imp { font: 13px var(--mono); color: var(--text-2); }
 .risk .spark { display: block; width: 96px; height: 16px; margin-top: 6px; }
 .risk .spark polyline { fill: none; stroke: var(--amber); stroke-width: 1.5; }
-@media (max-width: 640px) { .risk { grid-template-columns: 1fr 1fr; } .risk > :first-child { grid-column: 1 / -1; } }
+@media (max-width: 640px) {
+  .risk { grid-template-columns: minmax(0, 1fr) auto 28px; gap: 8px 14px; }
+  .risk > :nth-child(1) { grid-area: 1 / 1 / 2 / 3; }
+  .risk > :nth-child(4) { grid-area: 1 / 3; }
+  .risk > :nth-child(2) { grid-area: 2 / 1; }
+  .risk > :nth-child(3) { grid-area: 2 / 2 / 3 / 4; }
+}
 
 .person { display: flex; align-items: center; gap: 10px; padding: 10px 16px; }
 .person .who { flex: 1; min-width: 0; }
@@ -358,6 +364,7 @@ textarea.input { height: auto; min-height: 72px; padding: 10px 12px; resize: ver
   border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--text);
 }
 .otp input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+@media (max-width: 380px) { .otp { gap: 5px; } .otp input { flex: 1 1 0; width: 0; min-width: 0; max-width: 44px; } }
 .otp-single { font: 600 20px var(--mono); letter-spacing: .4em; text-align: center; height: 52px; }
 .qr { width: 168px; height: 168px; margin: 0 auto; display: block; border-radius: var(--radius-sm); background: #fff; padding: 10px; }
 .secret { font: 13px var(--mono); background: var(--surface-2); padding: 8px 10px; border-radius: var(--radius-sm); text-align: center; letter-spacing: .08em; word-break: break-all; }
@@ -371,7 +378,7 @@ textarea.input { height: auto; min-height: 72px; padding: 10px 12px; resize: ver
 /* ---------- Small screens ---------- */
 
 @media (max-width: 560px) {
-  .focus-item { grid-template-columns: 1fr auto; }
+  .focus-item { grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding: 14px 16px; }
   .focus-item .rank { display: none; }
 }
 
@@ -554,3 +561,36 @@ h3.label { margin-bottom: 8px; }
 .why-more summary { cursor: pointer; color: var(--text-3); width: max-content; }
 .why-more ul { margin: 4px 0 0; padding-left: 18px; }
 .why-more li + li { margin-top: 2px; }
+
+/* ---------- Phone widths ---------- */
+/* Pills that carry a title wrap instead of pushing the page wider. */
+.conn .pill, .focus-item .meta .pill { display: inline-block; white-space: normal; height: auto; line-height: 18px; padding-block: 2px; max-width: 100%; overflow-wrap: break-word; }
+.conn .pill .inline-form { display: inline; }
+.conn .pill a, .focus-item .meta .pill a { text-decoration: underline; text-underline-offset: 2px; }
+.conn > .grow { min-width: 0; }
+/* Labels that sit beside a field line their fields up. */
+.w-label { min-width: 2.6em; }
+/* Short groups that read as one phrase stay together when a row wraps. */
+.nowrap { white-space: nowrap; }
+/* Centred lines that wrap stay even instead of leaving a lone word. */
+.auth-card .lede, .plaque .why, .plaque .stamp, .message .lede { text-wrap: balance; }
+/* Only devices that can hover are told to hover. */
+@media (hover: none) { .hover-only { display: none; } }
+/* The path scrolls sideways inside its card rather than squeezing steps too narrow to read. */
+.graph-scroll { overflow-x: auto; }
+@media (max-width: 560px) {
+  .empty { text-align: left; }
+  .transfer-form .input { flex: 1 1 140px; width: auto; }
+  /* Tables become one card per row, each value labelled. */
+  table.data.stack thead { display: none; }
+  table.data.stack, table.data.stack tbody, table.data.stack tr, table.data.stack td { display: block; }
+  table.data.stack tr { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  table.data.stack tr:last-child { border-bottom: 0; }
+  table.data.stack td { padding: 2px 0; border: 0; }
+  table.data.stack td:empty { display: none; }
+  table.data.stack td[data-label]::before { content: attr(data-label); display: inline-block; min-width: 8.5em; font-size: 12px; color: var(--text-3); }
+  table.data.stack td > form { margin-top: 6px; }
+  table.data.stack tr.fresh td { padding: 0; }
+}
+/* An odd figure out on a two-column phone forecast spans the row instead of leaving an empty cell. */
+@media (max-width: 640px) { .forecast > :last-child:nth-child(odd) { grid-column: 1 / -1; } }

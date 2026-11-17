@@ -54,7 +54,7 @@ pub struct SignupForm {
 
 const SETUP_LEDE: &str = "You’re the first person here, so this account becomes the Administrator.";
 const SIGNUP_LEDE: &str = "Get to the critical path faster.";
-const NOT_OPEN: &str = "Sign-up isn’t open on this fluxo. Ask an Administrator for an invitation link.";
+const NOT_OPEN: &str = "Ask an Administrator for an invitation link.";
 const BAD_INVITE: &str =
     "This invitation link has expired, was revoked, or was already used. Ask an Administrator for a new one.";
 
