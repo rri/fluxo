@@ -141,6 +141,13 @@ unattached tasks; pending invitations and transfers; unread updates.
   contributes to or watches (directly or above), newest first, unread ones marked. Empty state:
   "Nothing yet. Changes to goals…". "Mark all read" appears only when something is
   unread.
+- **FO3a** A moved forecast reads "Estimated finish of <goal> moved later/earlier: P85 a → b", with
+  P50 beneath. One level down, "Why" lists the recorded changes on the goal, everything beneath it,
+  and the work any of that needs, since the last report (newest first, at most 8): steps added,
+  archived or restored; status, estimate, days left and clarity; rough size and coverage; risks
+  added, raised, lowered or removed; needs and links; achieved and reopened. Titles follow what the
+  reader may see. With none, it says time passing moved it. A slipping finish's "Why" is that time
+  passed without progress.
 - **FO4** Next up: ranked Do / De-risk / Clarify items for work the person can contribute to and
   that feeds a goal, with tabs (All, Do, De-risk, Clarify) and counts. Each item shows why,
   pills, the goals it feeds, "blocked by" when a need isn't done, "Mark started" for startable
@@ -151,13 +158,13 @@ unattached tasks; pending invitations and transfers; unread updates.
 
 ## 7. Signed in: Goals (`/goals`)
 
-- **GO1** "+ New goal" button. Top-level goals the person can see, theirs first, then ones they
+- **GO1** "+ New goal" button. Goals that feed no other goal in fluxo the person can see, theirs first, then ones they
   have a role on, then public ones; each card shows role, private, achieved, why, forecast
   (P50 · P85, or "nebulous"), coverage, steps done, and the step most critical now.
 - **GO2** No goals: "No goals yet." with a "+ New goal" button.
 - **GO3** Tasks attached to no goal that the person can contribute to are listed under "Tasks not
   attached to any goal", with the note that they can't show up on a critical path.
-- **GO4** "Archived" (collapsed) lists archived top-level goals and unattached tasks the person
+- **GO4** "Archived" (collapsed) lists archived goals that feed no other goal and unattached tasks the person
   owns. Others never see them.
 - **GO5** Private goals of others never appear.
 - **GO6** A new goal's parent must be a goal the person can contribute to; any other or
@@ -167,7 +174,7 @@ unattached tasks; pending invitations and transfers; unread updates.
 
 - **GP1** Breadcrumbs follow the home chain; goals above that the person can't read show as
   "Private goal" without a link.
-- **GP2** Header: Goal or Sub-goal, title, why, owner, coverage, Private, Achieved, step count;
+- **GP2** Header: Goal, title, why, owner, coverage, Private, Achieved, step count;
   "Edit goal" for owners, "Add a step" for contributors.
 - **GP3** Forecast band (when there are steps or a rough size): P50, P85, spread, risk exposure,
   run count, when it was updated, the chart, and whose calendar dates use. Low coverage shows
@@ -177,7 +184,7 @@ unattached tasks; pending invitations and transfers; unread updates.
   JavaScript a layered graph. Steps the person can't read show as "Private step" without a
   link or title, and their titles don't leak through "Needs" or "Waiting on".
 - **GP5** No steps: "No steps yet." plus, for contributors, the rough-size form.
-- **GP6** Contributors see "Add a step" (task or sub-goal, estimate/clarity or coverage/size,
+- **GP6** Contributors see "Add a step" (task or goal, estimate/clarity or coverage/size,
   optional "needs"), risk editing and link editing. Watchers and readers see everything
   read-only.
 - **GP7** Owners see Goal settings: statement (title, why), coverage, Private, mark achieved /
@@ -211,7 +218,7 @@ unattached tasks; pending invitations and transfers; unread updates.
   whether it's private: adding a link under a goal with different owners, moving its home to a
   goal that changes privacy, or removing the link that makes someone an owner. They get "Only an
   owner can make that change…". Owners can.
-- **L3** Removing an item's last link needs Own; the item becomes a top-level goal or an
+- **L3** Removing an item's last link needs Own; the item becomes a goal feeding no other goal in fluxo, or an
   unattached task.
 - **L4** Needs: on any item the person can read, not archived, not itself, no loops.
 - **L5** Risks: a title (≤200), likelihood 0–100%, impact days min ≤ max (0–1000). 0% retires a

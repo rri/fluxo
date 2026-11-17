@@ -12,7 +12,7 @@
   {% endif %}
 
   <div class="plaque" id="top">
-    <span class="eyebrow">{% include "mark.html" %}{% if is_sub %}Sub-goal{% else %}Goal{% endif %}</span>
+    <span class="eyebrow">{% include "mark.html" %}Goal</span>
     <h1>{{ title }}</h1>
     {% if !why.is_empty() %}<p class="why">{{ why }}</p>{% endif %}
     <div class="meta">
@@ -52,7 +52,7 @@
     </div>
     <div class="dist">{{ b.chart|safe }}</div>
     {% if !unsized_goals.is_empty() %}
-    <p class="callout mt-12 small">{{ unsized_goals.len() }} sub-goal{% if unsized_goals.len() != 1 %}s aren’t{% else %} isn’t{% endif %} sized or broken down yet, so these dates leave {% if unsized_goals.len() != 1 %}them{% else %}it{% endif %} out:
+    <p class="callout mt-12 small">{{ unsized_goals.len() }} goal{% if unsized_goals.len() != 1 %}s{% endif %} beneath it {% if unsized_goals.len() != 1 %}aren’t{% else %}isn’t{% endif %} sized or broken down yet, so these dates leave {% if unsized_goals.len() != 1 %}them{% else %}it{% endif %} out:
       {% for u in unsized_goals %}{% if !loop.first %}, {% endif %}{% if u.href.is_empty() %}{{ u.title }}{% else %}<a href="{{ u.href }}">{{ u.title }}</a>{% endif %}{% endfor %}.</p>
     {% endif %}
     <p class="xs faint dist-axis"><span>Next working day</span><span>Dates use {{ b.calendar_owner }} working calendar</span></p>
@@ -63,7 +63,7 @@
   <section id="path" aria-labelledby="path-h">
     <div class="section-head"><h2 id="path-h">The path</h2></div>
     {% if steps.is_empty() %}
-    <div class="card card-pad empty"><p><b>No steps yet.</b></p><p class="small muted">Break the goal down into sub-goals and tasks. Until then its path is unknown{% if !size_min.is_empty() %}, and forecasts use its rough size of about {{ size_min }}–{{ size_max }} working days{% else %}, and goals above it can’t include it in their dates{% endif %}.</p>
+    <div class="card card-pad empty"><p><b>No steps yet.</b></p><p class="small muted">Break it down into goals and tasks. Until then its path is unknown{% if !size_min.is_empty() %}, and forecasts use its rough size of about {{ size_min }}–{{ size_max }} working days{% else %}, and goals above it can’t include it in their dates{% endif %}.</p>
       {% if can_edit %}
       <form class="inline center-row mt-12" method="post" action="/goals/{{ id }}/size">
         <input type="hidden" name="csrf" value="{{ csrf }}">
@@ -83,11 +83,11 @@
     <div class="card pad-20"><div class="graph">
       <ol class="path-list">
         <li data-id="goal" data-deps="{{ anchor_deps }}{% if !gap.is_empty() %} gap{% endif %}" data-path="1" data-wide="1">
-          <a class="node anchor" href="#top"><span class="n-kind">{% if is_sub %}Sub-goal{% else %}Goal{% endif %}</span><span class="n-title">{{ title }}</span><span class="n-meta"><span>coverage {{ coverage }}</span></span></a>
+          <a class="node anchor" href="#top"><span class="n-kind">Goal</span><span class="n-title">{{ title }}</span><span class="n-meta"><span>coverage {{ coverage }}</span></span></a>
         </li>
         {% for s in steps %}
         <li data-id="{{ s.id }}"{% if !s.deps.is_empty() %} data-deps="{{ s.deps }}"{% endif %}{% if s.on_path %} data-path="1"{% endif %}>
-          {% if s.hidden %}<span class="node unknown">{% else %}<a class="node{% if s.is_goal %} subgoal{% endif %}{% if s.done %} done{% endif %}{% if s.on_path %} on-path{% endif %} {{ s.crit }}" href="{{ s.href }}">{% endif %}
+          {% if s.hidden %}<span class="node unknown">{% else %}<a class="node{% if s.is_goal %} goal{% endif %}{% if s.done %} done{% endif %}{% if s.on_path %} on-path{% endif %} {{ s.crit }}" href="{{ s.href }}">{% endif %}
             <span class="n-kind">{{ s.kind_label }}</span>
             <span class="n-title">{{ s.title }}</span>
             <span class="n-meta"><span>{{ s.meta_l }}</span><span>{{ s.meta_r }}</span></span>
@@ -117,7 +117,7 @@
       <div class="field"><span class="label">It’s a</span>
         <span class="seg" role="radiogroup" aria-label="Kind of step">
           <input type="radio" name="kind" id="k-task" value="task" checked data-kind-toggle><label for="k-task">Task</label>
-          <input type="radio" name="kind" id="k-goal" value="goal" data-kind-toggle><label for="k-goal">Sub-goal</label>
+          <input type="radio" name="kind" id="k-goal" value="goal" data-kind-toggle><label for="k-goal">Goal</label>
         </span></div>
       <fieldset class="kind-fields" data-kind="task"><legend class="label">For a task</legend>
         <div class="inline"><label for="st-e" class="small">Likely duration</label><input id="st-e" name="estimate" class="input num" inputmode="decimal" placeholder="3"><span class="small muted">working days</span>
@@ -127,7 +127,7 @@
             <input type="radio" name="clarity" id="c-h" value="high"><label for="c-h">High</label>
           </span></div>
       </fieldset>
-      <fieldset class="kind-fields" data-kind="goal"><legend class="label">For a sub-goal</legend>
+      <fieldset class="kind-fields" data-kind="goal"><legend class="label">For a goal</legend>
         <div class="inline mb-12"><span class="small">Rough size (optional): about</span>
           <input name="size_min" class="input num w-56" inputmode="decimal" aria-label="Rough size, at least, working days">–<input name="size_max" class="input num w-56" inputmode="decimal" aria-label="Rough size, at most, working days"><span class="small muted">working days, until it’s broken down</span></div>
         <span class="seg" role="radiogroup" aria-label="Coverage">
@@ -157,7 +157,7 @@
   {% include "_people.html" %}
 
   <section id="links-h" aria-labelledby="feeds-h">
-    <div class="section-head"><h2 id="feeds-h">Feeds</h2><span class="hint">{% if feeds.is_empty() %}A top-level goal{% else %}The goals this one is part of{% endif %}</span></div>
+    <div class="section-head"><h2 id="feeds-h">Feeds</h2><span class="hint">{% if feeds.is_empty() %}No goal in fluxo yet{% else %}The goals this one contributes to{% endif %}</span></div>
     {% if !feeds.is_empty() || (is_owner && !parent_options.is_empty()) %}
     <ul class="list card">
       {% for p in feeds %}<li class="row"><span class="grow">{% if p.href.is_empty() %}{{ p.title }}{% else %}<a href="{{ p.href }}">{{ p.title }}</a>{% endif %}{% if p.home %} <span class="pill accent">home</span>{% endif %}</span>

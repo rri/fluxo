@@ -139,8 +139,102 @@ pub struct Line {
     pub href: String,
     pub after: String,
     pub context: String,
+    /// The next level of detail: why it happened (for a moved finish, the changes behind it).
+    pub why: Vec<String>,
     pub when: String,
     pub unread: bool,
+}
+
+/// Changes beneath a goal that can move its finish, kept with a `forecast_moved` event.
+const CAUSE_KINDS: &[&str] = &[
+    "created",
+    "archived",
+    "restored",
+    "status_changed",
+    "estimate_changed",
+    "size_changed",
+    "shape_changed",
+    "risk_added",
+    "risk_likelihood",
+    "risk_removed",
+    "need_added",
+    "need_removed",
+    "parent_added",
+    "parent_removed",
+    "achieved",
+    "reopened",
+];
+/// Most causes kept per move.
+const MAX_CAUSES: usize = 8;
+
+fn days(v: &Value) -> String {
+    match v.as_f64() {
+        Some(d) if d.fract() == 0.0 => format!("{d:.0}"),
+        Some(d) => format!("{d:.1}"),
+        None => "none".into(),
+    }
+}
+
+/// One change behind a moved finish, as a sentence. Titles follow what `me` may see.
+fn cause_text(c: &Value, world: &World, names: &HashMap<Id, String>, me: Id) -> String {
+    let actor = match c["actor"].as_i64() {
+        Some(u) if u == me => "You".to_string(),
+        Some(u) => names.get(&u).cloned().unwrap_or_else(|| "Someone".into()),
+        None => "fluxo".into(),
+    };
+    let item = c["node"].as_i64().map(|n| world.title_for(me, n)).unwrap_or_else(|| "something".into());
+    let d = &c["detail"];
+    let other = |k: &str| d[k].as_i64().map(|n| world.title_for(me, n)).unwrap_or_else(|| "something".into());
+    let s = |v: &Value| v.as_str().unwrap_or("").to_string();
+    match c["kind"].as_str().unwrap_or("") {
+        "created" => format!("{actor} added {item}"),
+        "archived" => format!("{actor} archived {item}"),
+        "restored" => format!("{actor} restored {item}"),
+        "status_changed" => match d["to"].as_str() {
+            Some("done") => format!("{actor} finished {item}"),
+            Some("doing") => format!("{actor} started {item}"),
+            _ => format!("{actor} set {item} back to not started"),
+        },
+        "estimate_changed" => {
+            let mut parts = Vec::new();
+            if let Some([a, b]) = d["estimate"].as_array().map(Vec::as_slice) {
+                parts.push(format!("estimate {} → {} days", days(a), days(b)));
+            }
+            if let Some([a, b]) = d["remaining"].as_array().map(Vec::as_slice) {
+                parts.push(format!("days left {} → {}", days(a), days(b)));
+            }
+            if let Some([a, b]) = d["clarity"].as_array().map(Vec::as_slice) {
+                parts.push(format!("clarity {} → {}", s(a), s(b)));
+            }
+            format!("{actor} changed {item}: {}", parts.join(", "))
+        }
+        "size_changed" => match (d["min"].as_f64(), d["max"].as_f64()) {
+            (Some(_), Some(_)) => {
+                format!("{actor} sized {item} at about {}–{} days", days(&d["min"]), days(&d["max"]))
+            }
+            _ => format!("{actor} cleared the rough size of {item}"),
+        },
+        "shape_changed" => format!("{actor} set the coverage of {item} to {}", s(&d["coverage"])),
+        "risk_added" => format!("{actor} added a risk to {item}: {}", s(&d["title"])),
+        "risk_likelihood" => {
+            let up = d["to"].as_i64() > d["from"].as_i64();
+            format!(
+                "{actor} {} a risk on {item} from {}% to {}%: {}",
+                if up { "raised" } else { "lowered" },
+                d["from"],
+                d["to"],
+                s(&d["title"])
+            )
+        }
+        "risk_removed" => format!("{actor} removed a risk from {item}"),
+        "need_added" => format!("{actor} made {item} wait on {}", other("needs")),
+        "need_removed" => format!("{actor} stopped {item} waiting on {}", other("needs")),
+        "parent_added" => format!("{actor} made {item} feed {}", other("goal")),
+        "parent_removed" => format!("{actor} stopped {item} feeding {}", other("goal")),
+        "achieved" => format!("{actor} marked {item} achieved"),
+        "reopened" => format!("{actor} reopened {item}"),
+        k => format!("{actor}: {k} on {item}"),
+    }
 }
 
 pub fn describe(e: &Event, world: &World, names: &HashMap<Id, String>, me: Id, read: Id) -> Line {
@@ -155,17 +249,35 @@ pub fn describe(e: &Event, world: &World, names: &HashMap<Id, String>, me: Id, r
         node.map(|n| (n.title.clone(), n.href())).unwrap_or_else(|| ("something".into(), String::new()));
     let s = |v: &Value| v.as_str().unwrap_or("").to_string();
     let role = |v: &Value| if v == "watcher" { "a Watcher" } else { "a Contributor" };
+    let mut why = Vec::new();
     let (before, after, context) = match e.kind.as_str() {
-        "forecast_moved" => (
-            "The finish of".into(),
-            format!(" moved: P85 {} → {}", s(&e.detail["p85_from_label"]), s(&e.detail["p85_to_label"])),
-            format!("P50 {} → {}", s(&e.detail["p50_from_label"]), s(&e.detail["p50_to_label"])),
-        ),
-        "forecast_slipped" => (
-            "Dates for".into(),
-            format!(" are slipping: P85 {} → {}", s(&e.detail["from_label"]), s(&e.detail["to_label"])),
-            "No progress recorded as time passed".into(),
-        ),
+        "forecast_moved" => {
+            let later = e.detail["p85_to"].as_f64() >= e.detail["p85_from"].as_f64();
+            why = match e.detail["causes"].as_array() {
+                Some(cs) if !cs.is_empty() => cs.iter().map(|c| cause_text(c, world, names, me)).collect(),
+                // Older events didn't keep their causes.
+                None => vec![],
+                Some(_) => vec!["Nothing it depends on changed; time passing moved it.".into()],
+            };
+            (
+                "Estimated finish of".into(),
+                format!(
+                    " moved {}: P85 {} → {}",
+                    if later { "later" } else { "earlier" },
+                    s(&e.detail["p85_from_label"]),
+                    s(&e.detail["p85_to_label"])
+                ),
+                format!("P50 {} → {}", s(&e.detail["p50_from_label"]), s(&e.detail["p50_to_label"])),
+            )
+        }
+        "forecast_slipped" => {
+            why = vec!["Time passed without progress being recorded on the work it’s waiting on.".into()];
+            (
+                "Estimated finish of".into(),
+                format!(" is slipping: P85 {} → {}", s(&e.detail["from_label"]), s(&e.detail["to_label"])),
+                String::new(),
+            )
+        }
         "statement_changed" => {
             (format!("{actor} reworded"), String::new(), format!("Was: {}", s(&e.detail["from"]["title"])))
         }
@@ -212,6 +324,7 @@ pub fn describe(e: &Event, world: &World, names: &HashMap<Id, String>, me: Id, r
         href,
         after,
         context,
+        why,
         when: ago(e.at, now()).replace("Active now", "just now").replace(" ago", ""),
         unread: e.id > read,
     }
@@ -220,12 +333,17 @@ pub fn describe(e: &Event, world: &World, names: &HashMap<Id, String>, me: Id, r
 /// After a fresh forecast: note goals whose P50 or P85 moved by a working day or more since
 /// last reported, as `forecast_moved` events (dates in the goal owner's calendar).
 pub async fn note_forecast_moves(db: &SqlitePool, world: &World, f: &crate::forecast::Forecasts) -> Result<()> {
-    let marks: HashMap<Id, (f64, f64)> = sqlx::query!("SELECT goal_id, p50_days, p85_days FROM forecast_marks")
-        .fetch_all(db)
-        .await?
-        .into_iter()
-        .map(|r| (r.goal_id, (r.p50_days, r.p85_days)))
-        .collect();
+    let marks: HashMap<Id, (f64, f64, i64)> =
+        sqlx::query!("SELECT goal_id, p50_days, p85_days, at FROM forecast_marks")
+            .fetch_all(db)
+            .await?
+            .into_iter()
+            .map(|r| (r.goal_id, (r.p50_days, r.p85_days, r.at)))
+            .collect();
+    // Changes since the oldest mark: the candidates for why a finish moved.
+    let since = marks.values().map(|m| m.2).min().unwrap_or_else(now);
+    let changes: Vec<Event> =
+        recent(db, since).await?.into_iter().filter(|e| CAUSE_KINDS.contains(&e.kind.as_str())).collect();
     let cals = crate::forecast::calendars(db).await?;
     let t = now();
     for (id, nf) in &f.by_node {
@@ -240,10 +358,28 @@ pub async fn note_forecast_moves(db: &SqlitePool, world: &World, f: &crate::fore
         }
         let moved = match marks.get(id) {
             None => false,
-            Some(&(p50, p85)) => (nf.p50 - p50).abs() >= 1.0 || (nf.p85 - p85).abs() >= 1.0,
+            Some(&(p50, p85, _)) => (nf.p50 - p50).abs() >= 1.0 || (nf.p85 - p85).abs() >= 1.0,
         };
         if moved {
-            let (p50, p85) = marks[id];
+            let (p50, p85, since) = marks[id];
+            // The goal, everything beneath it, and the work any of that waits on (with what's
+            // beneath that): their changes since the last report, newest first.
+            let mut here = std::collections::HashSet::from([*id]);
+            let mut stack = vec![*id];
+            while let Some(i) = stack.pop() {
+                let below = world.children.get(&i).into_iter().flatten();
+                for c in below.chain(world.needs.get(&i).into_iter().flatten()) {
+                    if here.insert(*c) {
+                        stack.push(*c);
+                    }
+                }
+            }
+            let causes: Vec<Value> = changes
+                .iter()
+                .filter(|e| e.at >= since && here.contains(&e.node))
+                .take(MAX_CAUSES)
+                .map(|e| serde_json::json!({ "node": e.node, "actor": e.actor, "kind": e.kind, "detail": e.detail }))
+                .collect();
             let cal = n.owner_id.and_then(|o| cals.get(&o).cloned()).unwrap_or_default();
             let year = cal.today(t).year();
             let label = |d: f64| fluxo_core::calendar::label(cal.finish_date(t, d), year);
@@ -251,6 +387,7 @@ pub async fn note_forecast_moves(db: &SqlitePool, world: &World, f: &crate::fore
                 "p50_from": p50, "p50_to": nf.p50, "p85_from": p85, "p85_to": nf.p85,
                 "p50_from_label": label(p50), "p50_to_label": label(nf.p50),
                 "p85_from_label": label(p85), "p85_to_label": label(nf.p85),
+                "causes": causes,
             })
             .to_string();
             sqlx::query!(

@@ -29,7 +29,7 @@ pub struct GoalCard {
     pub coverage: String,
     pub steps: usize,
     pub done: usize,
-    pub subgoals: Vec<(String, String, String)>, // href, title, meta
+    pub goals_beneath: Vec<(String, String, String)>, // href, title, meta
     pub tasks: usize,
     /// "P50 Feb 12 · P85 Mar 3", "nebulous", or empty.
     pub forecast: String,
@@ -68,7 +68,7 @@ fn card(
 ) -> GoalCard {
     let kids: Vec<&Node> =
         world.children_of(g.id).into_iter().filter(|k| world.access(user, k.id).can_read()).collect();
-    let subgoals = kids
+    let goals_beneath = kids
         .iter()
         .filter(|k| k.is_goal())
         .map(|k| {
@@ -86,7 +86,7 @@ fn card(
         coverage: g.coverage.clone().unwrap_or_default(),
         steps: kids.len(),
         done: kids.iter().filter(|k| k.is_done()).count(),
-        subgoals,
+        goals_beneath,
         tasks: kids.iter().filter(|k| !k.is_goal()).count(),
         forecast: match (g.achieved_at, g.coverage.as_deref(), f.by_node.get(&g.id)) {
             (Some(_), _, _) => String::new(),
@@ -199,7 +199,7 @@ pub struct NewQuery {
     parent: Option<Id>,
 }
 
-/// Goals this person can add a sub-goal to.
+/// Goals this person can add a goal beneath.
 fn parent_options(world: &World, user: Id, selected: Option<Id>, exclude: Option<Id>) -> Vec<Option_> {
     let below = exclude.map(|x| world.graph.below(x)).unwrap_or_default();
     let mut v: Vec<&Node> = world
@@ -353,7 +353,6 @@ struct GoalPage<'a> {
     crumbs: Vec<Crumb>,
     title: String,
     why: String,
-    is_sub: bool,
     owner: String,
     coverage: String,
     private: bool,
@@ -502,7 +501,6 @@ pub async fn show(
         crumbs: views::crumbs(&world, ctx.user_id, id),
         title: goal.title.clone(),
         why: goal.why.clone(),
-        is_sub: world.parents.get(&id).is_some_and(|p| !p.is_empty()),
         owner: views::owner_label(goal.owner_id, ctx.user_id, &names),
         coverage: goal.coverage.clone().unwrap_or_default(),
         private: world.is_private(id),

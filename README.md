@@ -3,7 +3,7 @@
 Critical-path planning: accelerate goals by focusing on the work that decides when they finish,
 and on removing the risk and ambiguity along it. Hosted at https://fluxo.dev.
 
-- **Goals** break down into sub-goals and tasks. Goals stay steady; the path beneath them changes.
+- **Goals** break down into goals and tasks. Every goal feeds a bigger one, here or not.
 - **Forecasts** come from a Monte Carlo simulation of estimates, clarity, coverage and risks:
   P50/P85 dates, each step's criticality, and the most likely critical path.
 - **Focus** ranks what to do next by how much expected delay it removes.

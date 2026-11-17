@@ -11,9 +11,9 @@
       <input id="ng-t" name="title" class="input input-lg" value="{{ title }}" maxlength="200" placeholder="e.g. Self-serve signups" required></div>
     <div class="field"><label for="ng-w">Why it matters</label>
       <textarea id="ng-w" name="why" class="input" maxlength="2000" placeholder="The outcome this unlocks, in a sentence or two.">{{ why }}</textarea></div>
-    <div class="field"><label for="ng-p">Part of</label>
+    <div class="field"><label for="ng-p">Feeds</label>
       <select id="ng-p" name="parent" class="input">
-        <option value="">Nothing: it’s a top-level goal</option>
+        <option value="">No goal in fluxo yet</option>
         {% for o in parents %}<option value="{{ o.value }}"{% if o.selected %} selected{% endif %}>{{ o.label }}</option>{% endfor %}
       </select></div>
     <div class="callout info mt-16">New goals start with <b>low coverage</b>, so their forecast is wide. Adding steps beneath a goal narrows it.</div>

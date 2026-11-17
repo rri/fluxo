@@ -224,8 +224,8 @@ pub fn steps(world: &World, user: Id, goal: Id, crit: Option<&HashMap<Id, f32>>)
                 href: if hidden { String::new() } else { k.href() },
                 kind_label: match (hidden, k.is_goal(), world.parents.get(&k.id).map_or(0, Vec::len)) {
                     (true, _, _) => "Private".into(),
-                    (_, true, n) if n > 1 => format!("Sub-goal · feeds {n} goals"),
-                    (_, true, _) => "Sub-goal".into(),
+                    (_, true, n) if n > 1 => format!("Goal · feeds {n} goals"),
+                    (_, true, _) => "Goal".into(),
                     (_, false, n) if n > 1 => format!("Task · feeds {n} goals"),
                     _ => "Task".into(),
                 },

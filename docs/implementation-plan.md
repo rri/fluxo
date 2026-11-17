@@ -10,7 +10,7 @@ Every decision is recorded with its number (D1–D24) in sections 3 and 8.
 ## 1. Settled decisions (from the mock rounds)
 
 **Product model**
-- Goals break down into sub-goals and tasks. Tasks are always leaves. A child's output feeds its parent goal.
+- Goals break down into goals and tasks. There is no separate "sub-goal": a goal is a goal, and every goal feeds a bigger one, in fluxo or not. Tasks are always leaves. A child's output feeds its parent goal.
 - A task has a known *what* and *why*. A goal has a known *why*, but its *what* is still open.
 - A goal or task can feed several goals, and each one has a single **home parent**.
 - Order between siblings comes from explicit dependencies. Siblings with no dependency between them run in parallel.
@@ -255,7 +255,7 @@ Each phase ends with something usable and demonstrable. The riskiest unknowns co
 - Forecasts are recalculated when a page needs one and its inputs' fingerprint has changed; there is no background worker.
 - The highlighted "most likely critical path" is every step that is critical in at least 50% of runs.
 - Forecasts count from the owner's next working day; tasks in progress use their remaining days.
-- A sub-goal with no steps may carry an optional rough size (min–max working days, simulated uniformly) until it's broken down. Without one it counts as zero, and every forecast above it names it as left out.
+- A goal with no steps may carry an optional rough size (min–max working days, simulated uniformly) until it's broken down. Without one it counts as zero, and every forecast above it names it as left out.
 - Forecasts are cached in memory under a fingerprint of their inputs, with a fixed seed; a forecast history in the database can come later.
 
 **Phase 4 decisions (2026-11-16):**

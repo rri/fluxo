@@ -25,9 +25,9 @@
         {% if !g.why.is_empty() %}<p class="why">{{ g.why }}</p>{% endif %}
         <div class="facts">{% if !g.forecast.is_empty() %}<span><b>{{ g.forecast }}</b></span>{% endif %}<span>Coverage <b>{{ g.coverage }}</b></span><span>Steps <b>{{ g.done }}/{{ g.steps }} done</b></span>{% if !g.critical_now.is_empty() %}<span>Critical now <b>{{ g.critical_now }}</b></span>{% endif %}</div>
       </a>
-      {% if !g.subgoals.is_empty() || g.tasks > 0 %}
+      {% if !g.goals_beneath.is_empty() || g.tasks > 0 %}
       <ul class="descend">
-        {% for s in g.subgoals %}<li><a href="{{ s.0 }}">{{ s.1 }}</a><span class="pill xs">sub-goal</span><span class="meta">{{ s.2 }}</span></li>{% endfor %}
+        {% for s in g.goals_beneath %}<li><a href="{{ s.0 }}">{{ s.1 }}</a><span class="meta">{{ s.2 }}</span></li>{% endfor %}
         {% if g.tasks > 0 %}<li><span class="muted">{{ g.tasks }} task{% if g.tasks != 1 %}s{% endif %}</span></li>{% endif %}
       </ul>
       {% endif %}

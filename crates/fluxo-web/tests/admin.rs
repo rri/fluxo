@@ -89,7 +89,7 @@ async fn deleting_an_account_hands_work_over() {
     let t_under_g = task(&app, &ada, g, "Schema").await; // ada's task under ada's goal
     let h = goal(&app, &lin, "Lin goal", None).await; // lin's; ada contributes
     contributor(&app, h, id_of(&app, "ada").await, 50).await;
-    let s = goal(&app, &ada, "Ada sub-goal", Some(h)).await; // ada's, under lin's
+    let s = goal(&app, &ada, "Ada goal beneath", Some(h)).await; // ada's, under lin's
     let lonely = goal(&app, &ada, "Lonely", None).await; // nobody else involved
 
     // Only Administrator: can't leave yet.

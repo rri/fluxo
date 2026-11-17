@@ -166,7 +166,7 @@ async fn empty_sub_goals_are_flagged_until_sized_or_broken_down() {
         sqlx::query_scalar("SELECT id FROM nodes WHERE title = 'Accounts'").fetch_one(&app.db).await.unwrap();
 
     let r = send(&app, "GET", &format!("/goals/{g}"), Some(&c), None).await;
-    assert!(r.body.contains("1 sub-goal isn’t sized or broken down yet, so these dates leave it out"));
+    assert!(r.body.contains("1 goal beneath it isn’t sized or broken down yet, so these dates leave it out"));
     assert!(r.body.contains(&format!(r#"<a href="/goals/{sub}">Accounts</a>"#)));
     assert!(r.body.contains("not sized yet"));
     let before = band(&r.body, "P50 finish");
@@ -186,7 +186,7 @@ async fn empty_sub_goals_are_flagged_until_sized_or_broken_down() {
     assert!(r.body.contains("P50 finish"), "sized goals have their own forecast");
     assert!(r.body.contains("rough size of about 20–30 working days"));
 
-    // A rough size can also be given when the sub-goal is added.
+    // A rough size can also be given when the goal is added beneath.
     send(
         &app,
         "POST",

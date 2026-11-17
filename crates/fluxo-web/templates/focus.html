@@ -32,7 +32,7 @@
     <ul class="list card">
       {% for u in updates %}
       <li class="update{% if !u.unread %} read{% endif %}"><span class="unread">{% if u.unread %}<span class="sr-only">Unread</span>{% endif %}</span>
-        <div><p class="what">{{ u.before }} {% if u.href.is_empty() %}{{ u.subject }}{% else %}<a href="{{ u.href }}">{{ u.subject }}</a>{% endif %}{{ u.after }}</p>{% if !u.context.is_empty() %}<p class="ctx">{{ u.context }}</p>{% endif %}</div>
+        <div><p class="what">{{ u.before }} {% if u.href.is_empty() %}{{ u.subject }}{% else %}<a href="{{ u.href }}">{{ u.subject }}</a>{% endif %}{{ u.after }}</p>{% if !u.context.is_empty() %}<p class="ctx">{{ u.context }}</p>{% endif %}{% if !u.why.is_empty() %}<details class="why-more"><summary>Why</summary><ul>{% for w in u.why %}<li>{{ w }}</li>{% endfor %}</ul></details>{% endif %}</div>
         <time>{{ u.when }}</time></li>
       {% endfor %}
     </ul>

@@ -220,7 +220,7 @@ test('break a goal down and track a task', async ({ page }, info) => {
   };
   await addStep('Schema', '3');
   await addStep('API', '5', 'Schema');
-  // A sub-goal: with JavaScript the task-only fields hide themselves.
+  // A goal beneath: with JavaScript the task-only fields hide themselves.
   await page.getByLabel('Title', { exact: true }).fill('Accounts');
   await page.locator('label[for="k-goal"]').click();
   if (js(info)) await expect(page.getByLabel('Likely duration')).toBeHidden();

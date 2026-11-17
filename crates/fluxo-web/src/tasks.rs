@@ -257,5 +257,19 @@ pub async fn update(
     if status != task.status {
         store::record(&app.db, id, ctx.user_id, "status_changed", json!({ "from": task.status, "to": status })).await?;
     }
+    // What changes the forecast is recorded too, so a moved finish can say why.
+    let mut changed = serde_json::Map::new();
+    if task.estimate_days != Some(estimate) {
+        changed.insert("estimate".into(), json!([task.estimate_days, estimate]));
+    }
+    if task.clarity.as_deref() != Some(clarity) {
+        changed.insert("clarity".into(), json!([task.clarity, clarity]));
+    }
+    if status == "doing" && task.status == "doing" && task.remaining_days != remaining {
+        changed.insert("remaining".into(), json!([task.remaining_days, remaining]));
+    }
+    if !changed.is_empty() {
+        store::record(&app.db, id, ctx.user_id, "estimate_changed", serde_json::Value::Object(changed)).await?;
+    }
     Ok(Redirect::to(&format!("/tasks/{id}#top")).into_response())
 }

@@ -87,7 +87,7 @@ pub async fn unowned(db: &SqlitePool, world: &World) -> Result<Vec<UnownedRow>> 
                     .home_parent_id
                     .and_then(|h| world.nodes.get(&h))
                     .map(|h| h.title.clone())
-                    .unwrap_or_else(|| "Top-level".into()),
+                    .unwrap_or_else(|| "No goal".into()),
                 since: since.map(date).unwrap_or_default(),
                 pending_to: pending.get(&n.id).and_then(|u| names.get(u).cloned()).unwrap_or_default(),
             }

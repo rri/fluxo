@@ -72,17 +72,18 @@ async fn break_a_goal_down_into_a_path() {
         "goal is fed by the last step, then unknown work"
     );
     assert!(r.body.contains("Needs: SQLite schema v1"), "list for no-JS readers");
-    assert!(r.body.contains(r#"class="node subgoal"#));
+    assert!(r.body.contains(r#"class="node goal"#));
+    assert!(!r.body.contains("ub-goal"), "a goal is a goal, wherever it sits");
 
     let r = send(&app, "GET", "/goals", Some(&c), None).await;
     assert!(r.body.contains("Launch fluxo.dev beta"));
-    assert!(r.body.contains(">Accounts &#38; auth</a><span class=\"pill xs\">sub-goal</span>"));
+    assert!(r.body.contains(">Accounts &#38; auth</a><span class=\"meta\">"));
     assert!(r.body.contains("2 tasks"));
 
-    // Sub-goal page shows where it lives.
+    // A goal beneath another shows where it lives.
     let r = send(&app, "GET", &format!("/goals/{auth}"), Some(&c), None).await;
     assert!(r.body.contains(&format!(r#"<a href="/goals/{goal}">Launch fluxo.dev beta</a>"#)));
-    assert!(r.body.contains(">Sub-goal</span>"));
+    assert!(r.body.contains(r#"<span class="eyebrow">"#) && !r.body.contains("ub-goal"));
     assert_eq!(
         send(&app, "GET", &format!("/tasks/{auth}"), Some(&c), None).await.location.as_deref(),
         Some(format!("/goals/{auth}").as_str())

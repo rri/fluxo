@@ -219,9 +219,12 @@ async fn watchers_hear_about_outlook_changes_only() {
     assert!(f.contains("ada added a risk to"));
     assert!(f.contains("ada raised a risk on"));
     assert!(f.contains(" from 10% to 90%"));
-    assert!(!f.contains("from 30% to 10%"), "lowering a risk isn't news");
-    assert!(f.contains("The finish of"), "the near-certain 10-day risk moved the forecast");
-    assert!(f.contains(" moved: P85 "));
+    assert!(!f.contains(" from 30% to 10%</p>"), "lowering a risk isn’t news (though it can explain a move)");
+    assert!(f.contains("Estimated finish of"), "the near-certain 10-day risk moved the forecast");
+    assert!(f.contains(" moved later: P85 "));
+    // One level down: why it moved, naming the change.
+    let why = &f[f.find("<summary>Why</summary>").expect("a Why")..];
+    assert!(why[..why.find("</details>").unwrap()].contains("ada raised a risk on Job from 10% to 90%"), "{why}");
     send(
         &app,
         "POST",
@@ -232,7 +235,16 @@ async fn watchers_hear_about_outlook_changes_only() {
     .await;
     let f = focus(&app, &kofi).await;
     assert!(f.contains("ada finished"));
-    assert!(!f.contains("estimate"), "no estimate noise");
+    assert!(f.contains(" moved earlier: P85 "), "finishing the work brings the finish in");
+    assert!(f.contains("<li>ada finished Job</li>"), "and says why");
+    // An estimate change isn't an Update by itself; it only appears as the reason a finish moved.
+    let lines: String = f.split("<details").map(|p| p.split_once("</details>").map_or(p, |(_, rest)| rest)).collect();
+    assert!(!lines.contains("estimate"), "no estimate noise");
+    let n: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM events WHERE kind = 'estimate_changed'")
+        .fetch_one(&app.db)
+        .await
+        .unwrap();
+    assert!(n >= 1, "estimate changes are recorded, to explain a later move");
     // Your own actions never notify you.
     assert!(!focus(&app, &ada).await.contains("ada finished"));
 

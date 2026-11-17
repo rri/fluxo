@@ -131,12 +131,12 @@ async fn clarify_items_for_unknown_work() {
     let c = sign_in(&app, "ada", None).await;
     let g = goal(&app, &c, "Partial", "partial", None).await;
     task(&app, &c, g, "Known", "8", "high", None).await;
-    goal(&app, &c, "Empty sub-goal", "full", Some(g)).await;
+    goal(&app, &c, "Empty goal", "full", Some(g)).await;
     let r = send(&app, "GET", "/?show=clarify", Some(&c), None).await;
     let items = ranked(&r.body);
     assert_eq!(items[0].0, "Partial isn’t fully covered");
     assert!(items[0].1.starts_with('−'));
-    assert_eq!(items[1], ("Empty sub-goal isn’t sized or broken down".to_string(), "?".to_string()));
+    assert_eq!(items[1], ("Empty goal isn’t sized or broken down".to_string(), "?".to_string()));
 }
 
 #[tokio::test]
@@ -156,8 +156,8 @@ async fn daily_check_reports_dates_slipping() {
     sqlx::query("UPDATE slip_marks SET p85_date = date(p85_date, '-14 days')").execute(&app.db).await.unwrap();
     assert_eq!(fluxo_web::slips::check(&app.state).await.ok(), Some(1));
     let f = send(&app, "GET", "/", Some(&kofi), None).await.body;
-    assert!(f.contains("Dates for"));
-    assert!(f.contains("are slipping: P85"));
-    assert!(f.contains("No progress recorded as time passed"));
+    assert!(f.contains("Estimated finish of"));
+    assert!(f.contains("is slipping: P85"));
+    assert!(f.contains("<summary>Why</summary><ul><li>Time passed without progress being recorded"));
     assert_eq!(fluxo_web::slips::check(&app.state).await.ok(), Some(0), "reported once, then the baseline moves");
 }
