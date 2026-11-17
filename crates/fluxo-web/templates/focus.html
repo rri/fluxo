@@ -32,7 +32,7 @@
     {% else %}
     <ul class="list card">
       {% for u in updates %}
-      <li class="update{% if !u.unread %} read{% endif %}"><span class="unread"{% if u.unread %} aria-label="Unread"{% endif %}></span>
+      <li class="update{% if !u.unread %} read{% endif %}"><span class="unread">{% if u.unread %}<span class="sr-only">Unread</span>{% endif %}</span>
         <div><p class="what">{{ u.before }} {% if u.href.is_empty() %}{{ u.subject }}{% else %}<a href="{{ u.href }}">{{ u.subject }}</a>{% endif %}{{ u.after }}</p>{% if !u.context.is_empty() %}<p class="ctx">{{ u.context }}</p>{% endif %}</div>
         <time>{{ u.when }}</time></li>
       {% endfor %}
@@ -44,10 +44,10 @@
   <section id="next" aria-labelledby="next-h">
     <div class="section-head"><h2 id="next-h">Next up</h2><span class="hint">Ranked by expected delay removed, across every goal it feeds</span></div>
     <nav class="tabs" aria-label="Show">
-      <a class="tab" href="/?show=all#next-h"{% if show == "all" %} aria-selected="true"{% endif %}>All<span class="n">{{ counts[0] }}</span></a>
-      <a class="tab" href="/?show=do#next-h"{% if show == "do" %} aria-selected="true"{% endif %}>Do<span class="n">{{ counts[1] }}</span></a>
-      <a class="tab" href="/?show=derisk#next-h"{% if show == "derisk" %} aria-selected="true"{% endif %}>De-risk<span class="n">{{ counts[2] }}</span></a>
-      <a class="tab" href="/?show=clarify#next-h"{% if show == "clarify" %} aria-selected="true"{% endif %}>Clarify<span class="n">{{ counts[3] }}</span></a>
+      <a class="tab" href="/?show=all#next-h"{% if show == "all" %} aria-current="page"{% endif %}>All<span class="n">{{ counts[0] }}</span></a>
+      <a class="tab" href="/?show=do#next-h"{% if show == "do" %} aria-current="page"{% endif %}>Do<span class="n">{{ counts[1] }}</span></a>
+      <a class="tab" href="/?show=derisk#next-h"{% if show == "derisk" %} aria-current="page"{% endif %}>De-risk<span class="n">{{ counts[2] }}</span></a>
+      <a class="tab" href="/?show=clarify#next-h"{% if show == "clarify" %} aria-current="page"{% endif %}>Clarify<span class="n">{{ counts[3] }}</span></a>
     </nav>
     {% if items.is_empty() %}
     <div class="card card-pad small muted">{% if show == "all" %}Nothing to rank yet. Focus lists tasks, risks and goals you own or contribute to once they feed a goal.{% else %}Nothing here right now.{% endif %}</div>

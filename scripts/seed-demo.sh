@@ -1,5 +1,5 @@
 #!/bin/sh
-# Enter the mocks' sample goal ("Launch fluxo.dev beta") into a fresh fluxo through its own forms,
+# Enter a sample goal ("Launch fluxo.dev beta") into a fresh fluxo through its own forms,
 # exactly as a person would. Usage: scripts/seed-demo.sh http://127.0.0.1:8080
 # The server must be brand new (it runs first-time setup as "ada"); prints the session cookie jar path.
 set -eu

@@ -55,18 +55,6 @@
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') $$('details.menu[open]').forEach(function (m) { m.open = false; });
   });
-  $$('[data-filter-list]').forEach(function (input) {
-    var list = $(input.getAttribute('data-filter-list'));
-    input.addEventListener('input', function () {
-      var q = input.value.trim().toLowerCase();
-      $$('[data-name]', list).forEach(function (a) {
-        a.hidden = q && a.getAttribute('data-name').toLowerCase().indexOf(q) === -1;
-      });
-    });
-  });
-  $$('details.menu').forEach(function (m) {
-    m.addEventListener('toggle', function () { if (m.open) { var s = $('.menu-search', m); if (s) s.focus(); } });
-  });
 
   /* ---------- Goal path graph ----------
      The goal sits at the top (row 0). Each step sits one row below the lowest step it feeds,
@@ -212,14 +200,6 @@
     var update = function () {
       out.textContent = range.value + '%';
       r.classList.toggle('retired', range.value === '0');
-      var sum = $('[data-exposure]');
-      if (sum) {
-        var total = $$('.risk').reduce(function (acc, x) {
-          var p = +$('input[type=range]', x).value / 100, lo = +x.dataset.lo, hi = +x.dataset.hi;
-          return acc + p * (lo + hi) / 2;
-        }, 0);
-        sum.textContent = total.toFixed(1) + 'd';
-      }
     };
     range.addEventListener('input', update); update();
   });

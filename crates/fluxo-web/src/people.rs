@@ -140,7 +140,7 @@ pub async fn view(db: &sqlx::SqlitePool, world: &World, me: Id, id: Id, access: 
     Ok(PeopleView {
         rows,
         can_invite: access.is_owner() && node.archived_at.is_none(),
-        can_watch: access == Access::Read && node.archived_at.is_none() && !world.graph.is_private(id),
+        can_watch: access == Access::Read && node.archived_at.is_none() && !world.is_private(id),
         my_direct_role,
         transfer_to: transfer.map(|t| name(t.to_user)).unwrap_or_default(),
     })
@@ -234,7 +234,7 @@ pub async fn people(
             }
         }
         "watch" => {
-            if access != Access::Read || world.graph.is_private(id) {
+            if access != Access::Read || world.is_private(id) {
                 return Ok(back(&world, id, ""));
             }
             sqlx::query!(
@@ -418,7 +418,7 @@ pub async fn transfer(
             if world.nodes[&id].owner_id == Some(u) {
                 return Ok(back(&world, id, "error=already-owner"));
             }
-            let note: String = f.note.trim().chars().take(500).collect();
+            let note: String = crate::views::clean(&f.note, false).chars().take(500).collect();
             let from = world.nodes[&id].owner_id;
             let mut tx = app.db.begin().await?;
             sqlx::query!(

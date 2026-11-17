@@ -77,6 +77,20 @@ pub fn parse_days(s: &str) -> Option<f64> {
     (v.is_finite() && v > 0.0 && v <= 1000.0).then(|| (v * 2.0).round() / 2.0).filter(|v| *v > 0.0)
 }
 
+/// Characters that never belong in text people type here: control characters (a single-line field
+/// also loses line breaks) and the invisible bidirectional overrides that can make text display as
+/// something other than what it is. Removed rather than refused, since they usually arrive by
+/// pasting. The result is trimmed.
+pub fn clean(s: &str, multiline: bool) -> String {
+    let bidi = |c: char| matches!(c, '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}');
+    s.replace("\r\n", "\n")
+        .chars()
+        .filter(|&c| !bidi(c) && (!c.is_control() || (multiline && (c == '\n' || c == '\t'))))
+        .collect::<String>()
+        .trim()
+        .to_string()
+}
+
 pub fn check_title(t: &str) -> Option<&'static str> {
     let n = t.chars().count();
     (n == 0 || n > 200).then_some("Give it a title of up to 200 characters.")
@@ -131,8 +145,24 @@ pub fn owner_label(owner: Option<Id>, me: Id, names: &HashMap<Id, String>) -> St
 }
 
 /// "Launch beta › Accounts & auth": where a goal lives, for pickers.
+/// "Parent › Goal" for pickers: at most the two nearest goals above, so labels stay short however
+/// deep the tree is (a full path would grow with depth on every option).
 pub fn path_label(world: &World, user: Id, n: &Node) -> String {
-    let mut parts: Vec<String> = world.home_chain(n.id).iter().map(|p| world.title_for(user, p.id)).collect();
+    // Walk up at most three goals: two to show, and one more to know whether to add "…".
+    let mut above = Vec::new();
+    let mut cur = n.home_parent_id;
+    while let Some(p) = cur.filter(|_| above.len() < 3) {
+        if p == n.id || above.contains(&p) {
+            break;
+        }
+        above.push(p);
+        cur = world.nodes.get(&p).and_then(|x| x.home_parent_id);
+    }
+    let mut parts: Vec<String> = Vec::new();
+    if above.len() > 2 {
+        parts.push("…".into());
+    }
+    parts.extend(above.iter().take(2).rev().map(|&p| world.title_for(user, p)));
     parts.push(n.title.clone());
     parts.join(" › ")
 }

@@ -2,7 +2,7 @@
 
 Status: **approved** · decisions D1–D24 settled 2026-11-16 · Phase 0 done (engine: 500 nodes × 10k runs in 502 ms on 1 thread, 45 ms on 16) · Phase 1 next
 
-This plan turns the round 2 mocks (`mocks/`) into a working application at https://fluxo.dev.
+This plan turns the round 2 mocks (removed before launch; they are in the git history) into a working application at https://fluxo.dev.
 Every decision is recorded with its number (D1–D24) in sections 3 and 8.
 
 ---
@@ -330,3 +330,25 @@ Confirmed by the owner (details in `docs/threat-model.md` §6):
 - **One failure counter**: wrong 2FA codes, recovery codes and confirmation passwords count
   toward sign-in's limits (10 per username, 30 per address or IPv6 /64, per 15 minutes).
 - **Item volume**: no creation cap for now.
+
+## 12. Pre-launch review (2026-11-17)
+
+Spec and tests re-checked, threat model re-assessed after a penetration test
+(`docs/threat-model.md` §7), repository checked for secrets and unused code, and every page
+audited with Lighthouse and axe. Choices made in this review (to be confirmed):
+
+1. **Equally near roles:** when someone has a Contributor and a Watcher role at the same distance
+   above an item (through different parents), Contributor wins. Before, it depended on link order.
+2. **Control and bidirectional characters** in typed text are removed, not refused (G13): they
+   usually arrive by pasting, and the person can't see them to fix them.
+3. **Goal picker labels** show at most the two goals above ("… › Parent › Goal", G14), which
+   also keeps pages small however deep goals go.
+4. **Unknown choices** (kind, clarity, coverage, status) still fall back to the default rather
+   than being refused: browsers only send them from fixed controls, so only hand-made requests
+   hit this, and the result is always valid.
+5. **`mocks/` removed**: the templates replaced them; they stay in the git history.
+6. **Colours for WCAG AA:** a darker accent, amber, green and hint grey in light mode; a lighter
+   hint grey and accent in dark mode, where buttons now use dark text on the accent.
+7. **The server's Tailscale address stays in the public workflow** (I12): it's unreachable from
+   outside the tailnet. It could move to a GitHub variable if preferred.
+

@@ -1,6 +1,7 @@
 # fluxo threat model
 
-Written 2026-11-16 for the launch on fluxo.dev. It covers what's worth protecting, who might attack
+Written 2026-11-16 for the launch on fluxo.dev and re-assessed on 2026-11-17 after a penetration
+test (§7). It covers what's worth protecting, who might attack
 it and how, what stops each attack, and what's knowingly left open. Tests for these are in
 `crates/fluxo-web/tests/security.rs` and `spec.rs` (rule IDs refer to `docs/spec.md`).
 
@@ -71,6 +72,9 @@ Status: **Mitigated** (it was already in place), **Fixed** (fixed in this review
 | T6 | Joining an archived item through an old invitation | **Fixed** | It can't be accepted while the item is archived (I1). |
 | T7 | SQL injection | Mitigated | Every query is a compile-time-checked `sqlx` query with bound parameters. |
 | T8 | Loops in links that break forecasts | Mitigated | Checked with the simulation engine's own validation. |
+| T9 | Titles that display as something else: invisible bidirectional overrides (U+202E…) or control characters pasted into a title, name or note | **Fixed** | Removed from all typed text before saving; single-line fields also lose line breaks (G13). |
+| T10 | A malformed parent ID on "New goal" silently making a top-level goal | **Fixed** | Refused with 404, and nothing is created (GO6). Not exploitable, but a silent wrong result. |
+| T11 | Mass assignment or unexpected fields (`owner_id`, `role=owner`, extra form fields) | Mitigated | Forms deserialize into fixed structs; unknown fields are ignored and owner/role changes go through their own checked actions (tested). |
 
 ### Repudiation: denying what you did
 
@@ -94,6 +98,8 @@ Status: **Mitigated** (it was already in place), **Fixed** (fixed in this review
 | I9 | Server details in errors | Mitigated | Generic 500 page; details only in the journal. Deploy output in the public CI log prints only the deploy script's own steps. |
 | I10 | Username enumeration | Accepted | Sign-up says a username is taken, and People invitations say "No one has that username". People need these to find each other. Sign-in itself doesn't reveal it. |
 | I11 | Watchers seeing an item's title after it's archived ("X archived") | Accepted | They could already see it; the update tells them where it went. |
+| I12 | Deploy details in the public repository: the server's Tailscale address and its SSH host key | Accepted | The address is reachable only inside the tailnet, and a host key is public by nature. Neither grants access; the deploy key and Tailscale credentials are only in GitHub's encrypted secrets. |
+| I13 | Secrets committed to the repository | Mitigated | Checked across every commit and branch: no private keys, tokens, passwords or `.env` files. `secret.key`, the database and backups live only on the server; `.gitignore` covers build output and test artifacts. |
 
 ### Denial of service
 
@@ -105,6 +111,8 @@ Status: **Mitigated** (it was already in place), **Fixed** (fixed in this review
 | D4 | A member creating tens of thousands of items, so every forecast (10,000 runs over the whole instance) slows down for everyone | Accepted for now | See decision 3. Forecasts run on the blocking pool and are cached by fingerprint; 500 items take about 45 ms. |
 | D5 | Locking someone out by failing sign-in with their username | Accepted | The price of S1: 15 minutes at a time; an Administrator's recovery code still works. |
 | D6 | Open sign-up used to create many accounts | Accepted | Invitation-only by default; open sign-up is an Administrator's choice and can be closed at any time. |
+| D8 | **One member nesting goals thousands deep, making every person's pages slow**: access checks walked everything above each item, so cost grew with depth squared, on the request threads (2,000 levels: 0.5 s per page for everyone; 20,000: about 50 s) | **Fixed** | Access is worked out once per request in one pass over the tree (linear in items and links), and checked against the item-by-item rules on random graphs (PF1). Other people's pages went from 0.49 s to 0.12 s at 2,000 levels. |
+| D9 | Goal pickers growing with depth squared ("A › B › … › Z" for every goal): an 18 MB "New goal" page at 2,000 levels | **Fixed** | Labels show at most the two goals above (G14): 126 KB at the same depth. |
 | D7 | Losing the server or its data volume | Accepted | Backups are on the same volume, with no off-site copy (decided 2026-11-16). Copy a snapshot off the server by hand when it matters. |
 
 ### Elevation of privilege
@@ -115,6 +123,7 @@ Status: **Mitigated** (it was already in place), **Fixed** (fixed in this review
 | E2 | Contributor → owner | **Fixed** | See T2. |
 | E3 | Administrator taking over any account with a recovery code | Accepted (by design) | That is the recovery mechanism. It's now logged; the person gets their 2FA turned off and must set a new password, so it can't be done silently. |
 | E4 | Code execution on the server from a deploy | Mitigated | The deploy key can run only `fluxo-deploy`. It checks the checksum, runs the new binary as `fluxo` before installing it, and rolls back if it's unhealthy. CI runs only on `main` in the `production` environment; actions are pinned to commits; `cargo audit` runs on every build. fluxo runs as an unprivileged user under systemd hardening. |
+| E6 | A workflow on another branch using the deploy secrets | Mitigated / **Action** | The deploy job runs only for `main`. Restricting the `production` environment to `main` in GitHub makes the secrets unavailable to any other branch as well (see `deploy/README.md`). |
 | E5 | Supply-chain compromise of a crate | Partly mitigated | `Cargo.lock`, `--locked`, `cargo audit`, few dependencies. One advisory is waived (RUSTSEC-2026-0459, in SQLite; sqlx doesn't allow the fixed version yet). |
 
 ## 5. Server and operations
@@ -142,3 +151,22 @@ Status: **Mitigated** (it was already in place), **Fixed** (fixed in this review
    path. The cost is that a burst of wrong codes also pauses password sign-in for that account.
 3. **Item volume (D4)**: no cap for now. If it's ever needed, a generous per-person creation rate
    (for example 500 items an hour) would stop abuse without affecting real use.
+
+## 7. Penetration test (2026-11-17)
+
+Run against a local release build with three accounts (an Administrator, a Contributor on a
+shared goal, a member with no roles), a private goal with a task and a risk, and demo data.
+
+| Area | What was tried | Result |
+|---|---|---|
+| Access control | The two other accounts, against the private goal, its task and risk: every GET, and all 28 kinds of POST (steps, statement, coverage, achieved, size, task edits, start, every link and need direction, risks, archive/restore/delete, people, transfers, invitations, snooze, every Administrator action) | All refused (404/403/redirect); the database was unchanged except harmless no-ops. No private title on any page or in the export. |
+| CSRF | Missing token, another session's token, foreign `Origin` | Refused (403/422), nothing changed. |
+| Session | Reuse after sign-out; IDs at each sign-in step | Old sessions dead (also V6, SE2 tests). |
+| Input | 46 hostile forms: 100 KB titles, NUL/control/bidi characters, non-numeric and overflowing IDs, `NaN`, `inf`, `1e308`, negatives, inverted ranges, unknown choices, path-like time zones, 5,000-line day-off lists, `role=owner`, self-transfers | No server errors; numbers bounded; **found T9, T10** (fixed). |
+| Transport and parsing | 3 MB body, duplicate fields, JSON, invalid encoding; PUT/DELETE/PATCH/TRACE/OPTIONS | 413, 422, 415, 422; 405. |
+| Static files | `..`, `%2e%2e`, `%2f`, NUL, case tricks | Only the five named files are served. |
+| Headers | Every kind of response (page, 404, static, health, export) | CSP, nosniff, frame and referrer headers everywhere; `no-store` on pages; no server banner. |
+| Host header | Forged `Host` for invitation links and redirects | Production sets `public_url`, so links never use the request's host; redirects are relative. |
+| Enumeration | Sign-in timing, known vs unknown username | 20 ms vs 20 ms. Random invitation tokens: "This link can't be used". |
+| Denial of service | 2,000 nested goals; then pages for the owner and for others | **Found D8, D9** (fixed). |
+| Races | 20 parallel acceptances of one ownership transfer | Exactly one took effect. |

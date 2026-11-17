@@ -554,3 +554,124 @@ async fn g6_health_says_nothing_else() {
     assert_eq!((r.status, r.body.as_str()), (StatusCode::OK, "ok"));
     assert!(r.cookie.is_none(), "no session for health checks");
 }
+
+#[tokio::test]
+async fn g13_control_and_bidi_characters_are_removed_from_text() {
+    let (app, _) = with_ada(false).await;
+    let ada = sign_in(&app, "ada", None).await;
+    let t = token(&app, &ada, "/goals/new").await;
+    let title = "\u{202E}Pay\u{0}\u{7} invoice\u{2066}\r\n";
+    let why = "Line one\r\nLine two\u{202D}\u{1b}[31m";
+    let r = send(
+        &app,
+        "POST",
+        "/goals",
+        Some(&ada),
+        Some(&format!("csrf={t}&title={}&why={}&parent=", enc(title), enc(why))),
+    )
+    .await;
+    let id: i64 = r.location.unwrap().trim_start_matches("/goals/").parse().unwrap();
+    let (stored_title, stored_why): (String, String) =
+        sqlx::query_as("SELECT title, why FROM nodes WHERE id = ?").bind(id).fetch_one(&app.db).await.unwrap();
+    assert_eq!(stored_title, "Pay invoice");
+    assert_eq!(stored_why, "Line one\nLine two[31m", "line breaks stay in multi-line text");
+    // A title made only of such characters is empty, so it's refused like an empty one.
+    let r = send(
+        &app,
+        "POST",
+        "/goals",
+        Some(&ada),
+        Some(&format!("csrf={t}&title={}&why=&parent=", enc("\u{202E}\u{0}"))),
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::OK);
+    assert!(r.body.contains("Give it a title"));
+    // Display names too.
+    let t = token(&app, &ada, "/settings").await;
+    send(
+        &app,
+        "POST",
+        "/settings/profile",
+        Some(&ada),
+        Some(&format!("csrf={t}&display_name={}", enc("A\u{202E}da\n"))),
+    )
+    .await;
+    let name: String =
+        sqlx::query_scalar("SELECT display_name FROM users WHERE username = 'ada'").fetch_one(&app.db).await.unwrap();
+    assert_eq!(name, "Ada");
+}
+
+#[tokio::test]
+async fn go6_a_malformed_parent_creates_nothing() {
+    let (app, _) = with_ada(false).await;
+    let ada = sign_in(&app, "ada", None).await;
+    let t = token(&app, &ada, "/goals/new").await;
+    for parent in ["abc", "9223372036854775808", "1.5", "-1", "999"] {
+        let r = send(&app, "POST", "/goals", Some(&ada), Some(&format!("csrf={t}&title=x&why=&parent={parent}"))).await;
+        assert!(matches!(r.status, StatusCode::NOT_FOUND | StatusCode::FORBIDDEN), "parent {parent}: {}", r.status);
+    }
+    let n: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM nodes").fetch_one(&app.db).await.unwrap();
+    assert_eq!(n, 0);
+}
+
+#[tokio::test]
+async fn g14_picker_labels_show_at_most_two_goals_above() {
+    let (app, _) = with_ada(false).await;
+    let ada = sign_in(&app, "ada", None).await;
+    let mut parent = None;
+    for i in 1..=6 {
+        parent = Some(goal(&app, &ada, &format!("Level {i}"), parent).await);
+    }
+    let page = send(&app, "GET", "/goals/new", Some(&ada), None).await.body;
+    assert!(page.contains("… › Level 4 › Level 5 › Level 6"), "deep goals are shortened");
+    assert!(page.contains(">Level 1 › Level 2 › Level 3<"), "shallow ones are shown whole");
+    assert!(!page.contains("Level 1 › Level 2 › Level 3 › Level 4"));
+}
+
+/// A member nesting goals thousands deep must not make pages slow or huge, for them or anyone
+/// else: access is worked out in one pass, and labels don't grow with depth (PF1).
+#[tokio::test]
+async fn pf1_a_very_deep_tree_stays_cheap_for_everyone() {
+    let (app, _) = with_ada(false).await;
+    add_user(&app, "kofi", false).await;
+    let t0 = fluxo_web::now();
+    let mut tx = app.db.begin().await.unwrap();
+    for id in 1..=3000i64 {
+        let parent = (id > 1).then_some(id - 1);
+        sqlx::query(
+            "INSERT INTO nodes (id, kind, title, owner_id, home_parent_id, coverage, statement_changed_at, created_by, created_at)
+             VALUES (?, 'goal', ?, 1, ?, 'low', ?, 1, ?)",
+        )
+        .bind(id)
+        .bind(format!("Depth {id}"))
+        .bind(parent)
+        .bind(t0)
+        .bind(t0)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+        if let Some(p) = parent {
+            sqlx::query("INSERT INTO node_parents (child_id, parent_id, added_at) VALUES (?, ?, ?)")
+                .bind(id)
+                .bind(p)
+                .bind(t0)
+                .execute(&mut *tx)
+                .await
+                .unwrap();
+        }
+    }
+    tx.commit().await.unwrap();
+    let kofi = sign_in(&app, "kofi", None).await;
+    let ada = sign_in(&app, "ada", None).await;
+    let started = std::time::Instant::now();
+    for (c, path) in
+        [(&kofi, "/"), (&kofi, "/goals"), (&kofi, "/goals/new"), (&kofi, "/goals/3000"), (&ada, "/goals/new")]
+    {
+        let r = send(&app, "GET", path, Some(c), None).await;
+        assert_eq!(r.status, StatusCode::OK, "{path}");
+        assert!(r.body.len() < 1_500_000, "{path} is {} bytes", r.body.len());
+    }
+    // Generous, so it only fails if the cost is back to growing with depth squared (that took
+    // minutes in debug builds at this depth).
+    assert!(started.elapsed().as_secs() < 60, "took {:?}", started.elapsed());
+}

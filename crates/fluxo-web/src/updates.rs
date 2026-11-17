@@ -51,7 +51,7 @@ fn is_update(e: &Event) -> bool {
 /// Does `user` hear about changes to `node`? Owners, Contributors and Watchers of it or of
 /// anything above it do; reading a public goal alone doesn't make it an Update.
 pub fn hears(world: &World, user: Id, node: Id) -> bool {
-    world.graph.role(user, node) >= Access::Watch
+    world.role(user, node) >= Access::Watch
 }
 
 pub async fn recent(db: &SqlitePool, since: i64) -> Result<Vec<Event>> {

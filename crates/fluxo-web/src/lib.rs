@@ -178,7 +178,7 @@ impl IntoResponse for AppError {
 }
 
 /// A small, self-contained error page (works even if templates or the database are the problem).
-fn error_page(heading: &str, text: &str) -> String {
+pub(crate) fn error_page(heading: &str, text: &str) -> String {
     format!(
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\
          <title>{heading} · fluxo</title><link rel=\"icon\" href=\"/static/favicon.svg\"><link rel=\"stylesheet\" href=\"/static/styles.css\"></head>\

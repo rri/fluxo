@@ -3,6 +3,8 @@
 
 import { test, expect } from '@playwright/test';
 import { createHmac } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -49,7 +51,7 @@ async function enterCode(page, code, js, submitName) {
 }
 
 async function signOut(page) {
-  await page.locator('summary[aria-label="Account"]').click();
+  await page.locator('summary', { hasText: 'Account' }).click();
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page).toHaveURL(/\/login$/);
 }
@@ -333,4 +335,55 @@ test('keyboard shortcuts go to real pages (G11)', async ({ page }, info) => {
   await page.locator('#dn').focus();
   await page.keyboard.type('gg');
   await expect(page).toHaveURL(/\/settings$/);
+});
+
+/** WCAG 2.1 A/AA violations on the current page, in both colour schemes (G15). */
+const AXE = readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'), 'utf8');
+async function accessibilityProblems(page) {
+  const found = [];
+  for (const colorScheme of ['light', 'dark']) {
+    await page.emulateMedia({ colorScheme });
+    const violations = await page.evaluate(async (src) => {
+      if (!window.axe) (0, eval)(src);
+      const r = await window.axe.run(document, { runOnly: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] });
+      return r.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`);
+    }, AXE);
+    found.push(...violations.map((v) => `${colorScheme} ${new URL(page.url()).pathname}: ${v}`));
+  }
+  return found;
+}
+
+test('every page meets WCAG 2.1 AA in light and dark (G15)', async ({ browser }, info) => {
+  // Injecting axe needs eval, which fluxo's CSP rightly forbids; this context alone bypasses it.
+  // axe itself needs JavaScript, so the no-JavaScript project blocks fluxo's own scripts instead:
+  // the page is then exactly the server's HTML.
+  const context = await browser.newContext({ bypassCSP: true, javaScriptEnabled: true, baseURL: info.project.use.baseURL });
+  if (!js(info)) await context.route('**/static/*.js', (r) => r.abort());
+  const page = await context.newPage();
+  const problems = [];
+  for (const path of ['/login', '/signup', '/locked', '/join/not-a-real-link', '/nope']) {
+    await page.goto(path);
+    problems.push(...(await accessibilityProblems(page)));
+  }
+  await signInAsAda(page, info);
+  // The account's own theme would override the emulated one; System lets both be checked.
+  await page.goto('/settings');
+  if (js(info)) {
+    const saved = page.waitForResponse((r) => r.url().endsWith('/settings/theme'));
+    await page.locator('label[for="t-s"]').click();
+    await saved;
+  } else {
+    await page.locator('label[for="t-s"]').click();
+    await page.locator('#app-h').locator('xpath=../..').getByRole('button', { name: 'Save' }).click();
+  }
+  await page.goto('/goals');
+  const goal = await page.getByRole('link', { name: /Launch the beta/ }).getAttribute('href');
+  await page.goto(goal);
+  const task = await page.locator('a[href^="/tasks/"]').first().getAttribute('href');
+  for (const path of ['/', '/goals', goal, task, '/goals/new', '/settings', '/settings/2fa/setup', '/settings/delete', '/goals/999999']) {
+    await page.goto(path);
+    problems.push(...(await accessibilityProblems(page)));
+  }
+  await context.close();
+  expect(problems).toEqual([]);
 });

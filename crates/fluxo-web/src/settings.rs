@@ -327,7 +327,8 @@ pub struct ProfileForm {
 pub async fn profile(State(app): State<Shared>, jar: CookieJar, Form(f): Form<ProfileForm>) -> Result<Response> {
     let ctx = signed_in!(app, jar);
     check_csrf!(ctx, f.csrf);
-    let name = f.display_name.trim();
+    let name = crate::views::clean(&f.display_name, false);
+    let name = name.as_str();
     if name.chars().count() > 64 {
         return Ok(back("error=name-long", "acc-h"));
     }
@@ -509,7 +510,7 @@ pub async fn create_invite(
     rand::rng().fill_bytes(&mut raw);
     let token = URL_SAFE_NO_PAD.encode(raw);
     let hash = crate::account::token_hash(&token);
-    let note: String = f.note.trim().chars().take(100).collect();
+    let note: String = crate::views::clean(&f.note, false).chars().take(100).collect();
     let (t, expires) = (now(), now() + INVITE_DAYS * 86_400);
     sqlx::query!(
         "INSERT INTO signup_invites (token_hash, created_by, note, created_at, expires_at) VALUES (?, ?, ?, ?, ?)",

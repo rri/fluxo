@@ -81,7 +81,7 @@ fn card(
         title: g.title.clone(),
         why: g.why.clone(),
         role: role_label(world.access(user, g.id)),
-        private: world.graph.is_private(g.id),
+        private: world.is_private(g.id),
         achieved: g.achieved_at.is_some(),
         coverage: g.coverage.clone().unwrap_or_default(),
         steps: kids.len(),
@@ -201,12 +201,12 @@ pub struct NewQuery {
 
 /// Goals this person can add a sub-goal to.
 fn parent_options(world: &World, user: Id, selected: Option<Id>, exclude: Option<Id>) -> Vec<Option_> {
+    let below = exclude.map(|x| world.graph.below(x)).unwrap_or_default();
     let mut v: Vec<&Node> = world
         .nodes
         .values()
-        .filter(|n| n.is_goal() && n.archived_at.is_none() && Some(n.id) != exclude)
+        .filter(|n| n.is_goal() && n.archived_at.is_none() && Some(n.id) != exclude && !below.contains(&n.id))
         .filter(|n| world.access(user, n.id).can_contribute())
-        .filter(|n| exclude.is_none_or(|x| !world.graph.would_contain_itself(x, n.id)))
         .collect();
     v.sort_by_cached_key(|n| views::path_label(world, user, n));
     v.into_iter()
@@ -300,13 +300,20 @@ pub async fn create(State(app): State<Shared>, jar: CookieJar, Form(f): Form<New
         return Ok(forbidden());
     }
     let world = World::load(&app.db).await?;
-    let parent: Option<Id> = f.parent.trim().parse().ok();
+    let parent: Option<Id> = match f.parent.trim() {
+        "" => None,
+        p => match p.parse() {
+            Ok(p) => Some(p),
+            Err(_) => return Ok(not_found()),
+        },
+    };
     if let Some(p) = parent {
         if !world.nodes.get(&p).is_some_and(|n| n.is_goal()) || !world.access(ctx.user_id, p).can_contribute() {
             return Ok(forbidden());
         }
     }
-    let (title, why) = (f.title.trim(), f.why.trim());
+    let (title, why) = (views::clean(&f.title, false), views::clean(&f.why, true));
+    let (title, why) = (title.as_str(), why.as_str());
     let error = views::check_title(title)
         .or_else(|| (why.chars().count() > 2000).then_some("Keep the why under 2,000 characters."));
     if let Some(error) = error {
@@ -493,7 +500,7 @@ pub async fn show(
         is_sub: world.parents.get(&id).is_some_and(|p| !p.is_empty()),
         owner: views::owner_label(goal.owner_id, ctx.user_id, &names),
         coverage: goal.coverage.clone().unwrap_or_default(),
-        private: world.graph.is_private(id),
+        private: world.is_private(id),
         private_here: goal.private,
         achieved: goal.achieved_at.map(date),
         archived: goal.archived_at.is_some(),
@@ -568,7 +575,8 @@ pub async fn add_step(
     if !goal.is_goal() || goal.archived_at.is_some() {
         return Ok(not_found());
     }
-    let title = f.title.trim();
+    let title = views::clean(&f.title, false);
+    let title = title.as_str();
     if views::check_title(title).is_some() {
         return Ok(Redirect::to(&format!("/goals/{id}?error=title#add")).into_response());
     }
@@ -620,7 +628,8 @@ pub async fn statement(
 ) -> Result<Response> {
     let (ctx, world, _) = gate!(app, jar, f.csrf, id, Access::Own);
     let goal = &world.nodes[&id];
-    let (title, why) = (f.title.trim(), f.why.trim());
+    let (title, why) = (views::clean(&f.title, false), views::clean(&f.why, true));
+    let (title, why) = (title.as_str(), why.as_str());
     if views::check_title(title).is_some() || why.chars().count() > 2000 {
         return Ok(Redirect::to(&format!("/goals/{id}?error=title#edit")).into_response());
     }

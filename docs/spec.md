@@ -18,7 +18,8 @@ disagree, the code is wrong unless a decision in `docs/implementation-plan.md` s
 
 On a goal or task, a signed-in person has one access level: **None** (can't see it),
 **Read** (public item, no role), **Watch**, **Contribute** or **Own**. Roles flow down from
-every parent goal, nearest wins; owning anything above an item makes you an owner of it. An item
+every parent goal, nearest wins (equally near: Contributor beats Watcher); owning anything above
+an item makes you an owner of it. An item
 is private if it or any goal on its home-parent chain is marked private. Archived items are
 visible only to their owners.
 
@@ -57,6 +58,25 @@ unattached tasks; pending invitations and transfers; unread updates.
 - **G11** Keyboard shortcuts (signed-in pages, not while typing): `g f` Focus, `g g` Goals,
   `g s` Settings.
 - **G12** The word "Site Administrator" never appears; the role is "Administrator".
+- **G13** Text people type (titles, whys, task texts, risk titles, display names, notes) loses
+  control characters and invisible bidirectional overrides before it's saved; single-line fields
+  also lose line breaks. Text made only of such characters counts as empty.
+- **G14** Goal pickers label each goal with at most the two goals above it ("… › Parent ›
+  Goal"), with goals the person can't read as "a private goal".
+- **G15** Accessibility: every page has no WCAG 2.1 A/AA violations (axe), in light and dark,
+  with and without JavaScript: one `<h1>`, labelled fields, visible focus, sufficient contrast,
+  `lang` set, and landmarks.
+- **G16** Performance: pages are server-rendered with one stylesheet and two small scripts (one
+  deferred), no web fonts or third-party requests, and static files are cached for an hour.
+
+## 1a. Robustness
+
+- **PF1** One person's work can't make pages slow for others: what each person can access is
+  worked out in one pass per request, so a page's cost grows with the number of items, not with
+  how deep goals are nested.
+- **PF2** Malformed input never causes a server error: bad numbers, unknown choices, oversized
+  bodies (over 2 MB: 413), wrong content types (415) and malformed forms (422) are refused, and
+  unknown choices fall back to the default.
 
 ## 2. Fresh instance (setup)
 
@@ -140,6 +160,8 @@ unattached tasks; pending invitations and transfers; unread updates.
 - **GO4** "Archived" (collapsed) lists archived top-level goals and unattached tasks the person
   owns. Others never see them.
 - **GO5** Private goals of others never appear.
+- **GO6** A new goal's parent must be a goal the person can contribute to; any other or
+  malformed parent is refused (404 or 403) and nothing is created.
 
 ## 8. Signed in: a goal (`/goals/<id>`)
 

@@ -1,4 +1,4 @@
-//! Focus: what's waiting on you, and Updates. Ranked next steps arrive in Phase 5.
+//! Focus: ranked next steps, what's waiting on you, and Updates.
 
 use askama::Template;
 use axum::extract::{Form, Path, Query, State};

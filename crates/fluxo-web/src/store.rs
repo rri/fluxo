@@ -1,6 +1,7 @@
 //! Reading and writing goals, tasks, links and risks.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::sync::{Arc, Mutex};
 
 use fluxo_core::access::{self, Access, Graph, Role};
 use sqlx::SqlitePool;
@@ -111,6 +112,11 @@ pub struct World {
     pub needs: HashMap<Id, Vec<Id>>,
     pub needed_by: HashMap<Id, Vec<Id>>,
     pub graph: Graph,
+    /// Every private item, worked out once per load.
+    private: HashSet<Id>,
+    /// Each person's role on every item, worked out once per load when first needed, so checking
+    /// every item on a page stays linear however deep the goals go.
+    roles: Mutex<HashMap<Id, Arc<HashMap<Id, Access>>>>,
 }
 
 impl World {
@@ -156,11 +162,27 @@ impl World {
                 .collect(),
             roles,
         };
-        Ok(World { nodes, parents, children, needs, needed_by, graph })
+        let private = graph.private_set();
+        Ok(World { nodes, parents, children, needs, needed_by, graph, private, roles: Mutex::default() })
+    }
+
+    /// The person's role on `id`, ignoring privacy and archiving (see [`Graph::role`]).
+    pub fn role(&self, user: Id, id: Id) -> Access {
+        self.roles_for(user).get(&id).copied().unwrap_or(Access::None)
     }
 
     pub fn access(&self, user: Id, id: Id) -> Access {
-        self.graph.access(user, id)
+        self.graph.access_with(id, self.role(user, id), &self.private)
+    }
+
+    /// Private if it, or any goal on its home-parent chain, is marked private.
+    pub fn is_private(&self, id: Id) -> bool {
+        self.private.contains(&id)
+    }
+
+    fn roles_for(&self, user: Id) -> Arc<HashMap<Id, Access>> {
+        let mut cache = self.roles.lock().unwrap_or_else(|e| e.into_inner());
+        cache.entry(user).or_insert_with(|| Arc::new(self.graph.roles_for(user))).clone()
     }
 
     /// The title `user` may see for `id`: the real one if they can read it, else a placeholder.

@@ -93,22 +93,169 @@ impl Graph {
     }
 
     /// The person's role on `id`, ignoring privacy and archiving: owner anywhere up the chain wins,
-    /// otherwise the nearest membership. `Access::None` if they have no role.
+    /// otherwise the nearest membership (if two are equally near, Contributor beats Watcher).
+    /// `Access::None` if they have no role. This walks everything above `id`; for many items at
+    /// once, use [`Graph::roles_for`].
     pub fn role(&self, user: Id, id: Id) -> Access {
-        let mut nearest = None;
-        for i in self.upward(id) {
-            if self.nodes.get(&i).is_some_and(|n| n.owner == Some(user)) {
-                return Access::Own;
+        let mut level = vec![id];
+        let mut seen = HashSet::from([id]);
+        let mut nearest: Option<Role> = None;
+        while !level.is_empty() {
+            for &i in &level {
+                if self.nodes.get(&i).is_some_and(|n| n.owner == Some(user)) {
+                    return Access::Own;
+                }
             }
             if nearest.is_none() {
-                nearest = self.roles.get(&(i, user)).copied();
+                nearest = level
+                    .iter()
+                    .filter_map(|&i| self.roles.get(&(i, user)).copied())
+                    .max_by_key(|r| *r == Role::Contributor);
             }
+            let mut next = Vec::new();
+            for &i in &level {
+                for &p in self.nodes.get(&i).map(|n| n.parents.as_slice()).unwrap_or(&[]) {
+                    if seen.insert(p) {
+                        next.push(p);
+                    }
+                }
+            }
+            level = next;
         }
         match nearest {
             Some(Role::Contributor) => Access::Contribute,
             Some(Role::Watcher) => Access::Watch,
             None => Access::None,
         }
+    }
+
+    /// [`Graph::role`] for every item at once, in one pass from the top down: linear in items
+    /// and links, however deep or wide the goals are. Pages that check many items use this, so a
+    /// very deep tree can't make every page slow.
+    pub fn roles_for(&self, user: Id) -> HashMap<Id, Access> {
+        // (owned at or above, nearest membership as (distance, role))
+        type Memo = (bool, Option<(usize, Role)>);
+        let mut memo: HashMap<Id, Memo> = HashMap::with_capacity(self.nodes.len());
+        let mut on_stack: HashSet<Id> = HashSet::new();
+        for &start in self.nodes.keys() {
+            // Iterative depth-first walk up, so depth can't overflow the stack.
+            let mut stack = vec![(start, false)];
+            while let Some((id, expanded)) = stack.pop() {
+                if memo.contains_key(&id) {
+                    continue;
+                }
+                let parents = self.nodes.get(&id).map(|n| n.parents.as_slice()).unwrap_or(&[]);
+                if !expanded {
+                    on_stack.insert(id);
+                    stack.push((id, true));
+                    for &p in parents {
+                        if !memo.contains_key(&p) && !on_stack.contains(&p) {
+                            stack.push((p, false));
+                        }
+                    }
+                    continue;
+                }
+                on_stack.remove(&id);
+                let n = self.nodes.get(&id);
+                let mut owned = n.is_some_and(|n| n.owner == Some(user));
+                let mut nearest = self.roles.get(&(id, user)).map(|r| (0, *r));
+                for p in parents {
+                    // A parent still being walked is part of a loop; loops are refused when links
+                    // are made, so it's skipped rather than followed.
+                    let Some(&(p_owned, p_near)) = memo.get(p) else { continue };
+                    owned |= p_owned;
+                    if self.roles.contains_key(&(id, user)) {
+                        continue;
+                    }
+                    if let Some((d, r)) = p_near {
+                        let better = match nearest {
+                            None => true,
+                            Some((nd, nr)) => {
+                                d + 1 < nd || (d + 1 == nd && r == Role::Contributor && nr == Role::Watcher)
+                            }
+                        };
+                        if better {
+                            nearest = Some((d + 1, r));
+                        }
+                    }
+                }
+                memo.insert(id, (owned, nearest));
+            }
+        }
+        memo.into_iter()
+            .map(|(id, (owned, nearest))| {
+                let a = match (owned, nearest) {
+                    (true, _) => Access::Own,
+                    (_, Some((_, Role::Contributor))) => Access::Contribute,
+                    (_, Some((_, Role::Watcher))) => Access::Watch,
+                    _ => Access::None,
+                };
+                (id, a)
+            })
+            .collect()
+    }
+
+    /// Every private item, in one pass (see [`Graph::is_private`]).
+    pub fn private_set(&self) -> HashSet<Id> {
+        let mut memo: HashMap<Id, bool> = HashMap::with_capacity(self.nodes.len());
+        for &start in self.nodes.keys() {
+            let mut chain = Vec::new();
+            let mut cur = Some(start);
+            let mut result = false;
+            while let Some(i) = cur {
+                if let Some(&known) = memo.get(&i) {
+                    result = known;
+                    break;
+                }
+                if chain.contains(&i) {
+                    break;
+                }
+                let Some(n) = self.nodes.get(&i) else { break };
+                chain.push(i);
+                if n.private {
+                    result = true;
+                    break;
+                }
+                cur = n.home;
+            }
+            // Everything walked shares the answer: below a private goal, or not private at all.
+            for i in chain {
+                memo.insert(i, result || self.nodes.get(&i).is_some_and(|n| n.private));
+            }
+        }
+        memo.into_iter().filter(|(_, p)| *p).map(|(i, _)| i).collect()
+    }
+
+    /// Everything below `id` (through every link), for checking many goals for loops at once.
+    pub fn below(&self, id: Id) -> HashSet<Id> {
+        let mut children: HashMap<Id, Vec<Id>> = HashMap::new();
+        for (&c, n) in &self.nodes {
+            for &p in &n.parents {
+                children.entry(p).or_default().push(c);
+            }
+        }
+        let mut out = HashSet::new();
+        let mut stack = vec![id];
+        while let Some(i) = stack.pop() {
+            for &c in children.get(&i).map(Vec::as_slice).unwrap_or(&[]) {
+                if out.insert(c) {
+                    stack.push(c);
+                }
+            }
+        }
+        out
+    }
+
+    /// Access from a precomputed role (from [`Graph::roles_for`]) and private set.
+    pub fn access_with(&self, id: Id, role: Access, private: &HashSet<Id>) -> Access {
+        let Some(n) = self.nodes.get(&id) else { return Access::None };
+        if n.archived {
+            return if role == Access::Own { Access::Own } else { Access::None };
+        }
+        if role > Access::None {
+            return role;
+        }
+        if private.contains(&id) { Access::None } else { Access::Read }
     }
 
     pub fn access(&self, user: Id, id: Id) -> Access {
@@ -223,6 +370,84 @@ mod tests {
         // Removing 5's link to 2 takes kofi's ownership away.
         assert!(g.relink_changes_control(5, vec![3], Some(3)));
         assert_eq!(g.owners(5), [10, 11].into());
+    }
+
+    /// The one-pass versions agree with the item-by-item rules on many random graphs.
+    #[test]
+    fn one_pass_access_matches_the_rules() {
+        let mut seed: u64 = 0x5eed;
+        let mut rand = |n: u64| {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            (seed >> 33) % n
+        };
+        for _ in 0..300 {
+            let mut g = Graph::default();
+            let size = 1 + rand(40) as Id;
+            for id in 1..=size {
+                // Parents only among earlier items, so there are no loops (as in fluxo).
+                let mut parents: Vec<Id> = Vec::new();
+                if id > 1 {
+                    for _ in 0..rand(4) {
+                        let p = 1 + rand(id as u64 - 1) as Id;
+                        if !parents.contains(&p) {
+                            parents.push(p);
+                        }
+                    }
+                }
+                let owner = if rand(5) == 0 { None } else { Some(10 + rand(4) as Id) };
+                g.nodes.insert(
+                    id,
+                    Node {
+                        owner,
+                        home: parents.first().copied(),
+                        parents,
+                        private: rand(6) == 0,
+                        archived: rand(10) == 0,
+                    },
+                );
+            }
+            for _ in 0..rand(12) {
+                let role = if rand(2) == 0 { Role::Watcher } else { Role::Contributor };
+                g.roles.insert((1 + rand(size as u64) as Id, 10 + rand(4) as Id), role);
+            }
+            let private = g.private_set();
+            for user in 10..14 {
+                let roles = g.roles_for(user);
+                for &id in g.nodes.keys() {
+                    assert_eq!(roles[&id], g.role(user, id), "role of {user} on {id} in {g:?}");
+                    assert_eq!(g.access_with(id, roles[&id], &private), g.access(user, id));
+                    assert_eq!(private.contains(&id), g.is_private(id));
+                }
+            }
+            let x = 1 + rand(size as u64) as Id;
+            let below = g.below(x);
+            for &goal in g.nodes.keys() {
+                assert_eq!(g.would_contain_itself(x, goal), goal == x || below.contains(&goal));
+            }
+        }
+    }
+
+    #[test]
+    fn deep_trees_take_one_pass() {
+        let mut g = Graph::default();
+        g.nodes.insert(1, node(Some(10), &[]));
+        for id in 2..=20_000 {
+            g.nodes.insert(id, node(Some(11), &[id - 1]));
+        }
+        g.roles.insert((1, 12), Role::Watcher);
+        let roles = g.roles_for(12);
+        assert_eq!(roles[&20_000], Access::Watch);
+        assert_eq!(g.roles_for(10)[&20_000], Access::Own);
+        assert_eq!(g.private_set().len(), 0);
+    }
+
+    #[test]
+    fn equally_near_roles_favour_contributor() {
+        let mut g = graph();
+        g.roles.insert((3, 12), Role::Watcher);
+        g.roles.insert((2, 12), Role::Contributor);
+        assert_eq!(g.access(12, 5), Access::Contribute, "5 sits directly under both 3 and 2");
+        assert_eq!(g.roles_for(12)[&5], Access::Contribute);
     }
 
     #[test]

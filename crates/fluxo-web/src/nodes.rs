@@ -39,12 +39,9 @@ pub(crate) async fn with_access(
 }
 
 pub(crate) fn not_found() -> Response {
-    (axum::http::StatusCode::NOT_FOUND, axum::response::Html(NOT_FOUND)).into_response()
+    let page = crate::error_page("Not found", "That goal or task doesn’t exist, or you can’t see it.");
+    (axum::http::StatusCode::NOT_FOUND, axum::response::Html(page)).into_response()
 }
-
-const NOT_FOUND: &str = "<!doctype html><meta charset=utf-8><link rel=stylesheet href=/static/styles.css><title>Not found · fluxo</title>\
-<main class=\"auth auth-main\"><div class=\"auth-card\"><h1>Not found</h1><p class=\"lede\">That goal or task doesn’t exist, or you can’t see it.</p>\
-<p class=\"auth-foot\"><a href=\"/goals\">Go to Goals</a></p></div></main>";
 
 fn back_to(world: &World, id: Id, query: &str, anchor: &str) -> Response {
     let href = world.nodes.get(&id).map(|n| n.href()).unwrap_or_else(|| "/goals".into());
@@ -221,7 +218,8 @@ pub async fn add_risk(
     Form(f): Form<NewRiskForm>,
 ) -> Result<Response> {
     let (ctx, world, _) = gate!(app, jar, f.csrf, id, Access::Contribute);
-    let title = f.title.trim();
+    let title = crate::views::clean(&f.title, false);
+    let title = title.as_str();
     let (Some(p), Some(min), Some(max)) = (percent(&f.likelihood), days(&f.min), days(&f.max)) else {
         return Ok(back_to(&world, id, "error=risk", "risks"));
     };

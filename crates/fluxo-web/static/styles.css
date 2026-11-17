@@ -1,4 +1,4 @@
-/* fluxo mocks — shared styles
+/* fluxo — styles
    Single-column layout, top bar only, light/dark following OS with manual override. */
 
 :root {
@@ -9,16 +9,16 @@
   --border-strong: #d0d0d6;
   --text: #16161a;
   --text-2: #55555f;
-  --text-3: #8a8a94;
-  --accent: #5b5bf7;
-  --accent-hover: #4848e6;
+  --text-3: #6b6b75;
+  --accent: #4b4be3;
+  --accent-hover: #3c3cd0;
   --accent-soft: #ededfe;
   --accent-text: #ffffff;
-  --amber: #b26a00;
+  --amber: #965800;
   --amber-soft: #fff4e0;
   --red: #c8312b;
   --red-soft: #fdecea;
-  --green: #1d7f4e;
+  --green: #187045;
   --green-soft: #e6f5ec;
   --shadow: 0 1px 2px rgba(20, 20, 30, .05), 0 1px 1px rgba(20, 20, 30, .03);
   --radius: 10px;
@@ -38,9 +38,9 @@
     --border-strong: #3a3a43;
     --text: #ececf1;
     --text-2: #a5a5b0;
-    --text-3: #6f6f7a;
-    --accent: #7676ff;
-    --accent-hover: #8a8aff;
+    --text-3: #90909a;
+    --accent: #8a8aff;
+    --accent-hover: #a0a0ff;
     --accent-soft: #23234a;
     --amber: #f0a43a;
     --amber-soft: #2e2414;
@@ -48,6 +48,7 @@
     --red-soft: #321a19;
     --green: #4cc38a;
     --green-soft: #142a20;
+    --accent-text: #0e0e11;
     --shadow: none;
     color-scheme: dark;
   }
@@ -60,9 +61,9 @@
   --border-strong: #3a3a43;
   --text: #ececf1;
   --text-2: #a5a5b0;
-  --text-3: #6f6f7a;
-  --accent: #7676ff;
-  --accent-hover: #8a8aff;
+  --text-3: #90909a;
+  --accent: #8a8aff;
+  --accent-hover: #a0a0ff;
   --accent-soft: #23234a;
   --amber: #f0a43a;
   --amber-soft: #2e2414;
@@ -70,6 +71,7 @@
   --red-soft: #321a19;
   --green: #4cc38a;
   --green-soft: #142a20;
+  --accent-text: #0e0e11;
   --shadow: none;
   color-scheme: dark;
 }
@@ -85,6 +87,8 @@ body {
 }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
+/* Links inside running text are underlined, so they don't rely on colour alone (WCAG 1.4.1). */
+p a:not(.btn), .crumbs a, .d a, .lede a { text-decoration: underline; text-underline-offset: .15em; }
 h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 h1 { font-size: 24px; line-height: 1.25; }
 h2 { font-size: 15px; }
@@ -189,7 +193,6 @@ section + section { margin-top: 36px; }
 }
 .pill.accent { background: var(--accent-soft); color: var(--accent); }
 .pill.amber { background: var(--amber-soft); color: var(--amber); }
-.pill.red { background: var(--red-soft); color: var(--red); }
 .pill.green { background: var(--green-soft); color: var(--green); }
 .pill.outline { background: none; border: 1px dashed var(--border-strong); }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
@@ -242,7 +245,7 @@ textarea.input { height: auto; min-height: 72px; padding: 10px 12px; resize: ver
   border-bottom: 2px solid transparent; margin-bottom: -1px; font-family: inherit; white-space: nowrap;
 }
 .tab:hover { color: var(--text); text-decoration: none; }
-.tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); font-weight: 550; }
+.tab[aria-current="page"] { color: var(--text); border-bottom-color: var(--accent); font-weight: 550; }
 .tab .n { font: 12px var(--mono); color: var(--text-3); margin-left: 4px; }
 
 /* ---------- Focus inbox ---------- */
@@ -261,9 +264,6 @@ textarea.input { height: auto; min-height: 72px; padding: 10px 12px; resize: ver
 .invite-strip { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
 .invite-strip + .invite-strip { border-top: 1px solid var(--border); }
 
-.goal-mini { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; padding: 14px 18px; }
-.goal-mini .name { font-weight: 550; color: var(--text); }
-.goal-mini .dates { font: 13px var(--mono); color: var(--text-2); text-align: right; }
 
 /* ---------- Forecast band ---------- */
 .forecast { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border); border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
@@ -316,11 +316,7 @@ textarea.input { height: auto; min-height: 72px; padding: 10px 12px; resize: ver
 .node.unknown { border-style: dashed; border-color: var(--border-strong); background: repeating-linear-gradient(-45deg, transparent 0 8px, var(--surface-2) 8px 9px), var(--surface); }
 .node.unknown .n-title { color: var(--text-2); }
 .node.done { opacity: .55; }
-.node.terminal { background: var(--accent); color: var(--accent-text); border-color: var(--accent); text-align: center; }
-.node.terminal .n-meta { color: var(--accent-text); opacity: .85; justify-content: center; }
-.node.terminal::before { display: none; }
 .graph.focusing .node:not(.hl) { opacity: .35; }
-.risk-flag { color: var(--amber); font: 600 11px var(--mono); }
 
 /* ---------- Node detail ---------- */
 .kv { display: grid; grid-template-columns: 140px 1fr; gap: 12px 16px; align-items: center; }
@@ -333,7 +329,6 @@ textarea.input { height: auto; min-height: 72px; padding: 10px 12px; resize: ver
 
 .risk { display: grid; grid-template-columns: 1fr 160px 120px 28px; gap: 14px; align-items: center; padding: 14px 16px; }
 .risk .r-title { font-weight: 550; }
-.risk .r-sub { font-size: 12px; color: var(--text-3); margin-top: 2px; }
 .risk input[type=range] { width: 100%; accent-color: var(--amber); }
 .risk .lk { font: 600 13px var(--mono); color: var(--amber); }
 .risk.retired .lk { color: var(--green); }
@@ -372,19 +367,14 @@ textarea.input { height: auto; min-height: 72px; padding: 10px 12px; resize: ver
 .strength { height: 4px; border-radius: 2px; background: var(--surface-2); overflow: hidden; margin-top: 6px; }
 .strength > i { display: block; height: 100%; width: 0; background: var(--red); transition: width .2s, background .2s; }
 
-/* ---------- Mock index ---------- */
-.mock-note { font-size: 12px; color: var(--text-3); border-top: 1px dashed var(--border); margin-top: 48px; padding-top: 16px; }
-.screen-link { display: flex; gap: 14px; padding: 14px 18px; align-items: baseline; color: var(--text); }
-.screen-link:hover { background: var(--surface-2); text-decoration: none; }
-.screen-link .file { margin-left: auto; font: 12px var(--mono); color: var(--text-3); }
+/* ---------- Small screens ---------- */
 
 @media (max-width: 560px) {
-  .navlink .lbl { display: none; }
   .focus-item { grid-template-columns: 1fr auto; }
   .focus-item .rank { display: none; }
 }
 
-/* ---------- Round 2: goals set apart ---------- */
+/* ---------- Goals set apart ---------- */
 /* The goal plaque: a goal's statement presented on its own, clearly apart from the work beneath it. */
 .plaque {
   position: relative; text-align: center; padding: 36px 24px 26px; margin-bottom: 36px;

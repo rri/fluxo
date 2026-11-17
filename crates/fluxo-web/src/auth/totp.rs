@@ -34,7 +34,7 @@ pub fn provisioning(secret: &[u8], username: &str) -> (String, String) {
     (qr, grouped)
 }
 
-/// The code an authenticator shows at `unix_time`. Used by tests and the setup confirmation.
+/// The code an authenticator shows at `unix_time` (for tests).
 pub fn code_at(secret: &[u8], unix_time: u64) -> String {
     totp(secret).generate(unix_time)
 }

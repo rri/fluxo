@@ -212,8 +212,9 @@ pub async fn update(
     if task.is_goal() || task.archived_at.is_some() {
         return Ok(Redirect::to(&task.href()).into_response());
     }
-    let title = f.title.trim();
-    if views::check_title(title).is_some() || f.what.chars().count() > 5000 || f.why.chars().count() > 5000 {
+    let (title, what, why) = (views::clean(&f.title, false), views::clean(&f.what, true), views::clean(&f.why, true));
+    let title = title.as_str();
+    if views::check_title(title).is_some() || what.chars().count() > 5000 || why.chars().count() > 5000 {
         return Ok(Redirect::to(&format!("/tasks/{id}?error=title#top")).into_response());
     }
     let Some(estimate) = views::parse_days(&f.estimate) else {
@@ -231,7 +232,6 @@ pub async fn update(
         (_, Some(s)) => Some(s),
         _ => Some(now()),
     };
-    let (what, why) = (f.what.trim(), f.why.trim());
     sqlx::query!(
         "UPDATE nodes SET title = ?, what = ?, why = ?, estimate_days = ?, clarity = ?, status = ?, remaining_days = ?,
                           started_at = ? WHERE id = ?",

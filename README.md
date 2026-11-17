@@ -18,8 +18,8 @@ and on removing the risk and ambiguity along it. Hosted at https://fluxo.dev.
 | `crates/fluxo` | The server binary (`fluxo serve`, `fluxo backup`, `fluxo --version`) |
 | `migrations/` | SQLite schema |
 | `tests/browser/` | Playwright tests, with and without JavaScript |
+| `scripts/` | Refresh the sqlx query metadata; seed a demo goal |
 | `deploy/` | Server files and how deploys work (see `deploy/README.md`) |
-| `mocks/` | The original UX mocks |
 | `docs/implementation-plan.md` | Decisions and plan |
 | `docs/spec.md` | Intended behaviour of every page and state, with rule IDs the tests cite |
 | `docs/threat-model.md` | Threats, how each is handled, and accepted risks |
