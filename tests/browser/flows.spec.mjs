@@ -274,6 +274,12 @@ test('a goal shows its forecast', async ({ page }, info) => {
   await expect(page.getByText('P50 finish')).toBeVisible();
   await expect(page.locator('svg.dist-svg')).toBeVisible();
   await expect(page.locator('.graph [data-path="1"]').first()).toBeAttached();
+  if (js(info)) {
+    // Hovering a step traces what it needs and what it leads to (GP4).
+    await page.locator('.graph .node:not(.anchor)').first().hover();
+    await expect(page.locator('.graph')).toHaveClass(/focusing/);
+    await expect(page.locator('.graph .node.hl').first()).toBeVisible();
+  }
 });
 
 test('invite someone to a goal; they accept and it shows up for both', async ({ page, browser }, info) => {
@@ -408,7 +414,7 @@ async function overflow(page) {
   });
 }
 
-test('every page fits a phone screen (G16)', async ({ browser }, info) => {
+test('every page fits a phone screen (G17)', async ({ browser }, info) => {
   const context = await browser.newContext({ ...info.project.use, viewport: { width: 320, height: 720 } });
   const page = await context.newPage();
   const problems = [];

@@ -88,7 +88,7 @@ Status: **Mitigated** (it was already in place), **Fixed** (fixed in this review
 | # | Threat | Status | How |
 |---|---|---|---|
 | I1 | Seeing a private item by address | Mitigated | Missing and private items get the same 404 (G4). |
-| I2 | **Titles of private goals leaking through labels**: goal pickers ("Private › Sub-goal"), Focus ("On the critical path of …", the goals pills, "blocked by"), Updates ("In …"), "Needs: …" on a goal's path, and the goals an offered item feeds | **Fixed** | Every place that names another item now uses the title only if the person can read it, else "a private goal" / "a private step" without a link (FO5, GP4, T1). |
+| I2 | **Titles of private goals leaking through labels**: goal pickers ("Private › Launch"), Focus ("On the critical path of …", the goals pills, "blocked by"), Updates ("In …"), "Needs: …" on a goal's path, and the goals an offered item feeds | **Fixed** | Every place that names another item now uses the title only if the person can read it, else "a private goal" / "a private step" without a link (FO5, GP4, T1). |
 | I3 | Signed-out visitors learning whether a risk exists | **Fixed** | `/risks/<id>` checks sign-in first (V1). |
 | I4 | Cross-site scripting | Mitigated | askama escapes everything. The one raw value is the server-drawn chart, built from numbers (G10, tested with hostile input everywhere). Strict CSP with no inline script or style. |
 | I5 | Clickjacking | Mitigated | `frame-ancestors 'none'`, plus `X-Frame-Options: DENY` (**added**). |

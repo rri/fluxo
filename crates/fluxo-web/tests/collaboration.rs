@@ -91,7 +91,8 @@ async fn invite_accept_and_contribute() {
     .await;
     assert_eq!(r.status, StatusCode::FORBIDDEN);
     let r = send(&app, "GET", &format!("/invitations/{g}"), Some(&kofi), None).await;
-    assert!(r.body.contains("Accept invitation"));
+    assert!(r.body.contains("Accept invitation") && r.body.contains("Decline"));
+    assert!(r.body.contains("As a Contributor you can"), "what the role allows (I1)");
     let r =
         send(&app, "POST", &format!("/invitations/{g}"), Some(&kofi), Some(&format!("csrf={kt}&answer=accept"))).await;
     assert_eq!(r.location.as_deref(), Some(format!("/goals/{g}").as_str()));

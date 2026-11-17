@@ -326,7 +326,7 @@ async fn fo5_gp1_gp4_t1_titles_of_private_goals_never_leak() {
     let kofi = sign_in(&app, "kofi", None).await;
     let lin = sign_in(&app, "lin", None).await;
 
-    // ada's private goal "Secret plan" with a task kofi contributes to directly, and a sub-goal
+    // ada's private goal "Secret plan" with a task kofi contributes to directly, and a goal beneath it
     // kofi contributes to.
     let p = goal(&app, &ada, "Secret plan", None).await;
     make_private(&app, &ada, p).await;
@@ -387,7 +387,7 @@ async fn fo5_gp1_gp4_t1_titles_of_private_goals_never_leak() {
     let offer = send(&app, "GET", &format!("/transfers/{tid}"), Some(&lin), None).await.body;
     assert!(offer.contains("Schema") && !offer.contains("Secret plan"));
 
-    // On a public goal, a private sub-goal's title doesn't leak through "Needs".
+    // On a public goal, the title of a private goal beneath it doesn't leak through "Needs".
     let g = goal(&app, &ada, "Public goal", None).await;
     let hidden = goal(&app, &ada, "Covert sub", Some(g)).await;
     make_private(&app, &ada, hidden).await;
@@ -676,4 +676,382 @@ async fn pf1_a_very_deep_tree_stays_cheap_for_everyone() {
     // Generous, so it only fails if the cost is back to growing with depth squared (that took
     // minutes in debug builds at this depth).
     assert!(started.elapsed().as_secs() < 60, "took {:?}", started.elapsed());
+}
+
+#[tokio::test]
+async fn g5_server_errors_say_nothing_more() {
+    let (app, _) = with_ada(false).await;
+    let c = sign_in(&app, "ada", None).await;
+    // Break the database underneath a signed-in person.
+    sqlx::query("ALTER TABLE nodes RENAME TO nodes_gone").execute(&app.db).await.unwrap();
+    let r = send(&app, "GET", "/goals", Some(&c), None).await;
+    assert_eq!(r.status, StatusCode::INTERNAL_SERVER_ERROR);
+    assert!(r.body.contains("<h1>Something went wrong</h1>") && r.csp);
+    assert!(!r.body.contains("nodes") && !r.body.contains("sqlx") && !r.body.contains("SELECT"), "no details");
+}
+
+#[tokio::test]
+async fn g9_g16_pages_are_light_and_sign_in_uses_the_system_theme() {
+    let (app, _) = with_ada(false).await;
+    let c = sign_in(&app, "ada", None).await;
+    let t = token(&app, &c, "/settings").await;
+    send(&app, "POST", "/settings/theme", Some(&c), Some(&format!("csrf={t}&theme=dark"))).await;
+    // Auth pages ignore the account's theme: they follow the device.
+    assert!(send(&app, "GET", "/login", None, None).await.body.contains(r#"<html lang="en">"#));
+    let page = send(&app, "GET", "/", Some(&c), None).await.body;
+    assert!(page.contains(r#"<html lang="en" data-theme="dark">"#));
+    assert_eq!(page.matches(r#"rel="stylesheet""#).count(), 1, "one stylesheet");
+    assert!(page.matches("<script").count() <= 2, "two small scripts at most");
+    assert!(!page.contains("src=\"http") && !page.contains("href=\"http"), "nothing from elsewhere");
+    assert!(!page.contains("<style") && !page.contains(" style=\""), "no inline styles");
+    let req =
+        Request::builder().uri("/static/styles.css").header(header::HOST, "fluxo.test").body(Body::empty()).unwrap();
+    let res = app.router.clone().oneshot(req).await.unwrap();
+    assert_eq!(res.headers()[header::CACHE_CONTROL], "public, max-age=3600");
+}
+
+#[tokio::test]
+async fn pf2_malformed_requests_are_refused_without_errors() {
+    let (app, _) = with_ada(false).await;
+    let c = sign_in(&app, "ada", None).await;
+    let post = |body: Body, content_type: &str| {
+        Request::builder()
+            .method("POST")
+            .uri("/settings/profile")
+            .header(header::HOST, "fluxo.test")
+            .header(header::COOKIE, format!("fluxo_session={c}"))
+            .header(header::CONTENT_TYPE, content_type)
+            .body(body)
+            .unwrap()
+    };
+    let form = "application/x-www-form-urlencoded";
+    let huge = format!("csrf=x&display_name={}", "a".repeat(3 * 1024 * 1024));
+    let r = app.router.clone().oneshot(post(Body::from(huge), form)).await.unwrap();
+    assert_eq!(r.status(), StatusCode::PAYLOAD_TOO_LARGE);
+    let r = app.router.clone().oneshot(post(Body::from("csrf=x"), "text/plain")).await.unwrap();
+    assert_eq!(r.status(), StatusCode::UNSUPPORTED_MEDIA_TYPE);
+    let r = app.router.clone().oneshot(post(Body::from("nonsense=%%%"), form)).await.unwrap();
+    assert_eq!(r.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    // Bad numbers are explained, not crashed on.
+    let g = goal(&app, &c, "Launch", None).await;
+    let t = token(&app, &c, &format!("/goals/{g}")).await;
+    let r =
+        send(&app, "POST", &format!("/goals/{g}/size"), Some(&c), Some(&format!("csrf={t}&min=NaN&max=1e999"))).await;
+    assert_eq!(r.location.as_deref(), Some(format!("/goals/{g}?error=size#path").as_str()));
+}
+
+#[tokio::test]
+async fn f4_only_one_first_account_even_when_two_race() {
+    let app = empty().await;
+    let st = app.state.setup_token.clone();
+    let open = |_: ()| async {
+        let r = send(&app, "GET", &format!("/setup?token={st}"), None, None).await;
+        (r.cookie.unwrap(), csrf(&r.body))
+    };
+    let ((a, ta), (b, tb)) = (open(()).await, open(()).await);
+    let form = |t: &str, name: &str| {
+        format!(
+            "csrf={t}&setup_token={st}&username={name}&password=a+long+enough+password&confirm=a+long+enough+password"
+        )
+    };
+    let (fa, fb) = (form(&ta, "ada"), form(&tb, "bo"));
+    let (ra, rb) = tokio::join!(
+        send(&app, "POST", "/setup", Some(&a), Some(&fa)),
+        send(&app, "POST", "/setup", Some(&b), Some(&fb))
+    );
+    let made = [&ra, &rb].iter().filter(|r| r.location.as_deref() == Some("/settings/2fa/setup?first=1")).count();
+    assert_eq!(made, 1, "{:?} {:?}", ra.location, rb.location);
+    let n: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users").fetch_one(&app.db).await.unwrap();
+    assert_eq!(n, 1);
+}
+
+#[tokio::test]
+async fn v3_a_wrong_password_keeps_the_username() {
+    let (app, _) = with_ada(false).await;
+    let r = send(&app, "GET", "/login", None, None).await;
+    let (anon, t) = (r.cookie.unwrap(), csrf(&r.body));
+    let r =
+        send(&app, "POST", "/login", Some(&anon), Some(&format!("csrf={t}&username=ada&password=wrong+password+here")))
+            .await;
+    assert!(r.body.contains("That username and password don’t match."));
+    assert!(r.body.contains(r#"value="ada""#), "the username stays in the field");
+}
+
+#[tokio::test]
+async fn v9_wrong_recovery_codes_end_the_attempt_and_a_right_one_signs_out_everywhere() {
+    let (app, _) = with_ada(false).await;
+    add_user(&app, "kofi", false).await;
+    let elsewhere = sign_in(&app, "kofi", None).await;
+    let r = send(&app, "GET", "/locked", None, None).await;
+    let (anon, t) = (r.cookie.unwrap(), csrf(&r.body));
+    let mut last = None;
+    for _ in 0..5 {
+        last = Some(
+            send(&app, "POST", "/locked", Some(&anon), Some(&format!("csrf={t}&username=kofi&code=AAAA-BBBB-CCCC")))
+                .await,
+        );
+    }
+    assert_eq!(last.unwrap().location.as_deref(), Some("/locked?reason=tries"), "five wrong tries end the attempt");
+    assert_eq!(
+        send(&app, "GET", "/", Some(&elsewhere), None).await.status,
+        StatusCode::OK,
+        "wrong codes change nothing"
+    );
+
+    // ada issues a real code; using it signs kofi out of every other session.
+    let ada = sign_in(&app, "ada", None).await;
+    let at = token(&app, &ada, "/settings").await;
+    send(&app, "POST", "/settings/admin/recovery", Some(&ada), Some(&format!("csrf={at}&username=kofi"))).await;
+    let code = field(
+        &send(&app, "GET", "/settings", Some(&ada), None).await.body,
+        r#"id="issued-code" class="code-field" value=""#,
+    );
+    let r = send(&app, "GET", "/locked", None, None).await;
+    let (anon, t) = (r.cookie.unwrap(), csrf(&r.body));
+    let r = send(&app, "POST", "/locked", Some(&anon), Some(&format!("csrf={t}&username=kofi&code={code}"))).await;
+    assert_eq!(r.location.as_deref(), Some("/reset-password"));
+    assert_eq!(send(&app, "GET", "/", Some(&elsewhere), None).await.location.as_deref(), Some("/login"));
+}
+
+#[tokio::test]
+async fn fo1_fo2_fo3_focus_sections_in_order_and_updates_age_out() {
+    let (app, _) = with_ada(false).await;
+    add_user(&app, "kofi", false).await;
+    add_user(&app, "lin", false).await;
+    let ada = sign_in(&app, "ada", None).await;
+    let g = goal(&app, &ada, "Launch", None).await;
+    let t = token(&app, &ada, &format!("/goals/{g}")).await;
+    send(
+        &app,
+        "POST",
+        &format!("/nodes/{g}/people"),
+        Some(&ada),
+        Some(&format!("csrf={t}&action=invite&username=kofi&role=contributor")),
+    )
+    .await;
+    let lin = sign_in(&app, "lin", None).await;
+    let lt = token(&app, &lin, &format!("/goals/{g}")).await;
+    send(&app, "POST", &format!("/nodes/{g}/people"), Some(&lin), Some(&format!("csrf={lt}&action=watch"))).await;
+    let schema = task(&app, &ada, g, "Schema").await;
+    let t = token(&app, &ada, &format!("/tasks/{schema}")).await;
+    send(
+        &app,
+        "POST",
+        &format!("/nodes/{schema}/risks"),
+        Some(&ada),
+        Some(&format!("csrf={t}&title=Late&likelihood=50&min=1&max=2")),
+    )
+    .await;
+
+    let kofi = sign_in(&app, "kofi", None).await;
+    let f = send(&app, "GET", "/", Some(&kofi), None).await.body;
+    let at = |s: &str| f.find(s).unwrap_or_else(|| panic!("no {s}"));
+    assert!(
+        at("Waiting on you") < at(r#"id="upd-h""#) && at(r#"id="upd-h""#) < at("Next up"),
+        "Waiting, Updates, Next up"
+    );
+    assert!(f.contains(r#"href="/invitations/"#) && f.contains(">Review</a>"));
+
+    // lin watches: ada's new risk is an Update for 90 days, then it leaves Focus.
+    assert!(send(&app, "GET", "/", Some(&lin), None).await.body.contains("ada added a risk"));
+    sqlx::query("UPDATE events SET at = at - 91 * 86400").execute(&app.db).await.unwrap();
+    let f = send(&app, "GET", "/", Some(&lin), None).await.body;
+    assert!(!f.contains("ada added a risk") && f.contains("Nothing yet."));
+}
+
+#[tokio::test]
+async fn go1_your_goals_come_first() {
+    let (app, _) = with_ada(false).await;
+    add_user(&app, "kofi", false).await;
+    let kofi = sign_in(&app, "kofi", None).await;
+    let public = goal(&app, &kofi, "Aardvark public", None).await;
+    let shared = goal(&app, &kofi, "Badger shared", None).await;
+    let ada_id: i64 =
+        sqlx::query_scalar("SELECT id FROM users WHERE username = 'ada'").fetch_one(&app.db).await.unwrap();
+    role(&app, shared, ada_id, "watcher").await;
+    let ada = sign_in(&app, "ada", None).await;
+    goal(&app, &ada, "Zebra mine", None).await;
+    let page = send(&app, "GET", "/goals", Some(&ada), None).await.body;
+    let at = |s: &str| page.find(s).unwrap();
+    assert!(at("Zebra mine") < at("Badger shared") && at("Badger shared") < at("Aardvark public"), "own, role, public");
+    let _ = public;
+}
+
+#[tokio::test]
+async fn gp2_gp3_the_stamp_and_whose_calendar_dates_use() {
+    let (app, _) = with_ada(false).await;
+    add_user(&app, "kofi", false).await;
+    let ada = sign_in(&app, "ada", None).await;
+    let g = goal(&app, &ada, "Launch", None).await;
+    task(&app, &ada, g, "Schema").await;
+    let t = token(&app, &ada, &format!("/goals/{g}")).await;
+    send(&app, "POST", &format!("/goals/{g}/shape"), Some(&ada), Some(&format!("csrf={t}&coverage=full"))).await;
+    let page = send(&app, "GET", &format!("/goals/{g}"), Some(&ada), None).await.body;
+    assert!(page.contains("· never changed</p>"), "a statement that was never reworded says so");
+    assert!(page.contains("Dates use your working calendar"));
+    let kofi = sign_in(&app, "kofi", None).await;
+    assert!(
+        send(&app, "GET", &format!("/goals/{g}"), Some(&kofi), None)
+            .await
+            .body
+            .contains("Dates use ada’s working calendar")
+    );
+    // Rewording shows when.
+    sqlx::query("UPDATE nodes SET created_at = created_at - 86400 * 3 WHERE id = ?")
+        .bind(g)
+        .execute(&app.db)
+        .await
+        .unwrap();
+    send(&app, "POST", &format!("/goals/{g}/statement"), Some(&ada), Some(&format!("csrf={t}&title=Launch+it&why=")))
+        .await;
+    let page = send(&app, "GET", &format!("/goals/{g}"), Some(&ada), None).await.body;
+    assert!(page.contains("· statement changed "));
+    // GP11: History, collapsed, with how many events it holds.
+    assert!(page.contains(r#"id="hist-h">History</b>"#));
+    let n: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM events WHERE node_id = ?").bind(g).fetch_one(&app.db).await.unwrap();
+    assert!(page.contains(&format!(r#"<span class="faint small">{n}</span></summary>"#)), "{n} events");
+}
+
+#[tokio::test]
+async fn s1a_2fa_setup_offers_a_way_out() {
+    let (app, _) = with_ada(false).await;
+    let c = sign_in(&app, "ada", None).await;
+    let first = send(&app, "GET", "/settings/2fa/setup?first=1", Some(&c), None).await.body;
+    assert!(first.contains(">Skip for now</a>") && first.contains("Can’t scan? Enter this key"));
+    assert!(send(&app, "GET", "/settings/2fa/setup", Some(&c), None).await.body.contains(">Back to Settings</a>"));
+}
+
+#[tokio::test]
+async fn tp3_l1_l5_connections_and_their_limits() {
+    let (app, _) = with_ada(false).await;
+    let c = sign_in(&app, "ada", None).await;
+    let g = goal(&app, &c, "Launch", None).await;
+    let a = task(&app, &c, g, "A").await;
+    let b = task(&app, &c, g, "B").await;
+    let page = send(&app, "GET", &format!("/tasks/{a}"), Some(&c), None).await.body;
+    assert!(page.contains(r#"<span class="small muted">Nothing</span>"#), "needs nothing");
+    assert!(page.contains("Nothing waits on it"));
+    let t = token(&app, &c, &format!("/tasks/{a}")).await;
+    // A link must point at a goal that isn't archived.
+    let link = |to: i64| format!("csrf={t}&action=add&goal={to}");
+    assert_eq!(
+        send(&app, "POST", &format!("/nodes/{a}/parents"), Some(&c), Some(&link(b))).await.status,
+        StatusCode::FORBIDDEN
+    );
+    let old = goal(&app, &c, "Old", None).await;
+    send(&app, "POST", &format!("/nodes/{old}/archive"), Some(&c), Some(&format!("csrf={t}"))).await;
+    assert_eq!(
+        send(&app, "POST", &format!("/nodes/{a}/parents"), Some(&c), Some(&link(old))).await.status,
+        StatusCode::FORBIDDEN
+    );
+    // Risks: likelihood 0–100, min ≤ max, a title of at most 200 characters.
+    let risk = |title: &str, l: &str, min: &str, max: &str| {
+        format!("csrf={t}&title={}&likelihood={l}&min={min}&max={max}", enc(title))
+    };
+    for bad in [
+        risk("Late", "101", "1", "2"),
+        risk("Late", "50", "3", "2"),
+        risk(&"x".repeat(201), "50", "1", "2"),
+        risk("Late", "50", "-1", "2"),
+    ] {
+        let r = send(&app, "POST", &format!("/nodes/{a}/risks"), Some(&c), Some(&bad)).await;
+        assert_eq!(r.location.as_deref(), Some(format!("/tasks/{a}?error=risk#risks").as_str()), "{bad}");
+    }
+    let n: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM risks").fetch_one(&app.db).await.unwrap();
+    assert_eq!(n, 0);
+}
+
+#[tokio::test]
+async fn s2_notices_come_from_a_fixed_list() {
+    let (app, _) = with_ada(false).await;
+    let c = sign_in(&app, "ada", None).await;
+    let page = send(&app, "GET", "/settings?done=Hacked+by+mallory&error=%3Cb%3Eboo", Some(&c), None).await.body;
+    assert!(!page.contains("mallory") && !page.contains("boo"), "nothing is echoed from the address");
+    assert!(!page.contains(r#"class="notice"#));
+    let page = send(&app, "GET", "/settings?done=admin-added&user=999999", Some(&c), None).await.body;
+    assert!(!page.contains("is now an"), "an unknown person names no one");
+}
+
+#[tokio::test]
+async fn d2_t1_a_declined_transfer_leaves_the_owner_in_place() {
+    let (app, _) = with_ada(false).await;
+    add_user(&app, "kofi", false).await;
+    let ada = sign_in(&app, "ada", None).await;
+    let g = goal(&app, &ada, "Launch", None).await;
+    let t = token(&app, &ada, &format!("/goals/{g}")).await;
+    send(
+        &app,
+        "POST",
+        &format!("/nodes/{g}/transfer"),
+        Some(&ada),
+        Some(&format!("csrf={t}&action=request&username=kofi&note=")),
+    )
+    .await;
+    let id: i64 = sqlx::query_scalar("SELECT id FROM transfers").fetch_one(&app.db).await.unwrap();
+    let kofi = sign_in(&app, "kofi", None).await;
+    let kt = token(&app, &kofi, &format!("/transfers/{id}")).await;
+    send(&app, "POST", &format!("/transfers/{id}"), Some(&kofi), Some(&format!("csrf={kt}&answer=decline"))).await;
+    let (owner, unowned): (Option<i64>, Option<i64>) =
+        sqlx::query_as("SELECT owner_id, unowned_since FROM nodes WHERE id = ?")
+            .bind(g)
+            .fetch_one(&app.db)
+            .await
+            .unwrap();
+    let ada_id: i64 =
+        sqlx::query_scalar("SELECT id FROM users WHERE username = 'ada'").fetch_one(&app.db).await.unwrap();
+    assert_eq!((owner, unowned), (Some(ada_id), None), "still ada's; nothing for the Administrators");
+    assert!(send(&app, "GET", "/settings", Some(&ada), None).await.body.contains("Everything has an owner."));
+}
+
+#[tokio::test]
+async fn d4_a_deleted_account_keeps_its_username() {
+    let (app, _) = with_ada(false).await;
+    add_user(&app, "kofi", false).await;
+    sqlx::query("UPDATE users SET deleted_at = 1 WHERE username = 'kofi'").execute(&app.db).await.unwrap();
+    sqlx::query("UPDATE instance SET signup_mode = 'open'").execute(&app.db).await.unwrap();
+    let r = send(&app, "GET", "/signup", None, None).await;
+    let (anon, t) = (r.cookie.unwrap(), csrf(&r.body));
+    let r = send(
+        &app,
+        "POST",
+        "/signup",
+        Some(&anon),
+        Some(&format!("csrf={t}&username=kofi&password=a+long+enough+password&confirm=a+long+enough+password")),
+    )
+    .await;
+    assert!(r.body.contains("That username is taken."));
+}
+
+#[tokio::test]
+async fn h1_codes_from_the_neighbouring_steps_work_and_older_ones_do_not() {
+    let (app, secret) = with_ada(true).await;
+    // Steer clear of a step boundary, so "one step old" stays one step old while the test runs.
+    if fluxo_web::now() % 30 >= 25 {
+        tokio::time::sleep(std::time::Duration::from_secs(6)).await;
+    }
+    let at = |offset: i64| fluxo_web::auth::totp::code_at(&secret, (fluxo_web::now() + offset) as u64);
+    let half = |_: ()| async {
+        let r = send(&app, "GET", "/login", None, None).await;
+        let (anon, t) = (r.cookie.unwrap(), csrf(&r.body));
+        let r = send(
+            &app,
+            "POST",
+            "/login",
+            Some(&anon),
+            Some(&format!("csrf={t}&username=ada&password=a+long+enough+password")),
+        )
+        .await;
+        let c = r.cookie.unwrap();
+        let t = csrf(&send(&app, "GET", "/login/2fa", Some(&c), None).await.body);
+        (c, t)
+    };
+    let (c, t) = half(()).await;
+    let r = send(&app, "POST", "/login/2fa", Some(&c), Some(&format!("csrf={t}&code={}", at(-60)))).await;
+    assert!(r.body.contains("didn’t work"), "two steps old: refused");
+    let r = send(&app, "POST", "/login/2fa", Some(&c), Some(&format!("csrf={t}&code={}", at(-30)))).await;
+    assert_eq!(r.location.as_deref(), Some("/"), "one step old: a slow phone still gets in");
+    let (c, t) = half(()).await;
+    let r = send(&app, "POST", "/login/2fa", Some(&c), Some(&format!("csrf={t}&code={}", at(30)))).await;
+    assert_eq!(r.location.as_deref(), Some("/"), "one step ahead: a fast clock still gets in");
 }

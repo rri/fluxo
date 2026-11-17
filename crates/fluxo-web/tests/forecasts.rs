@@ -148,7 +148,7 @@ async fn time_zones_are_checked_for_real() {
 }
 
 #[tokio::test]
-async fn empty_sub_goals_are_flagged_until_sized_or_broken_down() {
+async fn empty_goals_beneath_are_flagged_until_sized_or_broken_down() {
     let (app, _) = with_ada(false).await;
     let c = sign_in(&app, "ada", None).await;
     let g = goal(&app, &c, "Launch", "full").await;

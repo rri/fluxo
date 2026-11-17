@@ -2,8 +2,9 @@
 
 How every page and action should behave, across the states a visitor can be in. Each rule has
 an ID; the tests that check it name it (`crates/fluxo-web/tests/spec.rs`,
-`crates/fluxo-web/tests/security.rs`, `tests/browser/`). Where this document and the code
-disagree, the code is wrong unless a decision in `docs/implementation-plan.md` says otherwise.
+`crates/fluxo-web/tests/security.rs`, `tests/browser/`); `docs/spec-coverage.md` maps every rule
+to its tests. Where this document and the code disagree, the code is wrong unless a decision in
+`docs/implementation-plan.md` says otherwise.
 
 ## 0. States and roles
 
@@ -39,7 +40,7 @@ unattached tasks; pending invitations and transfers; unread updates.
   boxes, path graph layout, save-on-change, confirmations, keyboard shortcuts).
 - **G3** Every state-changing request needs the session's form token (`csrf`). A missing or wrong
   token gets **403** "This form has expired…" and changes nothing.
-- **G4** Unknown addresses get a **404** page with a link to Focus. A goal or task that doesn't
+- **G4** Unknown addresses get a **404** page (wordmark, "Not found", a link to Focus). A goal or task that doesn't
   exist and one the person can't see get the same **404** ("doesn't exist, or you can't see it"),
   so existence of private items isn't revealed.
 - **G5** Server errors get a self-contained **500** page; details go only to the server log.
@@ -68,6 +69,11 @@ unattached tasks; pending invitations and transfers; unread updates.
   `lang` set, and landmarks.
 - **G16** Performance: pages are server-rendered with one stylesheet and two small scripts (one
   deferred), no web fonts or third-party requests, and static files are cached for an hour.
+- **G17** Phone widths: from 320px up, no page scrolls sideways and nothing sticks out of the
+  screen. Rows wrap; forms stack; tables become one labelled card per row; the path graph keeps
+  steps readable and scrolls sideways inside its card, opening on the goal; long titles wrap
+  inside their pills. Centred lines balance instead of leaving a lone word; explanations under
+  fields are left-aligned. Hover hints are hidden on touch screens.
 
 ## 1a. Robustness
 
@@ -138,7 +144,8 @@ unattached tasks; pending invitations and transfers; unread updates.
 - **FO2** Waiting on you lists pending, unexpired invitations (to items not archived) and
   ownership transfers, each with "Review".
 - **FO3** Updates: outlook-changing events from the last 90 days on items the person owns,
-  contributes to or watches (directly or above), newest first, unread ones marked. Empty state:
+  contributes to or watches (directly or above), newest first, unread ones marked, with "N unread"
+  (or "All read") · "last 90 days" beside the heading. Empty state:
   "Nothing yet. Changes to goals…". "Mark all read" appears only when something is
   unread.
 - **FO3a** A moved forecast reads "Estimated finish of <goal> moved later/earlier: P85 a → b", with
@@ -151,7 +158,10 @@ unattached tasks; pending invitations and transfers; unread updates.
 - **FO4** Next up: ranked Do / De-risk / Clarify items for work the person can contribute to and
   that feeds a goal, with tabs (All, Do, De-risk, Clarify) and counts. Each item shows why,
   pills, the goals it feeds, "blocked by" when a need isn't done, "Mark started" for startable
-  tasks, and "Snooze until tomorrow". Empty state on All: "Nothing to rank yet…"; on other tabs:
+  tasks, and "Snooze until tomorrow". Beside each item, the expected days it would remove from
+  the goal's finish ("−2.4d"; "~" when estimated rather than rechecked; "<0.1d" when negligible;
+  "?" with "not sized" when it can't be measured). At most 30 items. Snoozing is personal and
+  lasts until the next day. Empty state on All: "Nothing to rank yet…"; on other tabs:
   "Nothing here right now."
 - **FO5** Titles of goals and steps the person can't read never appear (they read "a private
   goal" / "a private step", unlinked).
@@ -160,7 +170,8 @@ unattached tasks; pending invitations and transfers; unread updates.
 
 - **GO1** "+ New goal" button. Goals that feed no other goal in fluxo the person can see, theirs first, then ones they
   have a role on, then public ones; each card shows role, private, achieved, why, forecast
-  (P50 · P85, or "nebulous"), coverage, steps done, and the step most critical now.
+  (P50 · P85, or "nebulous"), coverage, steps done, and the step most critical now. Beneath each
+  card: the goals that feed it (with their step counts) and how many tasks feed it directly.
 - **GO2** No goals: "No goals yet." with a "+ New goal" button.
 - **GO3** Tasks attached to no goal that the person can contribute to are listed under "Tasks not
   attached to any goal", with the note that they can't show up on a critical path.
@@ -175,13 +186,16 @@ unattached tasks; pending invitations and transfers; unread updates.
 - **GP1** Breadcrumbs follow the home chain; goals above that the person can't read show as
   "Private goal" without a link.
 - **GP2** Header: Goal, title, why, owner, coverage, Private, Achieved, step count;
-  "Edit goal" for owners, "Add a step" for contributors.
+  "Edit goal" for owners, "Add a step" for contributors; and when it was set, with "never changed"
+  or when its statement last changed.
 - **GP3** Forecast band (when there are steps or a rough size): P50, P85, spread, risk exposure,
-  run count, when it was updated, the chart, and whose calendar dates use. Low coverage shows
-  "nebulous" instead of dates.
+  run count, when it was updated, the chart, and whose calendar dates use ("your", "ada's", or the
+  default Mon–Fri, UTC when no one owns it). Low coverage shows "nebulous" instead of dates.
+  "Top risks on the path" lists the risks on steps of the critical path by expected delay.
 - **GP4** The path: steps with kind, estimate or size, status and criticality; the most likely
   critical path (≥50% of runs) highlighted. Without JavaScript it's a list with "Needs: …"; with
-  JavaScript a layered graph. Steps the person can't read show as "Private step" without a
+  JavaScript a layered graph, where hovering or focusing a step traces what it needs and what it
+  leads to. Steps the person can't read show as "Private step" without a
   link or title, and their titles don't leak through "Needs" or "Waiting on".
 - **GP5** No steps: "No steps yet." plus, for contributors, the rough-size form.
 - **GP6** Contributors see "Add a step" (task or goal, estimate/clarity or coverage/size,
@@ -190,8 +204,11 @@ unattached tasks; pending invitations and transfers; unread updates.
 - **GP7** Owners see Goal settings: statement (title, why), coverage, Private, mark achieved /
   reopen, Archive, People invitations and ownership transfer. "Suggest achieved" appears when
   every step is done.
-- **GP8** Archived goals show an "Archived" notice with Restore (owners only; nobody else can
-  open them).
+- **GP8** Archived goals show "This goal is archived and will be permanently deleted on <date>."
+  with Restore (owners only; nobody else can open them).
+- **GP10** "Archived steps" lists this goal's archived steps with Restore, for their owners.
+- **GP11** Goal and task pages end with History (collapsed): the item's 30 latest events, each
+  with "Why" when a forecast moved.
 - **GP9** People: owner, roles held here, and roles inherited from above (with where they come
   from, or "a private goal"). Owners can invite (Contributor/Watcher), change roles and remove;
   signed-in readers of public items can Watch; people with a direct role can Leave / Stop
@@ -203,8 +220,8 @@ unattached tasks; pending invitations and transfers; unread updates.
   goal it feeds).
 - **TP2** Definition (what, why), estimate & progress (estimate, clarity, status, remaining when
   in progress): editable for contributors, read-only otherwise.
-- **TP3** Connections: what it needs (or "Nothing: it can start any time"), what it unblocks, and
-  which goals it feeds (or "No goal yet"). Contributors can add needs (same goal first, then
+- **TP3** Connections: what it needs (or "Nothing"), what it unblocks (or "Nothing waits on it"),
+  and which goals it feeds, the home one marked (or "No goal yet"). Contributors can add needs (same goal first, then
   elsewhere) and links.
 - **TP4** An unattached task shows a notice recommending attaching it to a goal or archiving it,
   with a goal picker for contributors.
@@ -241,6 +258,10 @@ unattached tasks; pending invitations and transfers; unread updates.
   Working calendar (working days, time zone; days off added and removed one date or range at a
   time, shown as ranges, at most a year per range), Sessions (this device marked; sign out
   others), Export, Delete account.
+- **S1a** 2FA setup shows a QR code, the key to type ("Can't scan? Enter this key") and the code
+  field; "Skip for now" right after joining, "Back to Settings" otherwise. Turning it on, or
+  making new codes, shows "Save your recovery codes" once (eight codes, with Copy and Download);
+  reloading doesn't show them again.
 - **S2** Notices appear in the section they belong to, from a fixed list (never echoed from the
   address; a notice about a person names them by looking up the id in the address).
 - **S2a** Every Settings form posts, then redirects (reloading never resubmits). An invitation
@@ -270,7 +291,9 @@ unattached tasks; pending invitations and transfers; unread updates.
 - **T1** Ownership transfers: an owner offers an item to someone; nothing changes until they
   accept; the previous owner stays on as a Contributor. Recipients see the item's title, why and
   the goals it feeds (private ones as "a private goal").
-- **I1** Invitations last 14 days. Accepting gives the role; declining removes the invitation.
+- **I1** Invitations last 14 days. The review page names who invited, the role and what it allows
+  (and how many items beneath it), with Decline and Accept. Accepting gives the role; declining
+  removes the invitation.
   Invitations to archived items can't be accepted while archived.
 
 ## 14. Sessions and housekeeping

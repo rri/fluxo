@@ -180,7 +180,7 @@ Contributors edit; Watchers get Updates. **(D17)**
 
 **Per run:**
 1. Work through each goal's children in dependency order. A child starts when everything it needs has
-   finished. A sub-goal's duration is its own result from the same run.
+   finished. Each goal beneath it gets its own duration from the same run.
 2. A goal finishes when its last child (or its unknown work) finishes.
 3. Record which nodes lie on that run's longest path. When paths tie, credit each tied node.
 
