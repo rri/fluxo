@@ -8,5 +8,18 @@ rust-version = "1.88"
 license = "AGPL-3.0-only"
 publish = false
 
+# Production: one optimised, self-contained binary. Panic messages keep their file and line, and
+# backtraces keep function names; full debug info would make the binary ~5x larger to ship.
 [profile.release]
-debug = 1
+lto = "fat"
+codegen-units = 1
+strip = "debuginfo"
+
+# Test and dev builds: optimise dependencies (password hashing is ~25x slower unoptimised, and
+# every test signs in) and the simulation engine (10,000 runs per forecast). Our own web code stays
+# unoptimised so it rebuilds quickly; dependencies are compiled once and cached.
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.dev.package.fluxo-sim]
+opt-level = 3

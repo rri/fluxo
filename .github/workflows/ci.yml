@@ -24,9 +24,17 @@ env:
   NODE_VERSION: 26
   TARGET: x86_64-unknown-linux-musl
 
+# A newer push to a pull request makes its older run pointless, so that one is cancelled. Runs on
+# main each get their own group: none waits for or cancels another, and the deploy job's own
+# check makes sure only the newest commit is deployed.
+concurrency:
+  group: ci-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
-  test:
+  rust:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
@@ -37,27 +45,49 @@ jobs:
         with:
           # A failing run still compiled the dependencies; keep them.
           cache-on-failure: true
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: tests/browser/package-lock.json
       - name: Rust formatting
         run: cargo fmt --all --check
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Rust tests
         run: cargo test --workspace --locked
+
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          cache-on-failure: true
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: tests/browser/package-lock.json
+      - name: Build fluxo
+        run: cargo build -p fluxo --locked
+      - name: Install test dependencies
+        working-directory: tests/browser
+        run: npm ci
+      # Browsers are downloaded once per Playwright version; their system libraries come from apt.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('tests/browser/package-lock.json') }}
+      - name: Install browsers
+        working-directory: tests/browser
+        run: npx playwright install --with-deps chromium firefox
       - name: Browser tests (Chromium with and without JavaScript, Firefox)
-        run: |
-          cargo build -p fluxo --locked
-          cd tests/browser
-          npm ci
-          npx playwright install --with-deps chromium firefox
-          npx playwright test --reporter=github,list
+        working-directory: tests/browser
+        run: npx playwright test --reporter=github,list
 
   audit:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
@@ -77,6 +107,7 @@ jobs:
 
   build:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
@@ -106,10 +137,11 @@ jobs:
           retention-days: 30
 
   deploy:
-    needs: [test, audit, build]
+    needs: [rust, browser, audit, build]
     # Pushes and manual runs only: the weekly run checks, it doesn't deploy.
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     environment:
       name: production
       url: https://fluxo.dev
@@ -149,7 +181,8 @@ jobs:
           chmod 600 ~/.ssh/deploy
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           sha=$(sha256sum fluxo | cut -d' ' -f1)
-          ssh -i ~/.ssh/deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+          # Compressed: the link to the server may go through a slow Tailscale relay.
+          ssh -C -i ~/.ssh/deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
             -o ConnectTimeout=30 "deploy@$DEPLOY_HOST" "$sha $GITHUB_SHA" < fluxo
       - name: Check https://fluxo.dev
         if: steps.newest.outputs.deploy

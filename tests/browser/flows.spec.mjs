@@ -9,7 +9,7 @@ import { createRequire } from 'node:module';
 test.describe.configure({ mode: 'serial' });
 
 const PASSWORD = 'a long enough password';
-const state = { secret: null, codes: [], invitee: 'kofi.m' };
+const state = { secret: null, codes: [], invitee: 'kofi.m', lastStep: null, adaCookies: null };
 
 // ---------------------------------------------------------------- helpers
 
@@ -30,11 +30,20 @@ function totp(key, t = Date.now()) {
   return String(((h.readUInt32BE(o) & 0x7fffffff) % 1_000_000)).padStart(6, '0');
 }
 
-/** A code from a 30-second step that hasn't been used yet (codes can't be replayed). */
+/**
+ * A code the server hasn't seen: codes can't be replayed, so each must come from a later 30-second
+ * step than the last one used. The server also accepts the next step (H1), so this only waits when
+ * that one is used up too.
+ */
 async function freshCode(key) {
-  const wait = 30_000 - (Date.now() % 30_000) + 500;
-  await new Promise((r) => setTimeout(r, wait));
-  return totp(key);
+  const now = () => Math.floor(Date.now() / 30_000);
+  let step = state.lastStep === null ? now() : Math.max(now(), state.lastStep + 1);
+  if (step > now() + 1) {
+    await new Promise((r) => setTimeout(r, (step - 1) * 30_000 - Date.now() + 500));
+    step = Math.max(now(), state.lastStep + 1);
+  }
+  state.lastStep = step;
+  return totp(key, step * 30_000);
 }
 
 /** Type a code into the code field: six boxes with JavaScript, one field without. */
@@ -76,7 +85,7 @@ test('first person sets up fluxo and turns on 2FA', async ({ page }, info) => {
   await expect(page.getByAltText(/QR code/)).toBeVisible();
   await page.getByText('Can’t scan? Enter this key').click();
   state.secret = base32(await page.locator('.secret').textContent());
-  await enterCode(page, totp(state.secret), js(info), 'Turn on 2FA');
+  await enterCode(page, await freshCode(state.secret), js(info), 'Turn on 2FA');
 
   await expect(page.getByRole('heading', { name: 'Save your recovery codes' })).toBeVisible();
   state.codes = await page.locator('#codes span').allTextContents();
@@ -111,6 +120,7 @@ test('a recovery code signs in once', async ({ page }) => {
   await page.getByRole('button', { name: 'Verify' }).click();
   await expect(page).toHaveURL(/\/settings/);
   await expect(page.getByText('7 of 8 unused')).toBeVisible();
+  state.adaCookies = await page.context().cookies(); // later tests carry on from this session
 });
 
 test('theme is saved to the account', async ({ page }, info) => {
@@ -192,8 +202,10 @@ test('pages send a strict content security policy and break nothing under it', a
   expect(problems).toEqual([]);
 });
 
-// ada has 2FA on, so signing in uses a fresh authenticator code.
+// ada has 2FA on, so signing in uses a fresh authenticator code. Signing in is tested above; here
+// later tests reuse ada's session, and sign in afresh only if it has ended.
 async function signInAsAda(page, info) {
+  if (state.adaCookies) await page.context().addCookies(state.adaCookies);
   await page.goto('/login');
   if (!page.url().endsWith('/login')) return; // already signed in
   await page.getByLabel('Username').fill('ada');
@@ -201,6 +213,7 @@ async function signInAsAda(page, info) {
   await page.getByRole('button', { name: 'Sign in' }).click();
   await enterCode(page, await freshCode(state.secret), js(info), 'Verify');
   await expect(page.getByRole('heading', { name: 'Focus' })).toBeVisible();
+  state.adaCookies = await page.context().cookies();
 }
 
 test('break a goal down and track a task', async ({ page }, info) => {
