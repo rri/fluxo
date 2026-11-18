@@ -84,6 +84,8 @@ body {
   color: var(--text);
   font: 15px/1.5 var(--font);
   -webkit-font-smoothing: antialiased;
+  /* The footer sits at the bottom of short pages: main grows to fill the screen. */
+  display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh;
 }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
@@ -102,6 +104,21 @@ p { margin: 0; }
 html:not(.js) .js-only { display: none !important; }
 html.js .no-js { display: none !important; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- Footer (every page) ---------- */
+.site-footer {
+  display: flex; justify-content: center; align-items: center; gap: 4px 12px;
+  padding: 20px max(16px, env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  border-top: 1px solid var(--border);
+  font-size: 13px; color: var(--text-3); white-space: nowrap;
+}
+.site-footer a { color: var(--text-3); text-decoration: underline; text-underline-offset: 3px; }
+.site-footer a:hover { color: var(--text); }
+/* Too narrow for one line: stack the two parts and drop the dot. */
+@media (max-width: 430px) {
+  .site-footer { flex-direction: column; font-size: 12px; }
+  .site-footer .dot { display: none; }
+}
 
 /* ---------- Top bar ---------- */
 .topbar {
@@ -173,7 +190,7 @@ html.js .no-js { display: none !important; }
 .iconbtn:hover { background: var(--surface-2); color: var(--text); }
 
 /* ---------- Page column ---------- */
-main { max-width: var(--col); margin: 0 auto; padding: 32px 16px 96px; }
+main { max-width: var(--col); width: 100%; margin: 0 auto; padding: 32px 16px 64px; flex: 1 0 auto; }
 .page-head { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
 .page-head .sub { color: var(--text-2); margin-top: 4px; font-size: 14px; }
 .crumbs { font-size: 13px; color: var(--text-3); margin-bottom: 8px; }
@@ -359,7 +376,7 @@ textarea.input { height: auto; min-height: 72px; padding: 10px 12px; resize: ver
 .danger-zone { border-color: color-mix(in srgb, var(--red) 35%, var(--border)); }
 
 /* ---------- Auth ---------- */
-.auth { min-height: 100vh; display: grid; place-items: center; padding: 32px 16px; }
+.auth { display: grid; place-items: center; padding: 32px 16px; }
 .auth-card { width: 100%; max-width: 380px; }
 .auth-card .wordmark { justify-content: center; display: flex; margin: 0 0 28px; font-size: 22px; }
 .auth-card h1 { font-size: 20px; text-align: center; }

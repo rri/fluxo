@@ -176,7 +176,8 @@ async fn turning_on_2fa_gives_recovery_codes_that_work_once() {
     assert!(r.body.contains("Save your recovery codes"));
     let reload = send(&app, "GET", "/settings/2fa/codes", Some(&c), None).await;
     assert_eq!(reload.location.as_deref(), Some("/settings#tfa-h"), "shown once; a reload makes no new codes");
-    let codes: Vec<String> = r.body.split("<span>").skip(1).map(|s| s[..9].to_string()).collect();
+    let list = r.body.split("id=\"codes\">").nth(1).and_then(|s| s.split("</div>").next()).unwrap();
+    let codes: Vec<String> = list.split("<span>").skip(1).map(|s| s[..9].to_string()).collect();
     assert_eq!(codes.len(), 8);
     assert!(codes.iter().all(|c| c.len() == 9 && &c[4..5] == "-"));
 

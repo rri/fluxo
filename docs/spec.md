@@ -74,6 +74,9 @@ unattached tasks; pending invitations and transfers; unread updates.
   steps readable and scrolls sideways inside its card, opening on the goal; long titles wrap
   inside their pills. Centred lines balance instead of leaving a lone word; explanations under
   fields are left-aligned. Hover hints are hidden on touch screens.
+- **G18** Every page, signed in or out, including the 404 and 500 pages, ends with the same
+  footer: "github.com/rri/fluxo" (a link to the source) · "Source code licensed under AGPL-3.0".
+  It sits at the bottom of the screen on short pages, and its two parts stack on phones.
 
 ## 1a. Robustness
 

@@ -24,6 +24,7 @@ and Firefox. Keep this table in step with the spec: a rule with no test here is 
 | G15 | browser "every page meets WCAG 2.1 AA in light and dark (G15)" |
 | G16 | spec::g9_g16_pages_are_light_and_sign_in_uses_the_system_theme |
 | G17 | browser "every page fits a phone screen (G17)" |
+| G18 | spec::g18_every_page_ends_with_the_source_footer |
 | PF1 | spec::pf1_a_very_deep_tree_stays_cheap_for_everyone · access::deep_trees_take_one_pass · access::one_pass_access_matches_the_rules |
 | PF2 | spec::pf2_malformed_requests_are_refused_without_errors · spec::go6_a_malformed_parent_creates_nothing |
 | F1–F3, F5 | spec::f1_f2_a_fresh_instance_needs_the_setup_link · accounts::first_person_sets_up_the_instance_as_administrator |

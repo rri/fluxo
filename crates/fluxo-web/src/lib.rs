@@ -184,11 +184,12 @@ impl IntoResponse for AppError {
 /// A small, self-contained error page (works even if templates or the database are the problem).
 pub(crate) fn error_page(heading: &str, text: &str) -> String {
     let mark = include_str!("../templates/mark.html").trim_end();
+    let footer = include_str!("../templates/_footer.html").trim_end();
     format!(
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\
          <title>{heading} · fluxo</title><link rel=\"icon\" href=\"/static/favicon.svg\"><link rel=\"stylesheet\" href=\"/static/styles.css\"></head>\
          <body><main class=\"auth auth-main\"><div class=\"auth-card\"><a class=\"wordmark\" href=\"/\">{mark}fluxo</a><h1>{heading}</h1><p class=\"lede\">{text}</p>\
-         <p class=\"auth-foot\"><a href=\"/\">Go to Focus</a></p></div></main></body></html>"
+         <p class=\"auth-foot\"><a href=\"/\">Go to Focus</a></p></div></main>{footer}</body></html>"
     )
 }
 

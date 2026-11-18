@@ -691,6 +691,30 @@ async fn g5_server_errors_say_nothing_more() {
 }
 
 #[tokio::test]
+async fn g18_every_page_ends_with_the_source_footer() {
+    const FOOTER: &str = "<footer class=\"site-footer\"><a href=\"https://github.com/rri/fluxo\" rel=\"noopener\">github.com/rri/fluxo</a>\
+                          <span class=\"dot\" aria-hidden=\"true\">·</span><span>Source code licensed under AGPL-3.0</span></footer>";
+    let (app, _) = with_ada(false).await;
+    let ada = sign_in(&app, "ada", None).await;
+    let g = goal(&app, &ada, "Launch", None).await;
+    let t = task(&app, &ada, g, "Schema").await;
+    let ends_with_footer = |page: &str, body: &str| {
+        let end = body.trim_end().strip_suffix("</html>").and_then(|b| b.trim_end().strip_suffix("</body>"));
+        assert!(end.is_some_and(|b| b.trim_end().ends_with(FOOTER)), "{page}: footer is the last thing in <body>");
+    };
+    for path in
+        ["/", "/goals", "/goals/new", &format!("/goals/{g}"), &format!("/tasks/{t}"), "/settings", "/no/such/page"]
+    {
+        ends_with_footer(path, &send(&app, "GET", path, Some(&ada), None).await.body);
+    }
+    ends_with_footer("/login", &send(&app, "GET", "/login", None, None).await.body);
+    sqlx::query("ALTER TABLE nodes RENAME TO nodes_gone").execute(&app.db).await.unwrap();
+    let r = send(&app, "GET", "/goals", Some(&ada), None).await;
+    assert_eq!(r.status, StatusCode::INTERNAL_SERVER_ERROR);
+    ends_with_footer("500", &r.body);
+}
+
+#[tokio::test]
 async fn g9_g16_pages_are_light_and_sign_in_uses_the_system_theme() {
     let (app, _) = with_ada(false).await;
     let c = sign_in(&app, "ada", None).await;
@@ -702,7 +726,11 @@ async fn g9_g16_pages_are_light_and_sign_in_uses_the_system_theme() {
     assert!(page.contains(r#"<html lang="en" data-theme="dark">"#));
     assert_eq!(page.matches(r#"rel="stylesheet""#).count(), 1, "one stylesheet");
     assert!(page.matches("<script").count() <= 2, "two small scripts at most");
-    assert!(!page.contains("src=\"http") && !page.contains("href=\"http"), "nothing from elsewhere");
+    // Nothing is loaded from elsewhere (the footer's link to the source is followed, not loaded).
+    let loads_from_elsewhere = page.contains("src=\"http")
+        || page.split("<link").skip(1).any(|l| l.split('>').next().unwrap().contains("href=\"http"));
+    assert!(!loads_from_elsewhere, "nothing from elsewhere");
+    assert_eq!(page.matches("href=\"http").count(), 1, "the only outside address is the footer's link");
     assert!(!page.contains("<style") && !page.contains(" style=\""), "no inline styles");
     let req =
         Request::builder().uri("/static/styles.css").header(header::HOST, "fluxo.test").body(Body::empty()).unwrap();
