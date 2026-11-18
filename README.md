@@ -35,14 +35,25 @@ Read more:
 
 ## Development
 
-Requires Rust 1.88+. The browser tests also need Node.
+Requires Rust 1.88 or later. CI pins Rust 1.98.1 (in [`ci.yml`](.github/workflows/ci.yml)), so new
+lints can't fail a deploy unannounced; 1.88 is the declared minimum and isn't tested. The browser
+tests also need Node.
 
 ```sh
 cargo run -p fluxo            # http://127.0.0.1:8080, data in ./data
-cargo test --workspace        # Rust tests
-cargo clippy --workspace --all-targets
-cargo fmt --check
 ```
+
+CI runs these, and any failure blocks the deploy:
+
+```sh
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --locked -- -D warnings   # warnings fail
+cargo test --workspace --locked
+cargo audit --deny warnings --ignore RUSTSEC-2026-0459 --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2026-0374
+```
+
+`cargo audit` comes from `cargo install cargo-audit`. Why each advisory is waived is in
+[`ci.yml`](.github/workflows/ci.yml) and [`docs/threat-model.md`](docs/threat-model.md).
 
 On first start, fluxo logs a one-time link to create the Administrator account:
 
@@ -61,6 +72,11 @@ A new link is printed on every start until setup is done. Set `FLUXO_SETUP_TOKEN
   FLUXO_BIN=../../target/release/fluxo npm test   # or another build
   ```
 
+  If the browsers fail to start for want of system libraries, install those with
+  `npx playwright install --with-deps chromium firefox` (Debian and Ubuntu only). CI skips this
+  step: it runs the tests in Playwright's own container image, against the production binary from
+  the build job.
+
 - **Changing SQL?** Run [`scripts/sqlx-prepare.sh`](scripts/sqlx-prepare.sh) to refresh the query
   metadata in `.sqlx/`, so builds work without a database.
 - **Sample data:** [`scripts/seed-demo.sh`](scripts/seed-demo.sh) sets up a brand-new server and
@@ -72,12 +88,23 @@ optimisation. Release builds use full link-time optimisation; see [`Cargo.toml`]
 
 ## Running in production
 
+The build needs the musl target and a musl C compiler, because SQLite is compiled in.
+Install them once:
+
 ```sh
-rustup target add x86_64-unknown-linux-musl   # once (CI also installs musl-tools)
-cargo build --release -p fluxo --target x86_64-unknown-linux-musl
+rustup target add x86_64-unknown-linux-musl
+sudo apt install musl-tools        # Debian/Ubuntu, as CI does; elsewhere, the package with musl-gcc
 ```
 
-The result is one static binary that needs nothing else on the server.
+Then build it:
+
+```sh
+FLUXO_COMMIT=$(git rev-parse HEAD) cargo build --release --locked -p fluxo --target x86_64-unknown-linux-musl
+```
+
+The result, `target/x86_64-unknown-linux-musl/release/fluxo`, is one static binary that needs
+nothing else on the server. `FLUXO_COMMIT` is optional: `fluxo --version` prints the commit
+it names, or "local build" without it.
 
 fluxo speaks plain HTTP on localhost. Put a reverse proxy with HTTPS in front of it.
 How https://fluxo.dev is set up (Caddy and systemd), and deployed by

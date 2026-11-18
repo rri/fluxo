@@ -1,7 +1,8 @@
 #!/bin/sh
 # Refresh the offline query metadata in .sqlx/ after changing SQL or migrations.
 # Builds use that metadata (SQLX_OFFLINE=true in .cargo/config.toml), so no database is needed
-# to compile. CI runs `cargo sqlx prepare --workspace --check` to catch stale metadata.
+# to compile. A changed query with no fresh metadata fails to compile, but a migration change
+# alone does not, so run this after those too.
 set -eu
 cd "$(dirname "$0")/.."
 mkdir -p target
