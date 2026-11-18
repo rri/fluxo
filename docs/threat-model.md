@@ -126,7 +126,7 @@ Status: **Mitigated** (it was already in place), **Fixed** (fixed in this review
 | E3 | Administrator taking over any account with a recovery code | Accepted (by design) | That is the recovery mechanism. It's now logged; the person gets their 2FA turned off and must set a new password, so it can't be done silently. |
 | E4 | Code execution on the server from a deploy | Mitigated | The deploy key can run only `fluxo-deploy`. It checks the checksum, runs the new binary as `fluxo` before installing it, and rolls back if it's unhealthy. CI runs only on `main` in the `production` environment; actions are pinned to commits; `cargo audit` runs on every build. fluxo runs as an unprivileged user under systemd hardening. |
 | E6 | A workflow on another branch using the deploy secrets | Mitigated / **Action** | The deploy job runs only for `main`. Restricting the `production` environment to `main` in GitHub makes the secrets unavailable to any other branch as well (see `deploy/README.md`). |
-| E5 | Supply-chain compromise of a crate | Partly mitigated | `Cargo.lock`, `--locked`, `cargo audit`, few dependencies. One advisory is waived (RUSTSEC-2026-0459, in SQLite; sqlx doesn't allow the fixed version yet). |
+| E5 | Supply-chain compromise of a crate | Partly mitigated | `Cargo.lock`, `--locked`, `cargo audit`, few dependencies. Three advisories are waived, each with no fix fluxo can take yet: RUSTSEC-2026-0459 (SQLite; sqlx doesn't allow the fixed version yet), RUSTSEC-2023-0071 (rsa; only in `Cargo.lock` through sqlx's MySQL driver, never compiled) and RUSTSEC-2026-0374 (basic-toml unmaintained; askama uses it at compile time). |
 
 ## 5. Server and operations
 

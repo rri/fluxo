@@ -100,19 +100,19 @@ pub async fn view(db: &sqlx::SqlitePool, world: &World, me: Id, id: Id, access: 
         }
         let Some(an) = world.nodes.get(&a) else { continue };
         let from = if world.access(me, a).can_read() { an.title.clone() } else { "a private goal".into() };
-        if let Some(o) = an.owner_id {
-            if seen.insert(o) {
-                rows.push(PersonRow {
-                    user: o,
-                    username: name(o),
-                    initials: initials(&name(o)),
-                    role: "Owner".into(),
-                    from: from.clone(),
-                    pending: false,
-                    editable: false,
-                    me: o == me,
-                });
-            }
+        if let Some(o) = an.owner_id
+            && seen.insert(o)
+        {
+            rows.push(PersonRow {
+                user: o,
+                username: name(o),
+                initials: initials(&name(o)),
+                role: "Owner".into(),
+                from: from.clone(),
+                pending: false,
+                editable: false,
+                me: o == me,
+            });
         }
         let mut here: Vec<(Id, Role)> =
             world.graph.roles.iter().filter(|((n, _), _)| *n == a).map(|((_, u), r)| (*u, *r)).collect();

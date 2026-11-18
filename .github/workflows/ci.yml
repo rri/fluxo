@@ -63,10 +63,17 @@ jobs:
       - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-audit
-      # RUSTSEC-2026-0459 (SQLite) is fixed in libsqlite3-sys 0.39, which sqlx
-      # doesn't allow yet. Any other advisory fails the build.
+      # Ignored, each with no fix fluxo can take yet. Any other advisory fails the build.
+      # - RUSTSEC-2026-0459 (SQLite): fixed in libsqlite3-sys 0.39, which sqlx doesn't allow yet.
+      # - RUSTSEC-2023-0071 (rsa): only in Cargo.lock through sqlx's MySQL driver; never compiled.
+      # - RUSTSEC-2026-0374 (basic-toml unmaintained): askama reads its config with it at
+      #   compile time; fluxo has no askama config. No askama release has dropped it yet.
       - name: Rust advisories
-        run: cargo audit --deny warnings --ignore RUSTSEC-2026-0459
+        run: >-
+          cargo audit --deny warnings
+          --ignore RUSTSEC-2026-0459
+          --ignore RUSTSEC-2023-0071
+          --ignore RUSTSEC-2026-0374
 
   build:
     runs-on: ubuntu-24.04

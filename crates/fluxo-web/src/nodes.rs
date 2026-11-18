@@ -22,10 +22,10 @@ pub(crate) async fn with_access(
         Ok(c) => c,
         Err(r) => return Ok(Err(r)),
     };
-    if let Some(t) = csrf {
-        if !ctx.csrf_ok(t) {
-            return Ok(Err(forbidden()));
-        }
+    if let Some(t) = csrf
+        && !ctx.csrf_ok(t)
+    {
+        return Ok(Err(forbidden()));
     }
     let world = World::load(&app.db).await?;
     let access = world.access(ctx.user_id, id);
@@ -89,10 +89,11 @@ pub async fn parents(
         }
         _ => None,
     };
-    if let Some((parents, home)) = after {
-        if !access.is_owner() && world.graph.relink_changes_control(id, parents, home) {
-            return Ok(back_to(&world, id, "error=link-owner", "links-h"));
-        }
+    if let Some((parents, home)) = after
+        && !access.is_owner()
+        && world.graph.relink_changes_control(id, parents, home)
+    {
+        return Ok(back_to(&world, id, "error=link-owner", "links-h"));
     }
     match f.action.as_str() {
         "add" => {

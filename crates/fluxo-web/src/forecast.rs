@@ -162,10 +162,10 @@ pub fn build(world: &World, ids: &[Id], risks: &[OpenRisk], tweak: Tweak) -> (Mo
     for id in ids {
         let i = index[id];
         for p in world.parents.get(id).into_iter().flatten() {
-            if let Some(&pi) = index.get(p) {
-                if !achieved(p) {
-                    m.feed(i, pi);
-                }
+            if let Some(&pi) = index.get(p)
+                && !achieved(p)
+            {
+                m.feed(i, pi);
             }
         }
         for d in world.needs_of(*id) {
@@ -195,10 +195,10 @@ pub async fn current(app: &AppState, world: &World) -> Result<Arc<Forecasts>> {
     let ids = included(world);
     let risks = open_risks(&app.db).await?;
     let fp = fingerprint(world, &ids, &risks);
-    if let Some(f) = app.forecasts.lock().expect("forecast cache lock").as_ref() {
-        if f.fingerprint == fp {
-            return Ok(f.clone());
-        }
+    if let Some(f) = app.forecasts.lock().expect("forecast cache lock").as_ref()
+        && f.fingerprint == fp
+    {
+        return Ok(f.clone());
     }
     let (model, index) = build(world, &ids, &risks, Tweak::None);
     let targets: Vec<(usize, bool)> = ids.iter().map(|id| (index[id], world.nodes[id].is_goal())).collect();

@@ -307,10 +307,10 @@ pub async fn create(State(app): State<Shared>, jar: CookieJar, Form(f): Form<New
             Err(_) => return Ok(not_found()),
         },
     };
-    if let Some(p) = parent {
-        if !world.nodes.get(&p).is_some_and(|n| n.is_goal()) || !world.access(ctx.user_id, p).can_contribute() {
-            return Ok(forbidden());
-        }
+    if let Some(p) = parent
+        && (!world.nodes.get(&p).is_some_and(|n| n.is_goal()) || !world.access(ctx.user_id, p).can_contribute())
+    {
+        return Ok(forbidden());
     }
     let (title, why) = (views::clean(&f.title, false), views::clean(&f.why, true));
     let (title, why) = (title.as_str(), why.as_str());
