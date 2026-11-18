@@ -21,7 +21,6 @@ env:
   CARGO_TERM_COLOR: always
   # Pinned so a new Rust release's lints don't fail a deploy unannounced.
   RUST_VERSION: 1.98.1
-  NODE_VERSION: 26
   TARGET: x86_64-unknown-linux-musl
 
 # A newer push to a pull request makes its older run pointless, so that one is cancelled. Runs on
@@ -52,38 +51,30 @@ jobs:
       - name: Rust tests
         run: cargo test --workspace --locked
 
+  # Runs the production binary from the build job in Playwright's own image, which already has
+  # the browsers and every library they need (installing those with apt took up to 13 minutes).
   browser:
+    needs: build
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 15
+    container:
+      # Must match @playwright/test in tests/browser/package-lock.json.
+      image: mcr.microsoft.com/playwright:v1.65.1-noble@sha256:1507cbfc550a63a6b7396791ca4f00df17beb56342d2447b3f106c306f525579
+      options: --user 1001
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          toolchain: ${{ env.RUST_VERSION }}
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-        with:
-          cache-on-failure: true
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: tests/browser/package-lock.json
-      - name: Build fluxo
-        run: cargo build -p fluxo --locked
+          name: fluxo-${{ env.TARGET }}
+          path: dist
       - name: Install test dependencies
         working-directory: tests/browser
         run: npm ci
-      # Browsers are downloaded once per Playwright version; their system libraries come from apt.
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('tests/browser/package-lock.json') }}
-      - name: Install browsers
-        working-directory: tests/browser
-        run: npx playwright install --with-deps chromium firefox
       - name: Browser tests (Chromium with and without JavaScript, Firefox)
         working-directory: tests/browser
-        run: npx playwright test --reporter=github,list
+        run: |
+          chmod +x ../../dist/fluxo
+          FLUXO_BIN=../../dist/fluxo npx playwright test --reporter=github,list
 
   audit:
     runs-on: ubuntu-24.04
