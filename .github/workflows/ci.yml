@@ -108,8 +108,19 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           cache-on-failure: true
+      # The musl packages are cached: refreshing apt's package lists alone can take a minute.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/musl-debs
+          key: musl-debs-${{ runner.os }}-ubuntu-24.04-v1
       - name: Install musl
-        run: sudo apt-get update && sudo apt-get install -y musl-tools
+        run: |
+          if ! ls ~/musl-debs/*.deb >/dev/null 2>&1; then
+            sudo apt-get update
+            mkdir -p ~/musl-debs
+            (cd ~/musl-debs && apt-get download musl musl-dev musl-tools)
+          fi
+          sudo dpkg -i ~/musl-debs/*.deb
       - name: Build the static binary
         env:
           FLUXO_COMMIT: ${{ github.sha }}
