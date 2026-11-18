@@ -1055,3 +1055,24 @@ async fn h1_codes_from_the_neighbouring_steps_work_and_older_ones_do_not() {
     let r = send(&app, "POST", "/login/2fa", Some(&c), Some(&format!("csrf={t}&code={}", at(30)))).await;
     assert_eq!(r.location.as_deref(), Some("/"), "one step ahead: a fast clock still gets in");
 }
+
+#[tokio::test]
+async fn gp7_only_archive_sits_in_the_red_box() {
+    let (app, _) = with_ada(false).await;
+    let ada = sign_in(&app, "ada", None).await;
+    let g = goal(&app, &ada, "Launch", None).await;
+    let page = send(&app, "GET", &format!("/goals/{g}"), Some(&ada), None).await.body;
+    let red = page.find("danger-zone").expect("Archive has its red box");
+    assert!(page.find("Mark achieved").unwrap() < red, "Mark achieved comes before, outside the red box");
+    let rest = &page[red..];
+    let box_end = rest.find("</div>").unwrap();
+    assert!(rest[..box_end].contains("Archive goal") && !rest[..box_end].contains("achieved"));
+}
+
+#[tokio::test]
+async fn v1_signed_out_pages_link_back_to_sign_in_the_same_way() {
+    for tpl in ["message.html", "locked.html", "login_2fa.html"] {
+        let src = std::fs::read_to_string(format!("{}/templates/{tpl}", env!("CARGO_MANIFEST_DIR"))).unwrap();
+        assert!(src.contains(">Back to sign in</a>"), "{tpl}");
+    }
+}

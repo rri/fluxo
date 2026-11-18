@@ -193,7 +193,7 @@
       <label class="check small mt-12"><input type="checkbox" name="private" value="1"{% if private_here %} checked{% endif %}><span><b>Private.</b> Only people with a role on this goal, or a goal above it, can see it and everything beneath it.</span></label>
       <div class="form-actions"><button class="btn">Save</button></div>
     </form>
-    <div class="card card-pad mt-12 danger-zone">
+    <div class="card card-pad mt-12">
       {% if let Some(a) = achieved %}
       <form class="inline" method="post" action="/goals/{{ id }}/achieved"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="achieved" value="0">
         <span class="grow small">Achieved {{ a }}.</span><button class="btn sm">Reopen</button></form>
@@ -201,12 +201,13 @@
       <form class="inline" method="post" action="/goals/{{ id }}/achieved"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="achieved" value="1">
         <span class="grow small">Outcome reached?</span><button class="btn sm">Mark achieved</button></form>
       {% endif %}
-      {% if !archived %}
-      <div class="menu-sep sep-16"></div>
+    </div>
+    {% if !archived %}
+    <div class="card card-pad mt-12 danger-zone">
       <form class="inline" method="post" action="/nodes/{{ id }}/archive"><input type="hidden" name="csrf" value="{{ csrf }}">
         <span class="grow desc"><b class="small">Archive</b><br><span class="xs muted">Archived items are permanently deleted after {{ retention }} days.</span></span><button class="btn sm danger">Archive goal</button></form>
-      {% endif %}
     </div>
+    {% endif %}
   </section>
   {% endif %}
 

@@ -99,7 +99,8 @@ unattached tasks; pending invitations and transfers; unread updates.
 ## 3. Visitor (signed out)
 
 - **V1** Every app page (Focus, Goals, goal and task pages, Settings, export, invitations,
-  transfers) redirects to `/login`. App POSTs redirect to `/login` and change nothing.
+  transfers) redirects to `/login`. App POSTs redirect to `/login` and change nothing. Signed-out
+  pages that lead back to `/login` say "Back to sign in".
 - **V2** `/login`: "Sign in", username and password, "Locked out?" link, and "Create an
   account" only when sign-up is open.
 - **V3** A wrong username or password shows "That username and password don't match." whichever
@@ -202,7 +203,7 @@ unattached tasks; pending invitations and transfers; unread updates.
   optional "needs"), risk editing and link editing. Watchers and readers see everything
   read-only.
 - **GP7** Owners see Goal settings: statement (title, why), coverage, Private, mark achieved /
-  reopen, Archive, People invitations and ownership transfer. "Suggest achieved" appears when
+  reopen (in its own card), Archive (alone in a red-bordered card), People invitations and ownership transfer. "Suggest achieved" appears when
   every step is done.
 - **GP8** Archived goals show "This goal is archived and will be permanently deleted on <date>."
   with Restore (owners only; nobody else can open them).

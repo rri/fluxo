@@ -28,7 +28,7 @@ and Firefox. Keep this table in step with the spec: a rule with no test here is 
 | PF2 | spec::pf2_malformed_requests_are_refused_without_errors · spec::go6_a_malformed_parent_creates_nothing |
 | F1–F3, F5 | spec::f1_f2_a_fresh_instance_needs_the_setup_link · accounts::first_person_sets_up_the_instance_as_administrator |
 | F4 | accounts::first_person_sets_up_… · spec::f4_only_one_first_account_even_when_two_race |
-| V1 | spec::v1_signed_out_visitors_are_sent_to_sign_in |
+| V1 | spec::v1_signed_out_visitors_are_sent_to_sign_in · spec::v1_signed_out_pages_link_back_to_sign_in_the_same_way |
 | V2 | spec::g8_v2_s3_… · signin::password_then_code_then_focus |
 | V3 | signin::password_then_code_then_focus (same answer either way) · spec::v3_a_wrong_password_keeps_the_username. The equal timing is by construction (a dummy hash for unknown names), not timed in tests. |
 | V4 | security::v4_* · security::changing_the_case_of_a_username_does_not_dodge_the_limit · launch::repeated_wrong_passwords_are_slowed_down · throttle::addresses_are_bucketed |
@@ -60,7 +60,7 @@ and Firefox. Keep this table in step with the spec: a rule with no test here is 
 | GP4 | forecasts::goal_page_shows_dates_and_the_critical_path · goals::break_a_goal_down_into_a_path · spec::fo5_… · browser "a goal shows its forecast" (tracing) |
 | GP5 | forecasts::empty_goals_beneath_are_flagged_until_sized_or_broken_down · spec::go2_fo3_fo4_empty_states |
 | GP6 | goals::access_follows_ownership_roles_and_privacy |
-| GP7 | goals::task_progress_and_achieving_the_goal · collaboration::ownership_transfer_needs_acceptance |
+| GP7 | goals::task_progress_and_achieving_the_goal · spec::gp7_only_archive_sits_in_the_red_box · collaboration::ownership_transfer_needs_acceptance |
 | GP8, GP10 | goals::archive_restore_and_purge · access::archived_items_are_for_owners_only |
 | GP9 | collaboration::invite_accept_and_contribute · collaboration::watchers_hear_… · collaboration::private_goals_are_not_watchable_… |
 | GP11 | spec::gp2_gp3_the_stamp_and_whose_calendar_dates_use |
