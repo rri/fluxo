@@ -152,6 +152,8 @@ Contributors edit; Watchers get Updates. **(D17)**
 
 ## 5. Simulation engine (`fluxo-sim`)
 
+A plain-language walk-through of how the engine works today is in `docs/forecasting.md`.
+
 **Inputs** (taken from a snapshot of one top-level goal and everything beneath it):
 - **Task durations.** Each task has a likely estimate *L* (its remaining days if in progress).
   Clarity sets the spread as multiples of *L* (min, max):

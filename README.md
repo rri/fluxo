@@ -21,6 +21,7 @@ and on removing the risk and ambiguity along it. Hosted at https://fluxo.dev.
 | `scripts/` | Refresh the sqlx query metadata; seed a demo goal |
 | `deploy/` | Server files and how deploys work (see `deploy/README.md`) |
 | `docs/implementation-plan.md` | Decisions and plan |
+| `docs/forecasting.md` | How forecasts and Focus gains are calculated |
 | `docs/spec.md` | Intended behaviour of every page and state, with rule IDs the tests cite |
 | `docs/threat-model.md` | Threats, how each is handled, and accepted risks |
 
