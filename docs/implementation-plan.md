@@ -42,7 +42,7 @@ Every decision is recorded with its number (D1–D24) in sections 3 and 8.
   - Light and dark themes follow the OS, with a manual toggle.
   - The accent is indigo `#5B5BF7`.
   - Fonts come from the system font stack.
-  - The logo is "converging rays", and the tab icon is all indigo.
+  - The logo is "three tongues": three flames meeting at one point, in the accent color. The tab icon is all indigo.
 - Pages are plain HTML5/CSS3 that work without JavaScript; vanilla JS enhances them.
 - **Stack (your proposal):** vanilla HTML/CSS/JS frontend, Rust and SQLite backend.
 
