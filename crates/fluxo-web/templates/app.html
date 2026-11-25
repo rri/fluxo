@@ -3,8 +3,10 @@
 {% block body %}
 <header class="topbar"><div class="topbar-inner">
   <a class="wordmark" href="/">{% include "mark.html" %}fluxo</a>
-  <a class="navlink" href="/"{% if nav == "focus" %} aria-current="page"{% endif %}>Focus{% if focus_count > 0 %} <span class="count" title="{{ focus_count }} new">{{ focus_count }}</span>{% endif %}</a>
-  <a class="navlink" href="/goals"{% if nav == "goals" %} aria-current="page"{% endif %}>Goals</a>
+  <nav class="mainnav" aria-label="Main">
+    <a class="navlink" href="/"{% if nav == "focus" %} aria-current="page"{% endif %}>Focus{% if focus_count > 0 %} <span class="count" title="{{ focus_count }} new">{{ focus_count }}</span>{% endif %}</a>
+    <a class="navlink" href="/goals"{% if nav == "goals" %} aria-current="page"{% endif %}>Goals</a>
+  </nav>
   <span class="spacer"></span>
   <button class="iconbtn" data-theme-toggle hidden aria-label="Toggle theme"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/></svg></button>
   <details class="menu">

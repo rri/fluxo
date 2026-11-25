@@ -448,3 +448,70 @@ test('every page fits a phone screen (G17)', async ({ browser }, info) => {
   await context.close();
   expect(problems).toEqual([]);
 });
+
+test('on phones, Focus and Goals float at the bottom right (G8)', async ({ browser }, info) => {
+  const context = await browser.newContext({ ...info.project.use, viewport: { width: 390, height: 800 } });
+  const page = await context.newPage();
+  await signInAsAda(page, info);
+  await page.goto('/');
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  const box = await nav.boundingBox();
+  expect(box.y + box.height).toBeLessThanOrEqual(800 - 24); // clear of the bottom edge
+  expect(390 - (box.x + box.width)).toBeLessThanOrEqual(24); // at the right
+  for (const name of [/^Focus/, 'Goals']) {
+    const b = await nav.getByRole('link', { name }).boundingBox();
+    expect(b.height).toBeGreaterThanOrEqual(56);
+    expect(b.width).toBeGreaterThanOrEqual(88);
+  }
+  // Only there: nothing in the top bar, and the end of the page isn't covered.
+  await expect(page.locator('.topbar-inner > a.navlink')).toHaveCount(0);
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  const footer = await page.locator('.site-footer').boundingBox();
+  expect(footer.y + footer.height).toBeLessThanOrEqual((await nav.boundingBox()).y + 1);
+  await nav.getByRole('link', { name: 'Goals' }).click();
+  await expect(page).toHaveURL(/\/goals$/);
+  // Wider screens keep them in the top bar.
+  await page.setViewportSize({ width: 1024, height: 800 });
+  expect((await nav.boundingBox()).y).toBeLessThan(52);
+  await context.close();
+});
+
+test('pages stay readable offline, read-only, and leave with the person (G20)', async ({ browser }, info) => {
+  test.skip(info.project.name !== 'chromium-js', 'service workers: Chromium with JavaScript');
+  const context = await browser.newContext({ ...info.project.use });
+  const page = await context.newPage();
+  await signInAsAda(page, info);
+  await page.goto('/goals');
+  const goal = await page.getByRole('link', { name: /Launch the beta/ }).getAttribute('href');
+  await page.goto(goal);
+  // The worker saves ada's own pages in the background.
+  await expect.poll(async () => page.evaluate(async (g) => {
+    const keys = await (await caches.open('fluxo-pages')).keys();
+    return ['/', '/goals', g].every((p) => keys.some((k) => new URL(k.url).pathname === p));
+  }, goal), { timeout: 20_000 }).toBe(true);
+
+  await context.setOffline(true);
+  await page.goto(goal);
+  await expect(page.getByRole('heading', { level: 1, name: 'Launch the beta' })).toBeVisible();
+  await expect(page.locator('.offline-bar')).toContainText(/Offline\. Saved .*\. Read only\./);
+  const save = page.locator('form button').first();
+  await expect(save).toBeDisabled();
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Focus' })).toBeVisible();
+  // Pages that are never kept say so.
+  await page.goto('/settings');
+  await expect(page.getByRole('heading', { name: 'Not saved on this device' })).toBeVisible();
+
+  // Back online: live pages, nothing disabled.
+  await context.setOffline(false);
+  await page.goto(goal);
+  await expect(page.locator('.offline-bar')).toBeHidden();
+  await expect(save).toBeEnabled();
+
+  // Signing out deletes every saved page.
+  await signOut(page);
+  await context.setOffline(true);
+  await page.goto(goal);
+  await expect(page.getByRole('heading', { name: 'Not saved on this device' })).toBeVisible();
+  await context.close();
+});

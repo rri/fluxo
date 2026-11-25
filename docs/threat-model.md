@@ -55,7 +55,7 @@ Status: **Mitigated** (it was already in place), **Fixed** (fixed in this review
 | S3 | Guessing someone's recovery codes or an Administrator's recovery code | **Fixed** / Mitigated | Recovery-code guesses now count the same way. Administrator codes: 12 characters from 31 (≈59 bits), 24 hours, already counted. |
 | S4 | A stolen session guessing the password in Settings, to escalate to a password change or account deletion | **Fixed** | Password confirmations (change password, new recovery codes, turn off 2FA, delete account) count toward the same limits and run off the async threads. |
 | S5 | IPv6 attackers rotating addresses within their /64 | **Fixed** | Addresses are counted per /64 for IPv6. |
-| S6 | Session fixation or a leaked session ID | Mitigated | New random 256-bit ID at each sign-in step (V6). Only its SHA-256 is stored. HttpOnly, Secure, SameSite=Lax. Idle limits of 1 hour, 10 minutes and 30 days. "Sign out everywhere else"; a password change signs out other devices. |
+| S6 | Session fixation or a leaked session ID | Mitigated | New random 256-bit ID at each sign-in step (V6). Only its SHA-256 is stored. HttpOnly, Secure, SameSite=Lax. Idle limits of 1 hour, 10 minutes and 30 days. The cookie itself lasts 30 days and is renewed by each page that loads (G19), so it survives closing the browser or the home-screen app; the server's idle limits still end the session, and ending it in Settings revokes it at once. "Sign out everywhere else"; a password change signs out other devices. |
 | S7 | Claiming Administrator on a fresh public server before its owner does | Mitigated | `/setup` needs the one-time token printed only in the server log (F2, F3). |
 | S8 | Reusing a TOTP code | Mitigated | Each 30-second step is claimed atomically once. |
 | S9 | Faking the client address with `X-Forwarded-For` to dodge limits | Mitigated | The header is used only when the connection comes from a trusted proxy (127.0.0.1 = Caddy), and only its last entry. |
@@ -102,6 +102,7 @@ Status: **Mitigated** (it was already in place), **Fixed** (fixed in this review
 | I13 | Secrets committed to the repository | Mitigated | Checked across every commit and branch: no private keys, tokens, passwords or `.env` files. `secret.key`, the database and backups live only on the server; `.gitignore` covers build output and test artifacts. |
 | I14 | Invitation links and recovery codes held between a post and the page after it | Mitigated | Kept in process memory only (never the database or logs), keyed by the session that made them, taken on first read and dropped after 5 minutes or a restart. Only that Administrator's next Settings page shows them. |
 | I15 | Archived work kept indefinitely | Mitigated | Archived items are deleted for good after the retention period an Administrator sets (7–365 days). Backups still hold them for up to 7 nights. |
+| I16 | **Pages saved on the device for reading offline** (G20), including private goals: anyone who unlocks the device can read them, without signing in, until they're deleted | Accepted / Mitigated | Only Focus, Goals, goal and task pages are kept: never Settings, sign-in, invitations, recovery or 2FA codes, or exports. They're deleted when anyone signs in or out on the device, or is sent to sign in, and a page that becomes unreadable (404, 403) loses its copy when next fetched. A copy of an item the person loses access to stays until then, or for 30 days. Pages carry `no-store`, which keeps them out of the browser's HTTP cache; the service worker's copies are deliberate. |
 
 ### Denial of service
 
@@ -167,7 +168,7 @@ shared goal, a member with no roles), a private goal with a task and a risk, and
 | Input | 46 hostile forms: 100 KB titles, NUL/control/bidi characters, non-numeric and overflowing IDs, `NaN`, `inf`, `1e308`, negatives, inverted ranges, unknown choices, path-like time zones, 5,000-line day-off lists, `role=owner`, self-transfers | No server errors; numbers bounded; **found T9, T10** (fixed). |
 | Transport and parsing | 3 MB body, duplicate fields, JSON, invalid encoding; PUT/DELETE/PATCH/TRACE/OPTIONS | 413, 422, 415, 422; 405. |
 | Static files | `..`, `%2e%2e`, `%2f`, NUL, case tricks | Only the five named files are served. |
-| Headers | Every kind of response (page, 404, static, health, export) | CSP, nosniff, frame and referrer headers everywhere; `no-store` on pages; no server banner. |
+| Headers | Every kind of response (page, 404, static, health, export) | CSP, nosniff, frame and referrer headers everywhere; `no-store` on pages (the service worker keeps its own copies of a few, G20); no server banner. |
 | Host header | Forged `Host` for invitation links and redirects | Production sets `public_url`, so links never use the request's host; redirects are relative. |
 | Enumeration | Sign-in timing, known vs unknown username | 20 ms vs 20 ms. Random invitation tokens: "This link can't be used". |
 | Denial of service | 2,000 nested goals; then pages for the owner and for others | **Found D8, D9** (fixed). |

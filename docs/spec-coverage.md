@@ -13,8 +13,8 @@ and Firefox. Keep this table in step with the spec: a rule with no test here is 
 | G4 | spec::g4_g7_not_found_reveals_nothing · launch::unknown_pages_get_a_proper_404 |
 | G5 | spec::g5_server_errors_say_nothing_more |
 | G6 | spec::g6_health_says_nothing_else · launch::health_check_answers_even_before_setup |
-| G7 | spec::g4_g7_not_found_reveals_nothing · signin::static_files_are_served |
-| G8 | spec::g8_v2_s3_what_each_kind_of_person_sees · collaboration::invite_accept_and_contribute (badge) |
+| G7 | spec::g4_g7_not_found_reveals_nothing · signin::static_files_are_served · offline::g7_only_the_named_static_files_are_served |
+| G8 | spec::g8_v2_s3_what_each_kind_of_person_sees · collaboration::invite_accept_and_contribute (badge) · browser "on phones, Focus and Goals float at the bottom right (G8)" |
 | G9 | accounts::settings_save_and_validate · spec::g9_g16_… · browser "theme is saved to the account" |
 | G10 | security::g10_user_text_is_escaped_everywhere_it_shows |
 | G11 | browser "keyboard shortcuts go to real pages (G11)" |
@@ -25,6 +25,8 @@ and Firefox. Keep this table in step with the spec: a rule with no test here is 
 | G16 | spec::g9_g16_pages_are_light_and_sign_in_uses_the_system_theme |
 | G17 | browser "every page fits a phone screen (G17)" |
 | G18 | spec::g18_every_page_ends_with_the_source_footer |
+| G19 | offline::g19_pages_can_be_installed · offline::g19_the_session_cookie_lasts_30_days_and_renews_while_used |
+| G20 | offline::g20_the_offline_list_is_the_persons_own_readable_pages · offline::g20_the_service_worker_and_offline_page_are_served_before_setup_too · browser "pages stay readable offline, read-only, and leave with the person (G20)" (Chromium with JavaScript: Playwright runs service workers only there) |
 | PF1 | spec::pf1_a_very_deep_tree_stays_cheap_for_everyone · access::deep_trees_take_one_pass · access::one_pass_access_matches_the_rules |
 | PF2 | spec::pf2_malformed_requests_are_refused_without_errors · spec::go6_a_malformed_parent_creates_nothing |
 | F1–F3, F5 | spec::f1_f2_a_fresh_instance_needs_the_setup_link · accounts::first_person_sets_up_the_instance_as_administrator |

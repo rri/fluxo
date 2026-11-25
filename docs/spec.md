@@ -46,12 +46,16 @@ unattached tasks; pending invitations and transfers; unread updates.
 - **G5** Server errors get a self-contained **500** page; details go only to the server log.
 - **G6** `/api/health` answers `ok` (200) when the database answers, in every state, without
   signing in, and reveals nothing else.
-- **G7** Static files: only the five named files are served; anything else under `/static/` is
+- **G7** Static files: only the ten named files are served (the stylesheet, the two scripts, the
+  favicon, the logo, the web app manifest and four PNG icons); anything else under `/static/` is
   404.
 - **G8** Every signed-in page has the top bar: wordmark (to Focus), **Focus** (with a count badge
   when updates are unread or something waits on the person), **Goals** (a link, not a menu), the
   theme toggle (shown only with JavaScript), and the account menu (username, Settings, Sign
-  out). The page's own nav link is marked `aria-current`.
+  out). The page's own nav link is marked `aria-current`. On phone widths (640px and below),
+  Focus and Goals leave the top bar and float at the bottom right instead, as two buttons at
+  least 56px tall, high enough to clear the home indicator and Safari's toolbar; pages leave room
+  below the footer so the buttons never cover their end.
 - **G9** The theme is the account's setting (System, Light, Dark), rendered by the server as
   `data-theme` on `<html>`, so there's no flash. Auth pages use System.
 - **G10** User-written text (titles, whys, notes, usernames, display names, risk titles) is always
@@ -68,7 +72,8 @@ unattached tasks; pending invitations and transfers; unread updates.
   with and without JavaScript: one `<h1>`, labelled fields, visible focus, sufficient contrast,
   `lang` set, and landmarks.
 - **G16** Performance: pages are server-rendered with one stylesheet and two small scripts (one
-  deferred), no web fonts or third-party requests, and static files are cached for an hour.
+  deferred), no web fonts or third-party requests, and static files are cached for an hour. The
+  service worker (G20) is the only other script, and it never runs in a page.
 - **G17** Phone widths: from 320px up, no page scrolls sideways and nothing sticks out of the
   screen. Rows wrap; forms stack; tables become one labelled card per row; the path graph keeps
   steps readable and scrolls sideways inside its card, opening on the goal; long titles wrap
@@ -77,6 +82,26 @@ unattached tasks; pending invitations and transfers; unread updates.
 - **G18** Every page, signed in or out, including the 404 and 500 pages, ends with the same
   footer: "github.com/rri/fluxo" (a link to the source) · "Source code licensed under AGPL-3.0".
   It sits at the bottom of the screen on short pages, and its two parts stack on phones.
+- **G19** Installing: fluxo can be added to a phone's home screen and opens as its own app, at
+  Focus, without browser controls. Every page links the web app manifest (name "fluxo", standalone,
+  starting at `/`) and a 180px home-screen icon: the white flame on indigo, opaque, as PNG. The
+  browser's bar matches the page background in the account's theme. The session cookie lasts 30
+  days (the signed-in idle limit) instead of ending with the browser session, and every page that
+  loads renews it, so closing the app doesn't sign the person out; the server's idle limits still
+  decide when a session ends.
+- **G20** Reading offline (with JavaScript): a service worker (`/sw.js`) keeps copies of Focus,
+  Goals, and goal and task pages; no other page is ever kept. Pages come from the network first,
+  and a copy is saved each time; offline, or when the network takes more than 6 seconds, the saved
+  copy is shown. Besides pages the person opened in the last 30 days, it keeps (refreshing at most
+  every 30 minutes, at most 400 pages) the person's own: `/offline/pages` lists Focus, Goals and
+  every goal and task they own, contribute to or watch, including everything beneath those,
+  except archived ones and ones they can't read. A page that's gone or unreadable (404, 403) loses
+  its copy. A page without a saved copy shows "Not saved on this device" (`/offline`).
+  Offline, and on any saved copy, pages are read-only: a bar says "Offline. Saved <time>. Read
+  only." (or, back online, "Saved copy from <time>" with a link to refresh), every button that
+  would save is disabled, and what was typed stays in its field. Signing in, signing out, or being
+  sent to the sign-in page deletes every saved page, so one person's pages are never shown to
+  the next.
 
 ## 1a. Robustness
 

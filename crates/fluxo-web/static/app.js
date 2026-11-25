@@ -12,6 +12,13 @@
     if (t === 'system') d.removeAttribute('data-theme'); else d.setAttribute('data-theme', t);
     $$('input[name="theme"]').forEach(function (r) { r.checked = r.value === t; });
     $$('[data-theme-toggle]').forEach(function (b) { b.setAttribute('title', 'Theme: ' + t); });
+    // The browser's (and installed app's) bar colour follows the page's background: the device's
+    // light or dark one under System, else the chosen theme's.
+    var bg = document.body ? getComputedStyle(document.body).backgroundColor : '';
+    $$('meta[name="theme-color"]').forEach(function (m) {
+      var os = /dark/.test(m.getAttribute('media') || '') ? '#0e0e11' : '#fafafa';
+      m.setAttribute('content', t === 'system' || !bg ? os : bg);
+    });
   }
   function saveTheme(t) {
     var meta = $('meta[name="csrf"]');
@@ -279,6 +286,64 @@
       if (!window.confirm(f.getAttribute('data-confirm'))) e.preventDefault();
     });
   });
+
+  /* ---------- Offline (G20): saved copies are read-only, and so is everything while offline ----------
+     The service worker marks a saved copy with <meta name="fluxo-saved">. Saving buttons are
+     disabled (what's typed stays in the fields) and a bar says why, until the page is live again. */
+  var savedMeta = $('meta[name="fluxo-saved"]');
+  var savedAt = savedMeta ? Number(savedMeta.content) : 0;
+  var bar = null;
+  function when(ms) {
+    var d = new Date(ms), today = new Date().toDateString() === d.toDateString();
+    var time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    return today ? time : d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ', ' + time;
+  }
+  function readOnly() { return !!savedAt || !navigator.onLine; }
+  function showOffline() {
+    var ro = readOnly();
+    $$('form button, form input[type="submit"], [data-theme-toggle]').forEach(function (b) {
+      if (ro && !b.disabled) { b.disabled = true; b.setAttribute('data-offline', ''); }
+      if (!ro && b.hasAttribute('data-offline')) { b.disabled = false; b.removeAttribute('data-offline'); }
+    });
+    if (!ro) { if (bar) bar.hidden = true; return; }
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.className = 'offline-bar';
+      bar.setAttribute('role', 'status');
+      var top = $('.topbar');
+      if (top) top.insertAdjacentElement('afterend', bar); else document.body.insertBefore(bar, document.body.firstChild);
+    }
+    bar.hidden = false;
+    bar.textContent = '';
+    var text = document.createElement('span');
+    if (!navigator.onLine) {
+      text.textContent = savedAt ? 'Offline. Saved ' + when(savedAt) + '. Read only.' : 'Offline. Read only until you’re back online.';
+      bar.appendChild(text);
+    } else {
+      text.textContent = 'Saved copy from ' + when(savedAt) + '. ';
+      var again = document.createElement('a');
+      again.href = location.href;
+      again.textContent = 'Refresh to see the latest and make changes';
+      bar.appendChild(text);
+      bar.appendChild(again);
+    }
+  }
+  // Links and menus still work; anything that would save is held back.
+  document.addEventListener('submit', function (e) {
+    if (readOnly()) { e.preventDefault(); showOffline(); }
+  }, true);
+  window.addEventListener('online', showOffline);
+  window.addEventListener('offline', showOffline);
+  showOffline();
+
+  /* ---------- Service worker: installing and offline copies (G19, G20) ---------- */
+  if ('serviceWorker' in navigator && window.isSecureContext) {
+    navigator.serviceWorker.register('/sw.js').then(function () { return navigator.serviceWorker.ready; }).then(function (reg) {
+      if (!reg.active) return;
+      if ($('.topbar') && navigator.onLine && !savedAt) reg.active.postMessage({ type: 'refresh' });
+      if (location.pathname === '/login') reg.active.postMessage({ type: 'signed-out' });
+    }).catch(function () {});
+  }
 
   /* ---------- Keyboard: g f → Focus, g g → Goals, g s → Settings ---------- */
   var g = false;

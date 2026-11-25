@@ -16,6 +16,7 @@ mod export;
 mod focus;
 mod goals;
 pub mod nodes;
+mod offline;
 mod people;
 mod ranking;
 mod recovery;
@@ -35,7 +36,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use askama::Template;
 use axum::Router;
 use axum::extract::{Path, Request, State};
-use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
+use axum::http::{HeaderMap, HeaderValue, Method, StatusCode, header};
 use axum::middleware::{self, Next};
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
@@ -156,8 +157,12 @@ pub fn router(state: Shared) -> Router {
         .route("/settings/delete", get(admin::delete_page).post(admin::delete_submit))
         .route("/settings/admin/recovery/revoke", post(settings::revoke_recovery_code))
         .route("/static/{file}", get(asset))
+        .route("/sw.js", get(offline::service_worker))
+        .route("/offline", get(offline::offline_page))
+        .route("/offline/pages", get(offline::pages))
         .fallback(not_found_page)
         .layer(middleware::from_fn_with_state(state.clone(), setup_gate))
+        .layer(middleware::from_fn_with_state(state.clone(), renew_cookie))
         .layer(middleware::from_fn_with_state(state.clone(), throttle::remember_ip))
         .layer(middleware::from_fn_with_state(state.clone(), security_headers))
         .with_state(state)
@@ -298,7 +303,8 @@ async fn setup_gate(State(app): State<Shared>, req: Request, next: Next) -> Resp
             app.setup_done.store(true, Ordering::Relaxed);
         } else {
             let path = req.uri().path();
-            if path != "/setup" && path != "/api/health" && !path.starts_with("/static/") {
+            let open = ["/setup", "/api/health", "/sw.js", "/offline"];
+            if !open.contains(&path) && !path.starts_with("/static/") {
                 return Redirect::to("/setup").into_response();
             }
         }
@@ -306,16 +312,47 @@ async fn setup_gate(State(app): State<Shared>, req: Request, next: Next) -> Resp
     next.run(req).await
 }
 
+/// Every file served under `/static/` (G7): name, contents, type. Nothing else is.
+pub(crate) const ASSETS: &[(&str, &[u8], &str)] = &[
+    ("styles.css", include_bytes!("../static/styles.css"), "text/css; charset=utf-8"),
+    ("app.js", include_bytes!("../static/app.js"), "text/javascript; charset=utf-8"),
+    ("theme.js", include_bytes!("../static/theme.js"), "text/javascript; charset=utf-8"),
+    ("favicon.svg", include_bytes!("../static/favicon.svg"), "image/svg+xml"),
+    ("logo.svg", include_bytes!("../static/logo.svg"), "image/svg+xml"),
+    ("manifest.webmanifest", include_bytes!("../static/manifest.webmanifest"), "application/manifest+json"),
+    ("icon-180.png", include_bytes!("../static/icon-180.png"), "image/png"),
+    ("icon-192.png", include_bytes!("../static/icon-192.png"), "image/png"),
+    ("icon-512.png", include_bytes!("../static/icon-512.png"), "image/png"),
+    ("icon-maskable-512.png", include_bytes!("../static/icon-maskable-512.png"), "image/png"),
+];
+
 async fn asset(Path(file): Path<String>) -> Response {
-    let (body, kind): (&'static [u8], &str) = match file.as_str() {
-        "styles.css" => (include_bytes!("../static/styles.css"), "text/css; charset=utf-8"),
-        "app.js" => (include_bytes!("../static/app.js"), "text/javascript; charset=utf-8"),
-        "theme.js" => (include_bytes!("../static/theme.js"), "text/javascript; charset=utf-8"),
-        "favicon.svg" => (include_bytes!("../static/favicon.svg"), "image/svg+xml"),
-        "logo.svg" => (include_bytes!("../static/logo.svg"), "image/svg+xml"),
-        _ => return StatusCode::NOT_FOUND.into_response(),
+    let Some(&(_, body, kind)) = ASSETS.iter().find(|(name, _, _)| *name == file) else {
+        return StatusCode::NOT_FOUND.into_response();
     };
     ([(header::CONTENT_TYPE, kind), (header::CACHE_CONTROL, "public, max-age=3600")], body).into_response()
+}
+
+/// Renew the session cookie on every page that loads, so a session in use doesn't expire on the
+/// device before the server's idle limit (G19). Responses that set the cookie themselves (sign-in,
+/// sign-out) and ones that didn't load (a dead session is sent to sign-in) are left alone.
+async fn renew_cookie(State(app): State<Shared>, req: Request, next: Next) -> Response {
+    let page = req.method() == Method::GET && !req.uri().path().starts_with("/static/");
+    let renewal = page
+        .then(|| CookieJar::from_headers(req.headers()).get(session::COOKIE).map(|c| c.value().to_string()))
+        .flatten()
+        .and_then(|v| session::renewal(&v, app.secure_cookies));
+    let mut res = next.run(req).await;
+    let Some(c) = renewal else { return res };
+    let sets_own =
+        res.headers().get_all(header::SET_COOKIE).iter().any(|h| h.as_bytes().starts_with(b"fluxo_session="));
+    if res.status() == StatusCode::OK
+        && !sets_own
+        && let Ok(h) = HeaderValue::from_str(&c.to_string())
+    {
+        res.headers_mut().append(header::SET_COOKIE, h);
+    }
+    res
 }
 
 /// Strict Content-Security-Policy (D22) and related headers on every response.

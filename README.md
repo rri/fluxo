@@ -30,7 +30,7 @@ Read more:
 | [`crates/fluxo`](crates/fluxo) | The server binary |
 | [`migrations/`](migrations) | SQLite schema |
 | [`tests/browser/`](tests/browser) | Playwright tests, with and without JavaScript |
-| [`scripts/`](scripts) | Refresh the sqlx query metadata; seed a demo goal |
+| [`scripts/`](scripts) | Refresh the sqlx query metadata; seed a demo goal; draw the home-screen icons |
 | [`deploy/`](deploy) | Server files and how deploys work |
 
 ## Development

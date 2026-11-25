@@ -74,8 +74,24 @@ fn hash_id(cookie_value: &str) -> Vec<u8> {
     Sha256::digest(cookie_value.as_bytes()).to_vec()
 }
 
-fn cookie(value: String, secure: bool) -> Cookie<'static> {
-    Cookie::build((COOKIE, value)).path("/").http_only(true).secure(secure).same_site(SameSite::Lax).build()
+/// The session cookie. It lasts as long as a signed-in session may idle (30 days) rather than until
+/// the browser closes, because iOS can end a home-screen app's browser session whenever the app
+/// is closed (G19). Each page view renews it ([`renewal`]); the server's idle limits still decide.
+pub(crate) fn cookie(value: String, secure: bool) -> Cookie<'static> {
+    Cookie::build((COOKIE, value))
+        .path("/")
+        .http_only(true)
+        .secure(secure)
+        .same_site(SameSite::Lax)
+        .max_age(time::Duration::seconds(SIGNED_IN_IDLE))
+        .build()
+}
+
+/// The cookie to send back so a session in use doesn't expire on the device: the request's own
+/// cookie value, if it has the shape of one fluxo issued.
+pub(crate) fn renewal(value: &str, secure: bool) -> Option<Cookie<'static>> {
+    let ours = value.len() == 43 && value.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_');
+    ours.then(|| cookie(value.to_string(), secure))
 }
 
 /// Constant-time comparison for form tokens.

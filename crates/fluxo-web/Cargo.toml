@@ -20,6 +20,8 @@ serde = { version = "1.0.229", features = ["derive"] }
 sha2 = "0.11.0"
 sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "macros", "migrate"] }
 thiserror = "2.0.21"
+# Only for the session cookie's Max-Age (the cookie crate takes a time::Duration); already in the tree.
+time = { version = "0.3.47", default-features = false }
 tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros", "net", "signal", "time"] }
 totp-rs = { version = "5.7.2", features = ["qr"] }
 tracing = "0.1.44"

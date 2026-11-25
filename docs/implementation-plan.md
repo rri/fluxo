@@ -37,13 +37,14 @@ Every decision is recorded with its number (D1–D24) in sections 3 and 8.
 **Experience**
 - **Focus** is the home page and the only view built around immediate work. It holds the ranked next actions (scored by "expected delay removed"), invitations and transfers waiting on the user, and Updates (notifications).
 - Everywhere else, **goals are front and center**. A goal's page sets the goal apart at the top, and the graph puts the goal on top with work rising toward it.
-- The top bar has Focus, Goals, the theme toggle and the account menu (Settings, Sign out). Administrator tools are a section of Settings, shown only to Administrators. Every page is a single column.
+- The top bar has Focus, Goals, the theme toggle and the account menu (Settings, Sign out). On phone widths, Focus and Goals float as large buttons at the bottom right instead (decided 2026-11-24). Administrator tools are a section of Settings, shown only to Administrators. Every page is a single column.
 - Visual design:
   - Light and dark themes follow the OS, with a manual toggle.
   - The accent is indigo `#5B5BF7`.
   - Fonts come from the system font stack.
   - The logo is "three tongues": three flames meeting at one point, in the accent color. The tab icon is all indigo.
 - Pages are plain HTML5/CSS3 that work without JavaScript; vanilla JS enhances them.
+- **Installable, readable offline** (decided 2026-11-24): fluxo installs to a phone's home screen (indigo icon with a white flame) and keeps the person's own and recently opened goal and task pages for reading offline. Offline, pages are read-only. Editing offline (a queue of changes, synced with the latest edit winning) was designed but deferred.
 - **Stack (your proposal):** vanilla HTML/CSS/JS frontend, Rust and SQLite backend.
 
 ---

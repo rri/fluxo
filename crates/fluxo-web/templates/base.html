@@ -2,11 +2,19 @@
 <html lang="en"{% if theme != "system" %} data-theme="{{ theme }}"{% endif %}>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="fluxo: critical-path planning. Forecast when goals will finish, and focus on the work and risks that decide it.">
 <title>{% block title %}{% endblock %} · fluxo</title>
 <script src="/static/theme.js"></script>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/static/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/static/icon-180.png">
+<meta name="apple-mobile-web-app-title" content="fluxo">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+{% if theme == "dark" %}<meta name="theme-color" content="#0e0e11">{% else if theme == "light" %}<meta name="theme-color" content="#fafafa">{% else %}<meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e0e11" media="(prefers-color-scheme: dark)">{% endif %}
 <link rel="stylesheet" href="/static/styles.css">
 <script src="/static/app.js" defer></script>
 {% block head %}{% endblock %}

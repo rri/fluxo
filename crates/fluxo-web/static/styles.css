@@ -1,5 +1,6 @@
 /* fluxo — styles
-   Single-column layout, top bar only, light/dark following OS with manual override. */
+   Single-column layout, light/dark following OS with manual override. Navigation is the top bar;
+   on phones, Focus and Goals float at the bottom right instead. */
 
 :root {
   --bg: #fafafa;
@@ -86,6 +87,8 @@ body {
   -webkit-font-smoothing: antialiased;
   /* The footer sits at the bottom of short pages: main grows to fill the screen. */
   display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh;
+  /* The page reaches the screen's edges (viewport-fit=cover); keep content off the notch. */
+  padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right);
 }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
@@ -108,7 +111,7 @@ html.js .no-js { display: none !important; }
 /* ---------- Footer (every page) ---------- */
 .site-footer {
   display: flex; justify-content: center; align-items: center; gap: 4px 12px;
-  padding: 20px max(16px, env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--border);
   font-size: 13px; color: var(--text-3); white-space: nowrap;
 }
@@ -150,7 +153,39 @@ html.js .no-js { display: none !important; }
   .navlink { padding-inline: 7px; gap: 4px; }
   .topbar .iconbtn { margin-right: 4px; }
 }
+.mainnav { display: flex; align-items: center; gap: 4px; }
+/* Phones (G8): Focus and Goals become large floating buttons at the bottom right, high enough to
+   clear the home indicator and the strip where a tap opens Safari's toolbar instead. */
+@media (max-width: 640px) {
+  /* A backdrop filter would make the bar, not the screen, the floating buttons' frame. */
+  .topbar { backdrop-filter: none; background: var(--bg); }
+  .mainnav {
+    position: fixed; z-index: 30;
+    right: max(16px, calc(env(safe-area-inset-right) + 8px));
+    bottom: max(24px, calc(env(safe-area-inset-bottom) + 12px));
+    padding: 4px; border-radius: 999px;
+    background: var(--surface); border: 1px solid var(--border-strong);
+    box-shadow: 0 6px 24px rgb(0 0 0 / 18%);
+  }
+  .mainnav .navlink {
+    min-height: 56px; min-width: 92px; padding: 0 18px; justify-content: center;
+    border-radius: 999px; font-size: 16px; font-weight: 550; color: var(--text-2);
+  }
+  .mainnav .navlink[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
+  /* Room below the footer, so the buttons never cover the end of a page. */
+  body:has(.mainnav) { padding-bottom: calc(64px + max(24px, calc(env(safe-area-inset-bottom) + 12px)) + 12px); }
+}
 .spacer { flex: 1; }
+
+/* Offline (G20): what a saved copy or an offline page says about itself. */
+.offline-bar {
+  position: sticky; top: 52px; z-index: 19;
+  padding: 8px 16px; text-align: center; font-size: 13px;
+  background: var(--surface-2); color: var(--text); border-bottom: 1px solid var(--border);
+}
+.offline-bar:first-child { top: 0; }
+.offline-bar a { color: var(--text); text-decoration: underline; text-underline-offset: .15em; }
+button:disabled, input[type="submit"]:disabled { opacity: .45; cursor: not-allowed; }
 .count {
   font: 600 11px/1 var(--mono); background: var(--accent); color: var(--accent-text);
   padding: 3px 5px; border-radius: 999px;
